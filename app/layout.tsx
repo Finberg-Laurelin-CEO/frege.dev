@@ -3,28 +3,25 @@ import Script from "next/script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://frege.dev/"),
-  title: "Frege — make institutional knowledge executable",
+  title: "Frege — the company brain for AI agents",
   description:
-    "Frege is the semantic brain for your company: a secure, permission-aware knowledge layer that gives AI agents the right institutional context with version history and audit logs.",
+    "Frege is the company brain for AI agents: a living, permission-aware knowledge layer that turns scattered institutional know-how into an executable skills file every agent can safely use. Versioned, audited, MCP-native.",
   alternates: {
     canonical: "https://frege.dev/",
   },
   openGraph: {
     type: "website",
     url: "https://frege.dev/",
-    title: "Frege — make institutional knowledge executable",
+    title: "Frege — the company brain for AI agents",
     description:
-      "Frege turns institutional knowledge into secure, versioned, permission-aware tools for Codex, Claude Code, OpenRouter, and internal agents.",
+      "A living map of how your company actually works — versioned, audited, permission-aware. The missing layer between raw company data and reliable AI automation.",
     siteName: "Frege",
   },
   twitter: {
-    card: "summary",
-    title: "Frege — make institutional knowledge executable",
+    card: "summary_large_image",
+    title: "Frege — the company brain for AI agents",
     description:
-      "The semantic brain for your company: secure, versioned institutional context for every AI agent stack.",
-  },
-  icons: {
-    icon: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ffffff'/%3E%3Ctext x='7' y='23' font-family='monospace' font-size='20' fill='%23000'%3EF%3C/text%3E%3C/svg%3E",
+      "Turn scattered institutional knowledge into an executable skills file every agent can safely use. Versioned, audited, MCP-native.",
   },
 };
 

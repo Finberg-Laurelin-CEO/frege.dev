@@ -28,8 +28,8 @@ export default function Home() {
         <section aria-label="Overview">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">whoami</span></p>
           <h1 className="hero-h">frege</h1>
-          <p className="hero-tag">the memory layer for your AI agents.</p>
-          <p className="out wrap">Your agents are either flying blind or seeing what they shouldn't. Frege gives every agent exactly the context it's allowed to have — versioned, audited, revocable. One source of truth for Codex, Claude Code, and everything next.</p>
+          <p className="hero-tag">the company brain for your AI agents.</p>
+          <p className="out wrap">Every company's know-how is scattered across people's heads, Slack threads, tickets, runbooks, and old email. Agents can't operate like that. Frege pulls that knowledge together, structures it, keeps it current, and exposes it as an executable skills file every agent can safely use — versioned, audited, permission-aware. One source of truth for Codex, Claude Code, and everything next.</p>
 
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <a className="lnk" href="/signup">claim your pilot seat</a><span className="cursor" aria-hidden="true">█</span></p>
         </section>
@@ -49,15 +49,27 @@ export default function Home() {
 
         <hr className="rule" />
 
+        {/* ── thesis ── */}
+        <section aria-label="Thesis">
+          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">cat thesis.txt</span></p>
+          <p className="out wrap cmt"># the biggest blocker to AI automation isn't the models — they got good. it's the domain knowledge.</p>
+          <p className="out wrap">Companies run today because humans vaguely remember where the knowledge lives and how to apply it. Agents can't operate like that. For every company to run on AI, there has to be a new primitive: a company brain. A system that pulls knowledge out of the fragmented places it lives, structures it, keeps it current, and turns it into an executable skills file for AI.</p>
+          <p className="out wrap">Not company-wide search. Not a chatbot over documents. A living map of how a company works — how refunds get handled, how pricing exceptions are decided, how engineers respond to incidents — so agents can do the work safely and consistently.</p>
+          <p className="say">frege is the missing layer between raw company data and reliable AI automation.</p>
+        </section>
+
+        <hr className="rule" />
+
         {/* ── what we are building ── */}
         <section aria-label="What we are building">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege --help</span></p>
-          <p className="out wrap">frege turns institutional knowledge into permission-aware infrastructure.</p>
+          <p className="out wrap">frege is a living map of how your company actually works — refunds, pricing exceptions, incident response, deploys — turned into an executable skills file every agent can read.</p>
           <dl className="rows">
-            <div><dt>memory</dt><dd>one source of institutional knowledge for every agent stack</dd></div>
+            <div><dt>brain</dt><dd>one structured map of how your company actually runs</dd></div>
+            <div><dt>skills</dt><dd>institutional knowledge compiled into an executable skills file for agents</dd></div>
             <div><dt>versions</dt><dd>versioned markdown with a real audit trail</dd></div>
             <div><dt>access</dt><dd>role-based control over what each agent can read or write</dd></div>
-            <div><dt>mcp</dt><dd>MCP-native and model agnostic — the same layer for every stack</dd></div>
+            <div><dt>mcp</dt><dd>MCP-native and model agnostic — the same brain for every stack</dd></div>
             <div><dt>usage</dt><dd>audit logs, usage, and estimated cost by user, key, and org</dd></div>
           </dl>
         </section>
@@ -106,7 +118,7 @@ export default function Home() {
         {/* ── why now ── */}
         <section aria-label="Why now">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">cat why-now.txt</span></p>
-          <p className="say">agent adoption is outpacing the memory layer.</p>
+          <p className="say">agent adoption is outpacing the company brain.</p>
           <p className="out wrap">companies are adopting agents faster than they are standardizing the knowledge those agents need. every team rebuilds the same internal infrastructure — a markdown folder for one harness, a different setup for the next, ad hoc rules about what an agent can read, and no shared audit trail for who or what touched institutional context.</p>
           <p className="out wrap">the issue is not that markdown files are hard. it is that institutional context becomes unsafe, fragmented, and expensive to maintain when every team invents its own agent-readable knowledge layer. the job now is one controlled place to read, write, version, and audit institutional knowledge — before the next agent gets there first.</p>
         </section>
@@ -158,7 +170,7 @@ export default function Home() {
 
         {/* ── footer ── */}
         <footer className="foot" role="contentinfo">
-          <p className="out muted">frege · make institutional knowledge executable</p>
+          <p className="out muted">frege · the company brain for AI agents</p>
           <p className="hint" id="navhint">press a <b>number</b> to follow a link · <b>g</b> top · <b>G</b> bottom · index at top</p>
         </footer>
 
