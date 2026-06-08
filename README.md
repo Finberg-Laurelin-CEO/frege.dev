@@ -1,8 +1,8 @@
-# Company Brain
+# Frege
 
-Company memory for AI agents.
+The semantic brain for your company. Make institutional knowledge executable.
 
-Company Brain is a secure markdown knowledge layer for companies that need AI agents and employees to use the same trusted context without exposing everything. It gives teams one controlled place to read, write, version, and audit company knowledge through role-based access controls and MCP-native tools.
+Frege is a secure markdown knowledge layer for companies that need AI agents and employees to use the same trusted context without exposing everything. It gives teams one controlled place to read, write, version, and audit institutional knowledge through role-based access controls and MCP-native tools.
 
 ## The Problem
 
@@ -16,16 +16,16 @@ Today, teams keep rebuilding the same internal infrastructure:
 - No shared audit trail for who or what accessed company context.
 - No clean way to track usage, model calls, storage, and cost by user or org.
 
-The issue is not that markdown files are hard. The issue is that company context becomes unsafe, fragmented, and expensive to maintain when every team invents its own agent-readable memory layer.
+The issue is not that markdown files are hard. The issue is that institutional context becomes unsafe, fragmented, and expensive to maintain when every team invents its own agent-readable memory layer.
 
 ## What We Are Building
 
-Company Brain turns company markdown into permission-aware infrastructure.
+Frege turns institutional knowledge into permission-aware infrastructure.
 
 The first product is a managed knowledge layer where:
 
 - Companies create orgs, departments, roles, users, and API keys.
-- Markdown documents are stored as versioned company knowledge.
+- Markdown documents are stored as versioned institutional knowledge.
 - Role-based access control decides what each person or agent can list, read, draft, update, or administer.
 - Agents access approved context through MCP tools.
 - Admins can see audit logs, usage, and estimated cost by user, key, and org.
@@ -36,11 +36,15 @@ The customer-facing product should be model agnostic. A company should be able t
 
 Primary language:
 
-> Company memory for AI agents.
+> The semantic brain for your company.
+
+Alternate:
+
+> Make institutional knowledge executable.
 
 Supporting language:
 
-> Stop rebuilding internal context servers for every agent stack. Company Brain turns markdown files into secure, versioned, permission-aware tools for Codex, Claude Code, OpenRouter, and internal agents.
+> Stop rebuilding internal context servers for every agent stack. Frege turns markdown files into secure, versioned, permission-aware tools for Codex, Claude Code, OpenRouter, and internal agents.
 
 Short description:
 
@@ -52,11 +56,11 @@ The MVP should prove demand before building the full platform.
 
 Initial scope:
 
-- Single-page public landing site.
+- Single-page public landing site at `frege.dev`.
 - Signup form for qualified early-access leads.
 - Postgres-backed signup storage.
 - Lead scoring based on urgency, expected users, agent stack, and willingness to join a pilot.
-- Basic product narrative around secure agent-readable company memory.
+- Basic product narrative around secure agent-readable institutional memory.
 
 Product scope after validation:
 
@@ -73,7 +77,7 @@ Product scope after validation:
 
 These are later capabilities, not the first build:
 
-- Hermes email bridge.
+- Email bridge.
 - Adcopy generation.
 - Public-facing content publishing.
 - Broad external MCP orchestration.
@@ -163,4 +167,4 @@ Qualified means the company:
 - Can name a budget owner or internal buyer.
 - Would consider a paid pilot if the product solves the problem.
 
-That evidence should come before building the full Company Brain platform.
+That evidence should come before building the full Frege platform.

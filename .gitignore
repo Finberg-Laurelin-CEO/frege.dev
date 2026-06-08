@@ -7,3 +7,4 @@ dist
 *.tsbuildinfo
 private-plans/
 
+.gstack/

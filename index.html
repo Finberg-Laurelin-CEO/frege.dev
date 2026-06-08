@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Frege — make institutional knowledge executable</title>
+  <meta name="description" content="Frege is the semantic brain for your company: a secure, permission-aware knowledge layer that gives AI agents the right institutional context with version history and audit logs." />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://frege.dev/" />
+  <meta property="og:title" content="Frege — make institutional knowledge executable" />
+  <meta property="og:description" content="Frege turns institutional knowledge into secure, versioned, permission-aware tools for Codex, Claude Code, OpenRouter, and internal agents." />
+  <meta property="og:site_name" content="Frege" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Frege — make institutional knowledge executable" />
+  <meta name="twitter:description" content="The semantic brain for your company: secure, versioned institutional context for every AI agent stack." />
+
+  <link rel="canonical" href="https://frege.dev/" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23ffffff'/%3E%3Ctext x='7' y='23' font-family='monospace' font-size='20' fill='%23000'%3EF%3C/text%3E%3C/svg%3E" />
+  <link rel="preload" href="fonts/DepartureMono-Regular.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip" href="#main">skip to content</a>
+
+  <!-- top status line, edge to edge -->
+  <header class="bar" role="banner">
+    <span class="bar__dots" aria-hidden="true">● ● ●</span>
+    <span class="bar__title">frege — ssh agent@frege.dev</span>
+    <a class="lnk" href="/signup">claim pilot seat →</a>
+  </header>
+
+  <main id="main" class="screen">
+
+    <!-- ── link index (top) ── -->
+    <nav class="links links--top" aria-label="Links">
+      <a class="lnk" data-nav href="/signup">claim pilot seat</a>
+      <a class="lnk" data-nav href="#how">how it works</a>
+      <a class="lnk" data-nav href="#privacy">privacy</a>
+      <a class="lnk" data-nav href="#soc2">soc 2</a>
+      <a class="lnk" data-nav href="mailto:hello@frege.dev">hello@frege.dev</a>
+    </nav>
+    <p class="hint hint--top">press a <b>number</b> to follow a link · <b>g</b> top · <b>G</b> bottom</p>
+
+    <hr class="rule" />
+
+    <!-- ── whoami / hero ── -->
+    <section aria-label="Overview">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">whoami</span></p>
+      <h1 class="hero-h">frege</h1>
+      <p class="hero-tag">the memory layer for your AI agents.</p>
+      <p class="out wrap">Your agents are either flying blind or seeing what they shouldn't. Frege gives every agent exactly the context it's allowed to have — versioned, audited, revocable. One source of truth for Codex, Claude Code, and everything next.</p>
+
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <a class="lnk" href="/signup">claim your pilot seat</a><span class="cursor" aria-hidden="true">█</span></p>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── the problem ── -->
+    <section aria-label="The problem">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">cat problem.txt</span></p>
+      <p class="out wrap cmt"># teams adopt agents faster than they standardize the memory those agents need. every team keeps rebuilding the same thing.</p>
+      <ul class="bul">
+        <li>"every team is building their own context folder for their AI."</li>
+        <li>"we don't know what our agents are reading."</li>
+        <li>"we don't want Codex to see HR documents."</li>
+      </ul>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── what we are building ── -->
+    <section aria-label="What we are building">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">frege --help</span></p>
+      <p class="out wrap">frege turns institutional knowledge into permission-aware infrastructure.</p>
+      <dl class="rows">
+        <div><dt>memory</dt><dd>one source of institutional knowledge for every agent stack</dd></div>
+        <div><dt>versions</dt><dd>versioned markdown with a real audit trail</dd></div>
+        <div><dt>access</dt><dd>role-based control over what each agent can read or write</dd></div>
+        <div><dt>mcp</dt><dd>MCP-native and model agnostic — the same layer for every stack</dd></div>
+        <div><dt>usage</dt><dd>audit logs, usage, and estimated cost by user, key, and org</dd></div>
+      </dl>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── who it is for ── -->
+    <section aria-label="Who it is for">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">frege whois</span></p>
+      <dl class="rows">
+        <div><dt>founders</dt><dd>every agent on the same trusted knowledge, without exposing everything</dd></div>
+        <div><dt>CTOs</dt><dd>one controlled place agents read from, not a folder per harness</dd></div>
+        <div><dt>platform leads</dt><dd>a memory layer that works across Codex, Claude Code, and internal agents</dd></div>
+        <div><dt>security leads</dt><dd>access control and a clean audit trail over what an agent did</dd></div>
+      </dl>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── how it works ── -->
+    <section id="how" aria-label="How it works">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">frege pipeline --explain</span></p>
+      <dl class="rows steps">
+        <div><dt>[1] store</dt><dd>bring your markdown. it becomes versioned company knowledge.</dd></div>
+        <div><dt>[2] govern</dt><dd>define orgs, roles, and API keys. RBAC decides who reads or writes.</dd></div>
+        <div><dt>[3] connect</dt><dd>agents reach approved context through MCP tools, across any stack.</dd></div>
+        <div><dt>[4] audit</dt><dd>every access is logged. review usage and cost by user, key, and org.</dd></div>
+      </dl>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── access demo ── -->
+    <section aria-label="Access example">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">frege read --as claude-code@platform</span></p>
+      <dl class="rows acl">
+        <div><dt>read /eng/runbooks/deploy.md</dt><dd class="ok">[granted]</dd></div>
+        <div><dt>read /eng/architecture/v3.md</dt><dd class="ok">[granted]</dd></div>
+        <div><dt>read /hr/compensation.md</dt><dd class="no">[denied: role]</dd></div>
+        <div><dt>edit /eng/runbooks/deploy.md</dt><dd class="ok">[proposed: v14]</dd></div>
+      </dl>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── why now ── -->
+    <section aria-label="Why now">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">cat why-now.txt</span></p>
+      <p class="say">agent adoption is outpacing the memory layer.</p>
+      <p class="out wrap">companies are adopting agents faster than they are standardizing the knowledge those agents need. every team rebuilds the same internal infrastructure — a markdown folder for one harness, a different setup for the next, ad hoc rules about what an agent can read, and no shared audit trail for who or what touched institutional context.</p>
+      <p class="out wrap">the issue is not that markdown files are hard. it is that institutional context becomes unsafe, fragmented, and expensive to maintain when every team invents its own agent-readable knowledge layer. the job now is one controlled place to read, write, version, and audit institutional knowledge — before the next agent gets there first.</p>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── pilot CTA ── -->
+    <section aria-label="Join the pilot">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">frege pilot --join</span></p>
+      <p class="out wrap">We are taking a limited founding pilot. Founding pilots help shape the roadmap, get hands-on onboarding from the team, and lock in early pricing before general availability. Bring your agents; we'll bring the memory layer.</p>
+      <p class="line cta-big"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <a class="lnk strong" href="/signup">claim your founding pilot seat →</a></p>
+      <p class="out muted">seats are limited · no credit card · 2-minute form</p>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── privacy policy (inline, single page) ── -->
+    <section id="privacy" aria-label="Privacy policy">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">cat privacy-policy.txt</span></p>
+      <p class="out wrap cmt"># frege privacy policy · last updated 2026-06-07. plain language, no dark patterns.</p>
+      <dl class="rows policy">
+        <div><dt>what we collect</dt><dd>only what you type into the early-access form: name, work email, company, role, company size, expected users, current agent tools, monthly AI spend, decision timeline, and your main pain point. nothing else.</dd></div>
+        <div><dt>what we never collect</dt><dd>we do not ask for, store, or transmit your company documents, source code, customer data, or API keys through this site. there is no tracking pixel, no third-party analytics, and no advertising cookie on this page.</dd></div>
+        <div><dt>why we collect it</dt><dd>to evaluate early demand, gauge fit for a pilot, and reach out about early access. that is the only purpose.</dd></div>
+        <div><dt>how it is stored</dt><dd>submissions are written to a private Postgres database with access limited to the Frege founding team. data is encrypted in transit (TLS) and at rest.</dd></div>
+        <div><dt>sharing</dt><dd>we do not sell your data and do not share it with advertisers. limited processors (database host, email) act on our instructions under contract.</dd></div>
+        <div><dt>retention</dt><dd>we keep early-access submissions until the validation phase ends, then delete or anonymize records we no longer need.</dd></div>
+        <div><dt>your rights</dt><dd>email <a class="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a> any time to access, correct, or delete your data, or to opt out of contact. we will action it.</dd></div>
+        <div><dt>contact</dt><dd><a class="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a></dd></div>
+      </dl>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── soc 2 compliance statement (inline) ── -->
+    <section id="soc2" aria-label="SOC 2 compliance">
+      <p class="line"><span class="prompt">agent@frege</span><span class="path">:~</span><span class="sigil">$</span> <span class="cmd">frege compliance --status</span></p>
+      <p class="out wrap cmt"># security and compliance posture · validation stage.</p>
+      <dl class="rows policy">
+        <div><dt>soc 2</dt><dd>Frege is pre-certification. SOC 2 Type II is on our roadmap and we are building the product to SOC 2 control objectives — access control, encryption, audit logging, and change management — from day one. We will pursue a formal Type II audit before general availability.</dd></div>
+        <div><dt>today</dt><dd>data in transit is encrypted with TLS; data at rest is encrypted; access to early-access submissions is restricted to the founding team and logged.</dd></div>
+        <div><dt>by GA</dt><dd>SOC 2 Type II report, role-based access control, full tenant isolation, and per-org audit trails. permission-aware access and audit logging are core product features, not afterthoughts.</dd></div>
+        <div><dt>questions</dt><dd>security or compliance diligence: <a class="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a></dd></div>
+      </dl>
+      <p class="out wrap dim">This statement describes our current posture and forward-looking plans. It is not a representation that Frege currently holds a SOC 2 certification.</p>
+    </section>
+
+    <hr class="rule" />
+
+    <!-- ── footer ── -->
+    <footer class="foot" role="contentinfo">
+      <p class="out muted">frege · make institutional knowledge executable</p>
+      <p class="hint" id="navhint">press a <b>number</b> to follow a link · <b>g</b> top · <b>G</b> bottom · index at top</p>
+    </footer>
+
+  </main>
+
+  <!-- number-key link navigation (the only script on the page) -->
+  <script src="nav.js" defer></script>
+</body>
+</html>
