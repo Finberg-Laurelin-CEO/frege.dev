@@ -11,7 +11,11 @@
 
 import { promises as dns } from "node:dns";
 
-const DNS_TIMEOUT_MS = 2500;
+// Vercel's serverless DNS resolver is slower than a local Mac, especially on
+// cold start. 5s is still well below any reasonable user-perceived limit for a
+// form submission, and ensures that legitimate domains resolve before we
+// fail-open.
+const DNS_TIMEOUT_MS = 5000;
 
 /** Common disposable / throwaway / temp-mail domains. Lowercased. */
 const DISPOSABLE_DOMAINS = new Set<string>([
@@ -73,25 +77,48 @@ export function isDisposableDomain(domain: string): boolean {
   return DISPOSABLE_DOMAINS.has(domain);
 }
 
-/** Resolve MX records with a hard timeout. Returns true if any MX is published. */
-async function hasMxRecord(domain: string): Promise<boolean> {
-  const lookup = (async () => {
+type MxResult =
+  | { ok: true; source: "mx" | "a" }
+  | { ok: false; source: "nxdomain" | "no_records" }
+  | { ok: true; source: "timeout" }; // fail-open
+
+/**
+ * Resolve MX records (or A as RFC-5321 implicit MX fallback) with a hard
+ * timeout. The `source` field is preserved so callers can log/audit *why* a
+ * domain was accepted — in particular distinguishing real MX from a DNS
+ * timeout fail-open.
+ */
+async function checkMxRecord(domain: string): Promise<MxResult> {
+  const lookup: Promise<MxResult> = (async () => {
     try {
       const records = await dns.resolveMx(domain);
-      if (records.length > 0) return true;
-      // RFC 5321 §5.1: if no MX, the A record acts as an implicit MX. Accept that too.
-      const a = await dns.resolve4(domain).catch(() => [] as string[]);
-      return a.length > 0;
+      if (records.length > 0) return { ok: true, source: "mx" };
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      // ENOTFOUND = NXDOMAIN; ENODATA = no records of this type. For both we
+      // fall through to the A-record check, since some domains publish A but
+      // not MX (RFC 5321 §5.1).
+      if (code && code !== "ENOTFOUND" && code !== "ENODATA") {
+        // Unexpected DNS error (SERVFAIL etc.) — propagate up as timeout/open.
+        throw err;
+      }
+    }
+    try {
+      const a = await dns.resolve4(domain);
+      if (a.length > 0) return { ok: true, source: "a" };
+      return { ok: false, source: "no_records" };
     } catch {
-      return false;
+      return { ok: false, source: "nxdomain" };
     }
   })();
 
   // Fail-open on timeout: don't block real users on a flaky resolver.
-  const timeout = new Promise<true>((resolve) =>
-    setTimeout(() => resolve(true), DNS_TIMEOUT_MS),
+  const timeout = new Promise<MxResult>((resolve) =>
+    setTimeout(() => resolve({ ok: true, source: "timeout" }), DNS_TIMEOUT_MS),
   );
-  return Promise.race([lookup, timeout]);
+  return Promise.race([lookup, timeout]).catch(
+    (): MxResult => ({ ok: true, source: "timeout" }),
+  );
 }
 
 /**
@@ -112,8 +139,13 @@ export async function validateEmailDomain(
       message: "Please use a work email address (not a disposable inbox).",
     };
   }
-  const hasMx = await hasMxRecord(domain);
-  if (!hasMx) {
+  const mx = await checkMxRecord(domain);
+  // Structured log so the source of an accept/reject decision is auditable
+  // (especially "timeout" fail-opens that let typos through under DNS stress).
+  console.log(
+    `[email-validation] domain=${domain} ok=${mx.ok} source=${mx.source}`,
+  );
+  if (!mx.ok) {
     return {
       ok: false,
       reason: "no_mx",
