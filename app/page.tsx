@@ -16,6 +16,8 @@ export default function Home() {
         <nav className="links links--top" aria-label="Links">
           <a className="lnk" data-nav href="/signup">claim pilot seat</a>
           <a className="lnk" data-nav href="#how">how it works</a>
+          <a className="lnk" data-nav href="#memory">memory</a>
+          <a className="lnk" data-nav href="#applications">applications</a>
           <a className="lnk" data-nav href="#privacy">privacy</a>
           <a className="lnk" data-nav href="#soc2">soc 2</a>
           <a className="lnk" data-nav href="mailto:hello@frege.dev">hello@frege.dev</a>
@@ -111,6 +113,49 @@ export default function Home() {
             <div><dt>read /hr/compensation.md</dt><dd className="no">[denied: role]</dd></div>
             <div><dt>edit /eng/runbooks/deploy.md</dt><dd className="ok">[proposed: v14]</dd></div>
           </dl>
+        </section>
+
+        <hr className="rule" />
+
+        {/* ── skill storage + persistent memory ── */}
+        <section id="memory" aria-label="Skill storage and persistent memory">
+          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege memory --explain</span></p>
+          <p className="out wrap cmt"># your company brain is a store, not a prompt. it outlives any single model, any single agent, any single chat.</p>
+          <p className="out wrap">Models churn. Vendors come and go. Your institutional knowledge shouldn't. Frege keeps your company's skills and memory in one durable store you own — not buried inside a vendor's chat history, not pinned to one provider's context window. The same brain serves Codex today, the next frontier model tomorrow, and whatever internal agent you build next.</p>
+          <dl className="rows">
+            <div><dt>skills</dt><dd>structured, executable knowledge units — how a refund gets handled, how a deploy gets rolled back, how an incident is triaged — that any agent can load and run</dd></div>
+            <div><dt>persistent memory</dt><dd>facts, decisions, and context that survive the chat session, the model swap, and the vendor change. your brain, not theirs.</dd></div>
+            <div><dt>model agnostic</dt><dd>same MCP surface for Codex, Claude Code, OpenRouter, local models, internal agents. swap the model without rebuilding the memory.</dd></div>
+            <div><dt>private backend</dt><dd>self-host on your infrastructure, or run hosted in an isolated tenant. either way the data stays yours and the keys stay yours.</dd></div>
+            <div><dt>backups</dt><dd>point-in-time snapshots, export to plain markdown, no lock-in. if you ever leave, you leave with everything readable.</dd></div>
+          </dl>
+        </section>
+
+        <hr className="rule" />
+
+        {/* ── applications ── */}
+        <section id="applications" aria-label="Applications">
+          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege applications --list</span></p>
+          <p className="out wrap cmt"># the company brain is a primitive. anywhere humans hold knowledge that agents shouldn't see in full, frege fits.</p>
+          <dl className="rows steps">
+            <div>
+              <dt>[1] engineering teams</dt>
+              <dd>runbooks, architecture decisions, on-call playbooks, deploy procedures. Codex and Claude Code read the right context for the task; an intern agent never sees prod credentials or compensation docs. one audit trail per repo, per agent, per key.</dd>
+            </div>
+            <div>
+              <dt>[2] therapy &amp; clinical practices</dt>
+              <dd>per-client intake notes, treatment plans, session summaries. a scheduling agent reads the calendar but never the chart. a billing agent reads CPT codes but never the narrative. clinician-grade audit trail, HIPAA-shaped access control, BAA-ready hosting on request.</dd>
+            </div>
+            <div>
+              <dt>[3] property &amp; house managers</dt>
+              <dd>per-unit history, vendor contacts, lease terms, owner preferences. a tenant-facing agent answers from the unit's playbook and nothing else; an owner-facing agent sees financials a tenant agent never can. one brain across units, scoped per relationship.</dd>
+            </div>
+            <div>
+              <dt>[4] HIPAA / privacy-sensitive SMBs</dt>
+              <dd>law firms, dental groups, specialty clinics, financial advisors — anywhere agents need real domain knowledge but seeing everything is a liability. role-based access, encryption at rest and in transit, audit logs by user and key, deployable on infrastructure you control.</dd>
+            </div>
+          </dl>
+          <p className="out wrap">Same primitive, different brain. The contract is always the same: one durable, permission-aware store of how your organization actually works — and a clean record of every agent that ever touched it.</p>
         </section>
 
         <hr className="rule" />
