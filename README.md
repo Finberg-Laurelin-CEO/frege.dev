@@ -136,6 +136,75 @@ Expected stack for the first implementation branch:
 - Basic validation and rate limiting.
 - Private environment variables for database credentials.
 
+## Hermes Signup Monitoring
+
+Frege monitoring is app-side:
+
+- `POST /api/signup` inserts the signup row, then attempts a Hermes webhook.
+- `GET /api/admin/frege-signup-stats` exposes protected aggregate stats for Hermes polling.
+- Vercel Cron calls `GET /api/cron/frege-signup-stats` every 8 hours, which posts a stats snapshot to Hermes.
+
+Server-only Vercel env vars:
+
+| Name | Purpose |
+|---|---|
+| `HERMES_FREGE_SIGNUP_WEBHOOK_URL` | Hermes public webhook ingress URL. Webhooks are skipped unless this and `HERMES_FREGE_WEBHOOK_SECRET` are set. |
+| `HERMES_FREGE_WEBHOOK_SECRET` | Shared webhook secret. Sent as bearer auth and used for `X-Hub-Signature-256` HMAC. |
+| `FREGE_ADMIN_STATS_SECRET` | Bearer token for `GET /api/admin/frege-signup-stats`. |
+| `CRON_SECRET` | Bearer token Vercel sends to `GET /api/cron/frege-signup-stats`. |
+
+Webhook failures do not block signup success. If the DB insert succeeds, the
+user still gets the normal success response; webhook failures are logged
+server-side only.
+
+Stats endpoint test:
+
+```bash
+curl -sS https://frege.dev/api/admin/frege-signup-stats \
+  -H "Authorization: Bearer $FREGE_ADMIN_STATS_SECRET"
+```
+
+Signup webhook payload:
+
+```json
+{
+  "event": "frege.signup.created",
+  "created_at": "2026-06-08T00:00:00.000Z",
+  "signup": {
+    "id": "uuid",
+    "name": "Jane Smith",
+    "work_email": "jane@example.com",
+    "company": "Example Co",
+    "role": "CTO",
+    "company_size": "51-200",
+    "expected_users": 25,
+    "current_agent_tools": ["Codex", "Claude Code"],
+    "other_tool": "",
+    "monthly_ai_spend": "$2,000-$10,000",
+    "willing_to_pay": "$500-$2,000 / mo",
+    "decision_timeline": "30 days",
+    "main_pain_point": "We need agents to use current internal context safely.",
+    "other_comments": ""
+  }
+}
+```
+
+Stats snapshot webhook payload:
+
+```json
+{
+  "event": "frege.signup.stats.snapshot",
+  "created_at": "2026-06-08T00:00:00.000Z",
+  "stats": {
+    "total_signups": 0,
+    "signups_last_8h": 0,
+    "signups_last_24h": 0,
+    "latest_signup_at": null,
+    "latest_signups": []
+  }
+}
+```
+
 ## Branch Plan
 
 Planning branches:

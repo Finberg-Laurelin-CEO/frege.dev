@@ -1,10 +1,70 @@
 import { createHash } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
+import { postHermesEvent } from "@/lib/hermes-webhook";
 import { signupSchema } from "@/lib/signup-schema";
 
 export const runtime = "nodejs";
 
 const MIN_DWELL_MS = 3000;
+
+type SignupWebhookRow = {
+  id: string;
+  created_at: Date | string;
+  name: string;
+  work_email: string;
+  company: string;
+  role: string;
+  company_size: string;
+  expected_users: number;
+  current_agent_tools: string[];
+  other_tool: string;
+  monthly_ai_spend: string;
+  willing_to_pay: string;
+  decision_timeline: string;
+  main_pain_point: string;
+  other_comments: string;
+};
+
+function toIsoString(value: Date | string): string {
+  if (value instanceof Date) return value.toISOString();
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toISOString();
+}
+
+async function sendHermesSignupWebhook(signup: SignupWebhookRow): Promise<void> {
+  const created_at = toIsoString(signup.created_at);
+  const payload = {
+    event: "frege.signup.created",
+    created_at,
+    signup: {
+      id: signup.id,
+      name: signup.name,
+      work_email: signup.work_email,
+      company: signup.company,
+      role: signup.role,
+      company_size: signup.company_size,
+      expected_users: signup.expected_users,
+      current_agent_tools: signup.current_agent_tools,
+      other_tool: signup.other_tool,
+      monthly_ai_spend: signup.monthly_ai_spend,
+      willing_to_pay: signup.willing_to_pay,
+      decision_timeline: signup.decision_timeline,
+      main_pain_point: signup.main_pain_point,
+      other_comments: signup.other_comments,
+    },
+  };
+
+  const result = await postHermesEvent(payload);
+  if (result.ok || result.skipped) return;
+
+  console.error("hermes signup webhook failed", {
+    status: result.status,
+    statusText: result.statusText,
+    message: result.message,
+  });
+}
 
 /** Hash the client IP with a day-rotating salt so we never store a raw IP. */
 function hashIp(ip: string): string {
@@ -65,9 +125,17 @@ export async function POST(req: Request) {
         ${data.willing_to_pay}, ${data.decision_timeline}, ${data.main_pain_point}, ${data.other_comments},
         ${data.permission_to_contact}
       )
-      returning id
+      returning
+        id, created_at,
+        name, work_email, company, role, company_size,
+        expected_users, current_agent_tools, other_tool, monthly_ai_spend,
+        willing_to_pay, decision_timeline, main_pain_point, other_comments
     `;
-    const id = rows[0]?.id as string | undefined;
+    const signup = rows[0] as SignupWebhookRow | undefined;
+    if (signup) {
+      await sendHermesSignupWebhook(signup);
+    }
+    const id = signup?.id;
     return Response.json({ id }, { status: 200 });
   } catch (err: unknown) {
     // Unique violation on lower(work_email) → duplicate.
