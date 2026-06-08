@@ -1,0 +1,80 @@
+import { createHash } from "node:crypto";
+import { neon } from "@neondatabase/serverless";
+import { signupSchema } from "@/lib/signup-schema";
+
+export const runtime = "nodejs";
+
+const MIN_DWELL_MS = 3000;
+
+/** Hash the client IP with a day-rotating salt so we never store a raw IP. */
+function hashIp(ip: string): string {
+  const day = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+  const salt = process.env.IP_HASH_SALT ?? "frege-default-salt";
+  return createHash("sha256").update(`${ip}|${day}|${salt}`).digest("hex");
+}
+
+function clientIp(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0]!.trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
+
+export async function POST(req: Request) {
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return Response.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  const parsed = signupSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json(
+      { error: "validation", fieldErrors: parsed.error.flatten().fieldErrors },
+      { status: 400 },
+    );
+  }
+  const data = parsed.data;
+
+  // ── Spam controls: respond 200 with a null id so bots can't probe. ──
+  // Honeypot: a real user never fills the hidden company_url field.
+  if (data.company_url && data.company_url.length > 0) {
+    return Response.json({ id: null }, { status: 200 });
+  }
+  // Timing: submissions faster than the dwell threshold are almost always bots.
+  if (Date.now() - data.started_at < MIN_DWELL_MS) {
+    return Response.json({ id: null }, { status: 200 });
+  }
+
+  const ip_hash = hashIp(clientIp(req));
+  const user_agent = req.headers.get("user-agent") ?? null;
+
+  try {
+    const sql = neon(process.env.DATABASE_URL!);
+    const rows = await sql`
+      insert into signups (
+        ip_hash, user_agent,
+        name, work_email, company, role, company_size,
+        expected_users, current_agent_tools, monthly_ai_spend,
+        decision_timeline, main_pain_point, permission_to_contact
+      ) values (
+        ${ip_hash}, ${user_agent},
+        ${data.name}, ${data.work_email}, ${data.company}, ${data.role}, ${data.company_size},
+        ${data.expected_users}, ${data.current_agent_tools}, ${data.monthly_ai_spend},
+        ${data.decision_timeline}, ${data.main_pain_point}, ${data.permission_to_contact}
+      )
+      returning id
+    `;
+    const id = rows[0]?.id as string | undefined;
+    return Response.json({ id }, { status: 200 });
+  } catch (err: unknown) {
+    // Unique violation on lower(work_email) → duplicate.
+    const code = (err as { code?: string })?.code;
+    if (code === "23505") {
+      return Response.json({ error: "duplicate" }, { status: 409 });
+    }
+    // Never log PII (name/email/company); log only the error shape.
+    console.error("signup insert failed", { code, message: (err as Error)?.message });
+    return Response.json({ error: "internal" }, { status: 500 });
+  }
+}
