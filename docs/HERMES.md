@@ -49,13 +49,33 @@ The signup system is a Next.js app deployed on Vercel:
 | Honeypot (`company_url`) | Bots that fill every field | Silent 200 + `id: null`, no DB write |
 | Dwell-time (<3s) | Bots that auto-submit instantly | Silent 200 + `id: null`, no DB write |
 | Disposable-domain blocklist | `mailinator.com`, `yopmail.com`, etc. (42 domains) | 400 to the user, no DB write |
-| MX lookup | Typos (`gmial.com`), made-up domains | 400 to the user, no DB write |
+| MX lookup | Made-up / nonexistent domains (NXDOMAIN) | 400 to the user, no DB write |
+| MX lookup (fail-open) | DNS timeout or SERVFAIL — row inserted, logged with `source=timeout` | See "Audit trail" below |
 | Unique index on `lower(work_email)` | Duplicate signups | 409 to the user |
 
 **Implication:** every row in the `signups` table is a human that passed real
 syntax + DNS checks and could plausibly receive email at the domain they gave.
 The noise is already filtered out. Hermes should treat each row as a
 high-confidence lead.
+
+### Audit trail: the `source=timeout` accept
+
+The MX-lookup check fails open: if the DNS resolver in Vercel's runtime times
+out or returns SERVFAIL (a known issue with squatted typo domains like
+`gmial.com`), we accept the row rather than block a real user. Each check
+logs a line like:
+
+```
+[email-validation] domain=acme.com ok=true source=mx
+[email-validation] domain=gmial.com ok=true source=timeout
+[email-validation] domain=foo.example ok=false source=nxdomain
+```
+
+If Hermes has access to Vercel's log stream, it can cross-reference the
+timestamp of each new `signups` row with the corresponding `[email-validation]`
+line, and flag any signup whose source was `timeout` as "weakly verified — may
+be a typo." Joe will probably want to manually confirm these before reaching
+out, since they're disproportionately likely to be `gmial.com`-style mistakes.
 
 ---
 
