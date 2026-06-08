@@ -6,5 +6,7 @@ dist
 .env*.local
 *.tsbuildinfo
 private-plans/
+.vercel
 
 .gstack/
+next-env.d.ts
