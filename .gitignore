@@ -10,3 +10,4 @@ private-plans/
 
 .gstack/
 next-env.d.ts
+.env*

@@ -1,6 +1,13 @@
 -- Frege signups — MVP early-access table.
 -- Columns mirror lib/signup-schema.ts (visible fields) plus server-captured
 -- metadata. Run once against the Neon database after DATABASE_URL is wired.
+--
+-- This migration is idempotent: it's safe to re-run, and it upgrades an older
+-- schema (created before the willingness-to-pay survey extension) in place via
+-- ALTER TABLE ... ADD COLUMN IF NOT EXISTS.
+--
+-- scripts/migrate.mjs splits on ';' at statement boundaries, so each statement
+-- must end with a semicolon and contain no ';' inside string literals.
 
 create table if not exists signups (
   id                     uuid primary key default gen_random_uuid(),
@@ -26,6 +33,13 @@ create table if not exists signups (
   other_comments         text    not null default '',
   permission_to_contact  boolean not null
 );
+
+-- ── Upgrade path for databases created from an older version of this file. ──
+-- Postgres supports ADD COLUMN IF NOT EXISTS, so these are safe no-ops on a
+-- fresh table and become real ALTERs on an older one.
+alter table signups add column if not exists other_tool      text not null default '';
+alter table signups add column if not exists willing_to_pay  text not null default 'Not sure yet';
+alter table signups add column if not exists other_comments  text not null default '';
 
 -- One signup per email (case-insensitive). Enforces dedupe at the DB layer;
 -- the API maps the resulting unique violation (23505) to HTTP 409.

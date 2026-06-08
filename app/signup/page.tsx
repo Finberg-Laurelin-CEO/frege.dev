@@ -11,7 +11,6 @@ import {
   WILLING_TO_PAY,
   DECISION_TIMELINES,
 } from "@/lib/signup-schema";
-import "./signup.css";
 
 type Values = {
   name: string;

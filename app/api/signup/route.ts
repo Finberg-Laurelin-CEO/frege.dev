@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { neon } from "@neondatabase/serverless";
 import { signupSchema } from "@/lib/signup-schema";
+import { validateEmailDomain } from "@/lib/email-validation";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,17 @@ export async function POST(req: Request) {
   // Timing: submissions faster than the dwell threshold are almost always bots.
   if (Date.now() - data.started_at < MIN_DWELL_MS) {
     return Response.json({ id: null }, { status: 200 });
+  }
+
+  // ── Email plausibility: block disposable inboxes + domains with no MX. ──
+  // Runs after spam controls so bots can't probe; returns 400 with a field
+  // error so real users see the same inline message as a Zod failure.
+  const emailCheck = await validateEmailDomain(data.work_email);
+  if (!emailCheck.ok) {
+    return Response.json(
+      { error: "validation", fieldErrors: { work_email: [emailCheck.message] } },
+      { status: 400 },
+    );
   }
 
   const ip_hash = hashIp(clientIp(req));

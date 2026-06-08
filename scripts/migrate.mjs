@@ -4,8 +4,10 @@
 //
 //   node --env-file=.env.local scripts/migrate.mjs db/001_signups.sql
 //
+// We use Pool (a pg-compatible client) here rather than the `neon()` tagged-
+// template helper because Pool exposes `.query(text)` for arbitrary DDL.
 import { readFile } from "node:fs/promises";
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "@neondatabase/serverless";
 
 const file = process.argv[2] ?? "db/001_signups.sql";
 
@@ -27,13 +29,17 @@ const statements = raw
   .map((s) => s.trim())
   .filter((s) => s.length > 0);
 
-const sql = neon(process.env.DATABASE_URL);
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 console.log(`Running ${statements.length} statement(s) from ${file}…`);
-for (const stmt of statements) {
-  const preview = stmt.replace(/\s+/g, " ").slice(0, 70);
-  process.stdout.write(`  • ${preview}… `);
-  await sql.query(stmt);
-  console.log("ok");
+try {
+  for (const stmt of statements) {
+    const preview = stmt.replace(/\s+/g, " ").slice(0, 70);
+    process.stdout.write(`  • ${preview}… `);
+    await pool.query(stmt);
+    console.log("ok");
+  }
+  console.log("Migration complete.");
+} finally {
+  await pool.end();
 }
-console.log("Migration complete.");
