@@ -55,13 +55,15 @@ export async function POST(req: Request) {
       insert into signups (
         ip_hash, user_agent,
         name, work_email, company, role, company_size,
-        expected_users, current_agent_tools, monthly_ai_spend,
-        decision_timeline, main_pain_point, permission_to_contact
+        expected_users, current_agent_tools, other_tool, monthly_ai_spend,
+        willing_to_pay, decision_timeline, main_pain_point, other_comments,
+        permission_to_contact
       ) values (
         ${ip_hash}, ${user_agent},
         ${data.name}, ${data.work_email}, ${data.company}, ${data.role}, ${data.company_size},
-        ${data.expected_users}, ${data.current_agent_tools}, ${data.monthly_ai_spend},
-        ${data.decision_timeline}, ${data.main_pain_point}, ${data.permission_to_contact}
+        ${data.expected_users}, ${data.current_agent_tools}, ${data.other_tool}, ${data.monthly_ai_spend},
+        ${data.willing_to_pay}, ${data.decision_timeline}, ${data.main_pain_point}, ${data.other_comments},
+        ${data.permission_to_contact}
       )
       returning id
     `;

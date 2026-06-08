@@ -61,6 +61,9 @@ Code already in `main`:
 - `app/api/signup/route.ts` — Node runtime; validates, silently drops honeypot/fast
   submits, day-salted IP hash, **Neon tagged-template insert**, 409 on duplicate email.
 - `db/001_signups.sql` — the `signups` table + unique index on `lower(work_email)`.
+  Includes `other_tool`, `willing_to_pay`, and `other_comments` columns (added when
+  the survey was extended). If a DB was already created from an older version of this
+  file, add the missing columns before inserting.
 - `scripts/migrate.mjs` — psql-free migration runner (psql isn't installed locally).
 
 Steps to activate:

@@ -8,6 +8,7 @@ import {
   COMPANY_SIZES,
   AGENT_TOOLS,
   MONTHLY_AI_SPEND,
+  WILLING_TO_PAY,
   DECISION_TIMELINES,
 } from "@/lib/signup-schema";
 import "./signup.css";
@@ -20,9 +21,12 @@ type Values = {
   company_size: string;
   expected_users: string;
   current_agent_tools: string[];
+  other_tool: string;
   monthly_ai_spend: string;
+  willing_to_pay: string;
   decision_timeline: string;
   main_pain_point: string;
+  other_comments: string;
   permission_to_contact: boolean;
 };
 
@@ -34,9 +38,12 @@ const EMPTY: Values = {
   company_size: "",
   expected_users: "",
   current_agent_tools: [],
+  other_tool: "",
   monthly_ai_spend: "",
+  willing_to_pay: "",
   decision_timeline: "",
   main_pain_point: "",
+  other_comments: "",
   permission_to_contact: false,
 };
 
@@ -48,9 +55,12 @@ const LABELS: Record<keyof Values, string> = {
   company_size: "Company size",
   expected_users: "Expected number of users",
   current_agent_tools: "Current agent tools",
+  other_tool: "Other tool",
   monthly_ai_spend: "Monthly AI / tool spend",
+  willing_to_pay: "What you'd expect to pay",
   decision_timeline: "Decision timeline",
   main_pain_point: "Main pain point",
+  other_comments: "Anything else",
   permission_to_contact: "Permission to contact",
 };
 
@@ -84,6 +94,13 @@ export default function Signup() {
       const msg = fieldError(k, values);
       if (msg) e[k] = msg;
     });
+    // Cross-field: "Other" tool selected → other_tool is required.
+    if (
+      values.current_agent_tools.includes("Other") &&
+      values.other_tool.trim().length === 0
+    ) {
+      e.other_tool = "Tell us which other tool.";
+    }
     return e;
   }, [values]);
 
@@ -344,8 +361,26 @@ export default function Signup() {
                     </label>
                   ))}
                 </div>
+                <span className="hintline">Pick all that apply. Choose “Other” to name a model/tool not listed.</span>
                 {errFor("current_agent_tools")}
               </div>
+
+              {values.current_agent_tools.includes("Other") && (
+                <div className={fieldClass("other_tool")} id="field-other_tool">
+                  <label htmlFor="other_tool">{LABELS.other_tool} <span className="req">*</span></label>
+                  <input
+                    id="other_tool"
+                    type="text"
+                    placeholder="e.g. a model or agent not in the list"
+                    value={values.other_tool}
+                    onChange={(e) => set("other_tool", e.target.value)}
+                    onBlur={() => markTouched("other_tool")}
+                    aria-invalid={!!(errors.other_tool && (touched.other_tool || showSummary))}
+                    aria-describedby={errors.other_tool ? "err-other_tool" : undefined}
+                  />
+                  {errFor("other_tool")}
+                </div>
+              )}
 
               <div className={fieldClass("monthly_ai_spend")} id="field-monthly_ai_spend">
                 <label htmlFor="monthly_ai_spend">{LABELS.monthly_ai_spend} <span className="req">*</span></label>
@@ -363,6 +398,25 @@ export default function Signup() {
                   ))}
                 </select>
                 {errFor("monthly_ai_spend")}
+              </div>
+
+              <div className={fieldClass("willing_to_pay")} id="field-willing_to_pay">
+                <label htmlFor="willing_to_pay">{LABELS.willing_to_pay} <span className="req">*</span></label>
+                <select
+                  id="willing_to_pay"
+                  value={values.willing_to_pay}
+                  onChange={(e) => set("willing_to_pay", e.target.value)}
+                  onBlur={() => markTouched("willing_to_pay")}
+                  aria-invalid={!!(errors.willing_to_pay && (touched.willing_to_pay || showSummary))}
+                  aria-describedby={errors.willing_to_pay ? "err-willing_to_pay" : undefined}
+                >
+                  <option value="">— select —</option>
+                  {WILLING_TO_PAY.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <span className="hintline">Roughly what would Frege be worth to your org per month?</span>
+                {errFor("willing_to_pay")}
               </div>
 
               <div className={fieldClass("decision_timeline")} id="field-decision_timeline">
@@ -401,6 +455,21 @@ export default function Signup() {
                 />
                 <span className="hintline">What hurts most about agent-readable knowledge today? (10–1000 chars)</span>
                 {errFor("main_pain_point")}
+              </div>
+
+              <div className={fieldClass("other_comments")} id="field-other_comments">
+                <label htmlFor="other_comments">{LABELS.other_comments} <span className="path">(optional)</span></label>
+                <textarea
+                  id="other_comments"
+                  value={values.other_comments}
+                  onChange={(e) => set("other_comments", e.target.value)}
+                  onBlur={() => markTouched("other_comments")}
+                  maxLength={2000}
+                  aria-invalid={!!(errors.other_comments && (touched.other_comments || showSummary))}
+                  aria-describedby={errors.other_comments ? "err-other_comments" : undefined}
+                />
+                <span className="hintline">Anything else we should know — integrations you need, constraints, questions. (optional)</span>
+                {errFor("other_comments")}
               </div>
 
               <div className={fieldClass("permission_to_contact") + " consent"} id="field-permission_to_contact">

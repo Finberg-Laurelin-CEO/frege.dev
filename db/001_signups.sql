@@ -18,9 +18,12 @@ create table if not exists signups (
   company_size           text    not null,
   expected_users         integer not null,
   current_agent_tools    text[]  not null,
+  other_tool             text    not null default '',
   monthly_ai_spend       text    not null,
+  willing_to_pay         text    not null,
   decision_timeline      text    not null,
   main_pain_point        text    not null,
+  other_comments         text    not null default '',
   permission_to_contact  boolean not null
 );
 
