@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import SiteNav from "./components/SiteNav";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://frege.dev/"),
@@ -43,6 +44,8 @@ export default function RootLayout({
         <link rel="stylesheet" href="/styles.css" />
       </head>
       <body>
+        <a className="skip" href="#main">skip to content</a>
+        <SiteNav />
         {children}
         <Script src="/nav.js" strategy="afterInteractive" />
       </body>

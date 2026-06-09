@@ -1,31 +1,7 @@
 export default function Home() {
   return (
     <>
-      <a className="skip" href="#main">skip to content</a>
-
-      {/* top status line, edge to edge */}
-      <header className="bar" role="banner">
-        <span className="bar__dots" aria-hidden="true">● ● ●</span>
-        <span className="bar__title">frege — ssh agent@frege.dev</span>
-        <a className="lnk" href="/signup">claim pilot seat →</a>
-      </header>
-
       <main id="main" className="screen">
-
-        {/* ── link index (top) ── */}
-        <nav className="links links--top" aria-label="Links">
-          <a className="lnk" data-nav href="/signup">claim pilot seat</a>
-          <a className="lnk" data-nav href="#status">status</a>
-          <a className="lnk" data-nav href="#how">how it works</a>
-          <a className="lnk" data-nav href="#memory">memory</a>
-          <a className="lnk" data-nav href="#applications">applications</a>
-          <a className="lnk" data-nav href="#privacy">privacy</a>
-          <a className="lnk" data-nav href="#soc2">soc 2</a>
-          <a className="lnk" data-nav href="mailto:hello@frege.dev">hello@frege.dev</a>
-        </nav>
-        <p className="hint hint--top">press a <b>number</b> to follow a link · <b>g</b> top · <b>G</b> bottom</p>
-
-        <hr className="rule" />
 
         {/* ── whoami / hero ── */}
         <section aria-label="Overview">
@@ -38,7 +14,8 @@ export default function Home() {
 █████╗  ██████╔╝█████╗  ██║  ███╗█████╗  
 ██╔══╝  ██╔══██╗██╔══╝  ██║   ██║██╔══╝  
 ██║     ██║  ██║███████╗╚██████╔╝███████╗
-╚═╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝`}</span>
+╚═╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝
+                                         `}</span>
           </h1>
           <p className="hero-tag">the company brain for AI agents.</p>
           <p className="out wrap">Give every agent the institutional knowledge it needs — without giving it access to everything. Frege turns scattered documents, runbooks, tickets, and tribal knowledge into a permission-aware memory layer for Codex, Claude Code, MCP clients, and internal agents.</p>
@@ -234,14 +211,6 @@ export default function Home() {
           </dl>
           <p className="out wrap dim">This statement describes our current posture and forward-looking plans. It is not a representation that Frege currently holds a SOC 2 certification.</p>
         </section>
-
-        <hr className="rule" />
-
-        {/* ── footer ── */}
-        <footer className="foot" role="contentinfo">
-          <p className="out muted">frege · the company brain for AI agents</p>
-          <p className="hint" id="navhint">press a <b>number</b> to follow a link · <b>g</b> top · <b>G</b> bottom · index at top</p>
-        </footer>
 
       </main>
     </>

@@ -1,16 +1,17 @@
-/* Number-key link navigation, text-browser style (w3m / Lynx).
+/* Number-key link navigation + Emacs-style document scrolling.
    - Every [data-nav] link gets a visible [n] badge.
-   - Press a digit to "arm" link n; it follows immediately when the number
-     is unambiguous, or after a short pause if more digits could follow
-     (e.g. you have 12 links and press "1", it waits to see if "2" comes).
-   - Esc clears. g = top, G = bottom. Typing is ignored in form fields. */
+   - Press a digit to follow link n. Multi-digit links are supported.
+   - Esc clears. Enter follows an armed link.
+   - C-p/C-n scroll one terminal line up/down.
+   - [/] page up/down. </> top/bottom.
+   - Native arrows, Home/End, PageUp/PageDown still work normally.
+   - Custom keys are ignored in form fields. */
 (function () {
   "use strict";
 
   var links = Array.prototype.slice.call(document.querySelectorAll("a[data-nav]"));
   if (!links.length) return;
 
-  // assign 1-based numbers + inject the [n] badge
   links.forEach(function (a, i) {
     var n = i + 1;
     a.dataset.navnum = String(n);
@@ -26,6 +27,7 @@
   var armed = null;
   var timer = null;
   var COMMIT_MS = 600;
+  var LINE = 32;
 
   function clearArmed() {
     if (armed) armed.classList.remove("is-armed");
@@ -34,16 +36,29 @@
     if (timer) { clearTimeout(timer); timer = null; }
   }
 
+  function sameDocument(url) {
+    return url.origin === window.location.origin &&
+      url.pathname === window.location.pathname &&
+      url.search === window.location.search;
+  }
+
   function follow(a) {
     clearArmed();
-    // same behavior as a click: respect target, in-page anchors, mailto, etc.
-    if (a.getAttribute("href").charAt(0) === "#") {
-      var el = document.querySelector(a.getAttribute("href"));
-      if (el) { el.scrollIntoView({ behavior: "smooth", block: "start" }); }
-      history.replaceState(null, "", a.getAttribute("href"));
-    } else {
-      window.location.href = a.href;
+
+    var url = new URL(a.href, window.location.href);
+    if (sameDocument(url)) {
+      if (url.hash) {
+        var el = document.querySelector(url.hash);
+        if (el) el.scrollIntoView({ block: "start" });
+        history.replaceState(null, "", url.hash);
+      } else {
+        window.scrollTo({ top: 0 });
+        history.replaceState(null, "", url.pathname + url.search);
+      }
+      return;
     }
+
+    window.location.href = a.href;
   }
 
   function arm(n) {
@@ -52,7 +67,7 @@
     if (armed && armed !== a) armed.classList.remove("is-armed");
     armed = a;
     a.classList.add("is-armed");
-    a.scrollIntoView({ behavior: "smooth", block: "center" });
+    a.scrollIntoView({ block: "nearest", inline: "center" });
   }
 
   function onDigit(d) {
@@ -63,26 +78,77 @@
     if (n < 1 || n > max) { clearArmed(); return; }
     arm(n);
 
-    // If no longer number could be valid (n*10 > max), commit now.
     if (n * 10 > max) {
       follow(links[n - 1]);
       return;
     }
-    // otherwise wait briefly for another digit, then commit
+
     timer = setTimeout(function () {
       if (armed) follow(armed);
     }, COMMIT_MS);
   }
 
-  document.addEventListener("keydown", function (e) {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    var t = e.target;
-    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  function typingTarget(t) {
+    return t && (
+      t.tagName === "INPUT" ||
+      t.tagName === "TEXTAREA" ||
+      t.tagName === "SELECT" ||
+      t.isContentEditable
+    );
+  }
 
-    if (e.key >= "0" && e.key <= "9") { e.preventDefault(); onDigit(e.key); return; }
-    if (e.key === "Enter" && armed) { e.preventDefault(); follow(armed); return; }
-    if (e.key === "Escape") { clearArmed(); return; }
-    if (e.key === "g") { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
-    if (e.key === "G") { window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); return; }
+  function scrollByAmount(amount) {
+    window.scrollBy({ top: amount });
+  }
+
+  function scrollToTop() {
+    window.scrollTo({ top: 0 });
+  }
+
+  function scrollToBottom() {
+    window.scrollTo({ top: document.documentElement.scrollHeight });
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey) return;
+    if (typingTarget(e.target)) return;
+
+    if (!e.ctrlKey && !e.altKey && e.key >= "0" && e.key <= "9") {
+      e.preventDefault();
+      onDigit(e.key);
+      return;
+    }
+
+    if (!e.ctrlKey && !e.altKey && e.key === "Enter" && armed) {
+      e.preventDefault();
+      follow(armed);
+      return;
+    }
+
+    if (!e.ctrlKey && !e.altKey && e.key === "Escape") {
+      clearArmed();
+      return;
+    }
+
+    if (!e.ctrlKey && !e.altKey) {
+      if (e.key === "PageUp") { e.preventDefault(); scrollByAmount(-window.innerHeight * 0.88); return; }
+      if (e.key === "PageDown") { e.preventDefault(); scrollByAmount(window.innerHeight * 0.88); return; }
+      if (e.key === "Home") { e.preventDefault(); scrollToTop(); return; }
+      if (e.key === "End") { e.preventDefault(); scrollToBottom(); return; }
+    }
+
+    if (e.ctrlKey && !e.altKey) {
+      var ctrlKey = e.key.toLowerCase();
+      if (ctrlKey === "p") { e.preventDefault(); scrollByAmount(-LINE); return; }
+      if (ctrlKey === "n") { e.preventDefault(); scrollByAmount(LINE); return; }
+      if (ctrlKey === "v") { e.preventDefault(); scrollByAmount(window.innerHeight * 0.88); return; }
+    }
+
+    if (!e.ctrlKey && !e.altKey) {
+      if (e.key === "[") { e.preventDefault(); scrollByAmount(-window.innerHeight * 0.88); return; }
+      if (e.key === "]") { e.preventDefault(); scrollByAmount(window.innerHeight * 0.88); return; }
+      if (e.key === "<") { e.preventDefault(); scrollToTop(); return; }
+      if (e.key === ">") { e.preventDefault(); scrollToBottom(); return; }
+    }
   });
 })();

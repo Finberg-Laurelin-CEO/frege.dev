@@ -25,6 +25,7 @@
 
   --mono: "Departure Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --pad:  clamp(14px, 3vw, 32px);   /* edge gutter, small — wall to wall */
+  --bar-h: 34px;
   --fs:   16px;
 }
 
@@ -33,6 +34,7 @@ html { -webkit-text-size-adjust: 100%; }
 
 body {
   margin: 0;
+  padding-top: var(--bar-h);
   background: var(--bg);
   color: var(--fg);
   font-family: var(--mono);
@@ -79,19 +81,47 @@ body {
 .skip:focus { top: 8px; }
 :focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
 
-/* ── top status line — full width ── */
+/* ── fixed nav strip — full width, one terminal line ── */
 .bar {
-  display: flex; align-items: center; gap: 12px;
-  padding: 12px var(--pad);
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  height: var(--bar-h);
+  padding: 0 var(--pad);
+  background: var(--bg);
   border-bottom: 1px solid var(--line);
   font-size: 13px;
 }
-.bar__dots { letter-spacing: 2px; color: var(--fg); }
-.bar__title { flex: 1 1 auto; color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar .lnk { white-space: nowrap; }
+.bar__nav {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+}
+.bar__nav::-webkit-scrollbar { display: none; }
+.bar__nav .lnk { flex: 0 0 auto; text-decoration: none; }
+.bar__hint {
+  margin: 0;
+  color: var(--fg-3);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .bar { grid-template-columns: 1fr; }
+  .bar__hint { display: none; }
+}
 
 /* ── the screen — wall to wall, just an edge gutter ── */
 .screen { padding: 22px var(--pad) 48px; max-width: none; }
+.screen > section { margin: 0 0 30px; scroll-margin-top: calc(var(--bar-h) + 14px); }
 
 /* command line: prompt + typed command. wraps if needed. */
 .line { margin: 0 0 4px; word-break: break-word; }
@@ -123,9 +153,10 @@ body {
 .hero-ansi {
   display: block;
   white-space: pre;
-  font-size: clamp(10px, 1.72vw, 24px);
-  line-height: 1;
-  letter-spacing: -0.04em;
+  font-size: clamp(9px, 1.58vw, 22px);
+  line-height: 1.08;
+  letter-spacing: 0.025em;
+  font-variant-ligatures: none;
 }
 .hero-word { display: none; }
 .hero-tag {
@@ -186,8 +217,8 @@ body {
   .rows.policy dt { color: var(--fg); }
 }
 
-/* dashed rule between command blocks — full bleed within gutter */
-.rule { border: 0; border-top: 1px dashed var(--line); margin: 2px 0 18px; }
+/* old structural separators remain in markup, but the visual dotted rules are gone. */
+.rule { display: none; }
 
 /* blinking block cursor */
 .cursor { display: inline-block; margin-left: 2px; animation: blink 1.05s steps(1) infinite; }

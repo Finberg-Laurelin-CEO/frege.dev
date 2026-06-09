@@ -196,12 +196,6 @@ export default function Signup() {
 
   return (
     <>
-      <header className="bar" role="banner">
-        <span className="bar__dots" aria-hidden="true">● ● ●</span>
-        <span className="bar__title">frege — ssh agent@frege.dev</span>
-        <a className="lnk" href="/">home →</a>
-      </header>
-
       <main id="main" className="screen">
         <section aria-label="Claim a founding pilot seat">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege pilot --join</span></p>
