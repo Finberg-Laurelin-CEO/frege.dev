@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 import SiteNav from "./components/SiteNav";
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default function RootLayout({
         <a className="skip" href="#main">skip to content</a>
         <SiteNav />
         {children}
+        <Analytics />
         <Script src="/nav.js" strategy="afterInteractive" />
       </body>
     </html>
