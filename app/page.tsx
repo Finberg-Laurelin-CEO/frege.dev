@@ -15,6 +15,7 @@ export default function Home() {
         {/* ── link index (top) ── */}
         <nav className="links links--top" aria-label="Links">
           <a className="lnk" data-nav href="/signup">claim pilot seat</a>
+          <a className="lnk" data-nav href="#status">status</a>
           <a className="lnk" data-nav href="#how">how it works</a>
           <a className="lnk" data-nav href="#memory">memory</a>
           <a className="lnk" data-nav href="#applications">applications</a>
@@ -30,10 +31,24 @@ export default function Home() {
         <section aria-label="Overview">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">whoami</span></p>
           <h1 className="hero-h">frege</h1>
-          <p className="hero-tag">the company brain for your AI agents.</p>
-          <p className="out wrap">Every company's know-how is scattered across people's heads, Slack threads, tickets, runbooks, and old email. Agents can't operate like that. Frege pulls that knowledge together, structures it, keeps it current, and exposes it as an executable skills file every agent can safely use — versioned, audited, permission-aware. One source of truth for Codex, Claude Code, and everything next.</p>
+          <p className="hero-tag">the company brain for AI agents.</p>
+          <p className="out wrap">Give every agent the institutional knowledge it needs — without giving it access to everything. Frege turns scattered documents, runbooks, tickets, and tribal knowledge into a permission-aware memory layer for Codex, Claude Code, MCP clients, and internal agents.</p>
 
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <a className="lnk" href="/signup">claim your pilot seat</a><span className="cursor" aria-hidden="true">█</span></p>
+        </section>
+
+        <hr className="rule" />
+
+        {/* ── proof / status ── */}
+        <section id="status" aria-label="Status and proof">
+          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege status --pilot</span></p>
+          <dl className="rows">
+            <div><dt>status</dt><dd>founding pilots opening now. bring your existing runbooks, docs, and agent workflows.</dd></div>
+            <div><dt>works with</dt><dd>Codex, Claude Code, internal agents, and any MCP client.</dd></div>
+            <div><dt>setup</dt><dd>pilot target: under 30 minutes from existing markdown or docs to first agent-readable skill.</dd></div>
+            <div><dt>deployment</dt><dd>hosted or self-hosted private backend, with exportable markdown and backups.</dd></div>
+            <div><dt>demo</dt><dd>pilot walkthroughs available for teams already using agents in production workflows.</dd></div>
+          </dl>
         </section>
 
         <hr className="rule" />
@@ -41,11 +56,11 @@ export default function Home() {
         {/* ── the problem ── */}
         <section aria-label="The problem">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">cat problem.txt</span></p>
-          <p className="out wrap cmt"># teams adopt agents faster than they standardize the memory those agents need. every team keeps rebuilding the same thing.</p>
+          <p className="out wrap cmt"># most teams already have the knowledge. agents just need a safe way to use it.</p>
           <ul className="bul">
-            <li>"every team is building their own context folder for their AI."</li>
+            <li>"our runbooks, tickets, and docs are scattered everywhere."</li>
             <li>"we don't know what our agents are reading."</li>
-            <li>"we don't want Codex to see HR documents."</li>
+            <li>"we want agents to help without giving them the whole company."</li>
           </ul>
         </section>
 
@@ -54,9 +69,9 @@ export default function Home() {
         {/* ── thesis ── */}
         <section aria-label="Thesis">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">cat thesis.txt</span></p>
-          <p className="out wrap cmt"># the biggest blocker to AI automation isn't the models — they got good. it's the domain knowledge.</p>
-          <p className="out wrap">Companies run today because humans vaguely remember where the knowledge lives and how to apply it. Agents can't operate like that. For every company to run on AI, there has to be a new primitive: a company brain. A system that pulls knowledge out of the fragmented places it lives, structures it, keeps it current, and turns it into an executable skills file for AI.</p>
-          <p className="out wrap">Not company-wide search. Not a chatbot over documents. A living map of how a company works — how refunds get handled, how pricing exceptions are decided, how engineers respond to incidents — so agents can do the work safely and consistently.</p>
+          <p className="out wrap cmt"># AI agents are only as useful as the company knowledge they can safely reach.</p>
+          <p className="out wrap">Companies already have the raw material: docs, runbooks, support history, Slack threads, tickets, and the judgment people use every day. Frege turns that fragmented knowledge into a durable company brain — structured, kept current, and exposed as executable skills for AI.</p>
+          <p className="out wrap">Search and chatbots help humans find information. Frege helps agents apply it safely: how refunds get handled, how pricing exceptions are decided, how engineers respond to incidents, and what each agent is allowed to know while doing the work.</p>
           <p className="say">frege is the missing layer between raw company data and reliable AI automation.</p>
         </section>
 
