@@ -30,7 +30,16 @@ export default function Home() {
         {/* ── whoami / hero ── */}
         <section aria-label="Overview">
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">whoami</span></p>
-          <h1 className="hero-h">frege</h1>
+          <h1 className="hero-h">
+            <span className="sr-only">FREGE</span>
+            <span className="hero-word" aria-hidden="true">FREGE</span>
+            <span className="hero-ansi" aria-hidden="true">{`███████╗██████╗ ███████╗ ██████╗ ███████╗
+██╔════╝██╔══██╗██╔════╝██╔════╝ ██╔════╝
+█████╗  ██████╔╝█████╗  ██║  ███╗█████╗  
+██╔══╝  ██╔══██╗██╔══╝  ██║   ██║██╔══╝  
+██║     ██║  ██║███████╗╚██████╔╝███████╗
+╚═╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚══════╝`}</span>
+          </h1>
           <p className="hero-tag">the company brain for AI agents.</p>
           <p className="out wrap">Give every agent the institutional knowledge it needs — without giving it access to everything. Frege turns scattered documents, runbooks, tickets, and tribal knowledge into a permission-aware memory layer for Codex, Claude Code, MCP clients, and internal agents.</p>
 

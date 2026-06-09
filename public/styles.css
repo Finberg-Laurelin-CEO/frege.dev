@@ -114,15 +114,20 @@ body {
 /* a highlighted "stdout" headline line */
 .say { margin: 14px 0 12px; font-size: clamp(15px, 2.6vw, 19px); }
 
-/* hero: big Departure Mono. fills the width, reflows on small screens. */
+/* hero: ANSI Shadow on larger screens, plain text on mobile. */
 .hero-h {
   margin: 10px 0 4px;
   font-weight: 400;            /* Departure Mono is single-weight */
-  font-size: clamp(40px, 12vw, 132px);
-  line-height: 0.98;
-  letter-spacing: -0.01em;
   color: var(--fg);
 }
+.hero-ansi {
+  display: block;
+  white-space: pre;
+  font-size: clamp(10px, 1.72vw, 24px);
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+.hero-word { display: none; }
 .hero-tag {
   margin: 0 0 18px;
   font-size: clamp(18px, 4vw, 34px);
@@ -157,6 +162,16 @@ body {
 /* granted / denied — monochrome; denied struck through, not red */
 .ok { color: var(--fg); }
 .no { color: var(--fg); text-decoration: line-through; text-decoration-thickness: 1px; }
+
+@media (max-width: 640px) {
+  .hero-ansi { display: none; }
+  .hero-word {
+    display: block;
+    font-size: clamp(40px, 18vw, 86px);
+    line-height: 0.98;
+    letter-spacing: -0.04em;
+  }
+}
 
 /* on narrow screens the rows stack: label above value, still no scroll */
 @media (max-width: 560px) {
