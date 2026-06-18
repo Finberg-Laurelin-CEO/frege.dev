@@ -71,6 +71,9 @@ export type ConceptEdgeType = (typeof CONCEPT_EDGE_TYPES)[number];
 export const SEMANTIC_INDEX_RUN_STATUSES = ["pending", "running", "succeeded", "failed"] as const;
 export type SemanticIndexRunStatus = (typeof SEMANTIC_INDEX_RUN_STATUSES)[number];
 
+export const DOCUMENT_REVISION_PROPOSAL_STATUSES = ["pending", "accepted", "rejected"] as const;
+export type DocumentRevisionProposalStatus = (typeof DOCUMENT_REVISION_PROPOSAL_STATUSES)[number];
+
 export type KnowledgeChunk = {
   id: string;
   org_id: string;
@@ -134,6 +137,19 @@ export type SemanticIndexRun = {
   error: string | null;
   created_at: Date | string;
   completed_at: Date | string | null;
+};
+
+export type DocumentRevisionProposal = {
+  id: string;
+  org_id: string;
+  document_id: string;
+  base_revision_id: string;
+  proposed_body_md: string;
+  summary: string;
+  status: DocumentRevisionProposalStatus;
+  created_by_key_id: string | null;
+  created_at: Date | string;
+  resolved_at: Date | string | null;
 };
 
 export type AuditEvent = {

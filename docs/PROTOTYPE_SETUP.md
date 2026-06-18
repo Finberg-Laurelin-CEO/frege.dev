@@ -8,8 +8,9 @@ This doc covers the first product-prototype branches:
 - `feature/prototype-api-key-auth`
 - `feature/prototype-documents-read-api`
 - `feature/prototype-semantic-map`
+- `feature/prototype-documents-write-api`
 
-They create the database foundation, API-key auth layer, permission-filtered read API, and semantic-map layer for Frege's usable prototype: orgs, roles, API keys, markdown documents, immutable revisions, audit events, `/api/v1/me`, document list/read/search routes, chunks, concepts, explicit links, and map/context routes.
+They create the database foundation, API-key auth layer, permission-filtered read/write API, and semantic-map layer for Frege's usable prototype: orgs, roles, API keys, markdown documents, immutable revisions, safe proposals, audit events, `/api/v1/me`, document list/read/search/create/update/proposal routes, chunks, concepts, explicit links, and map/context routes.
 
 ## What this branch adds
 
@@ -36,6 +37,9 @@ They create the database foundation, API-key auth layer, permission-filtered rea
 - `app/api/v1/map/concepts/route.ts`
 - `app/api/v1/map/context/route.ts`
 - `app/api/v1/map/links/route.ts`
+- `db/004_document_proposals.sql`
+- `lib/prototype/document-write-schema.ts`
+- `app/api/v1/documents/[slug]/proposals/route.ts`
 
 MCP lands in a later branch.
 
@@ -60,6 +64,7 @@ From the repo root:
 vercel env pull .env.local
 node --env-file=.env.local scripts/migrate.mjs db/002_prototype_core.sql
 node --env-file=.env.local scripts/migrate.mjs db/003_semantic_map.sql
+node --env-file=.env.local scripts/migrate.mjs db/004_document_proposals.sql
 ```
 
 `psql` is not required. The existing `scripts/migrate.mjs` runner uses `@neondatabase/serverless`.
@@ -170,6 +175,41 @@ curl -X POST -H "Authorization: Bearer $FREGE_API_KEY" -H "Content-Type: applica
 
 Map responses apply the same sensitivity filter as document reads. A normal reader key cannot discover restricted neighbors, restricted concept-only metadata, or restricted context chunks.
 
+## Smoke test document writes
+
+Create a writer key first:
+
+```bash
+node --env-file=.env.local scripts/prototype/create-api-key.mjs frege-demo writer "Local writer"
+export FREGE_WRITER_KEY="frg_live_..."
+```
+
+Then create a document:
+
+```bash
+curl -X POST -H "Authorization: Bearer $FREGE_WRITER_KEY" -H "Content-Type: application/json" \
+  -d '{"path":"engineering/demo-write.md","title":"Demo Write","sensitivity":"internal","tags":["engineering","demo"],"body_md":"# Demo Write\n\nThis document was created through the prototype API."}' \
+  http://localhost:3000/api/v1/documents
+```
+
+Append a new revision without overwriting history:
+
+```bash
+curl -X PUT -H "Authorization: Bearer $FREGE_WRITER_KEY" -H "Content-Type: application/json" \
+  -d '{"summary":"Updated demo write document.","body_md":"# Demo Write\n\nThis is revision 2."}' \
+  http://localhost:3000/api/v1/documents/demo-write
+```
+
+Create a safe proposal without changing the published revision:
+
+```bash
+curl -X POST -H "Authorization: Bearer $FREGE_WRITER_KEY" -H "Content-Type: application/json" \
+  -d '{"summary":"Proposed wording update.","proposed_body_md":"# Demo Write\n\nThis is a proposed revision."}' \
+  http://localhost:3000/api/v1/documents/demo-write/proposals
+```
+
+Writer keys cannot create or update documents with sensitivity labels outside their `allowed_labels`.
+
 ## Tables
 
 ```txt
@@ -178,6 +218,7 @@ roles
 api_keys
 knowledge_documents
 knowledge_document_revisions
+document_revision_proposals
 audit_events
 knowledge_chunks
 document_links
@@ -194,7 +235,7 @@ semantic_index_runs
 After these branches land, cut:
 
 ```txt
-feature/prototype-documents-write-api
+feature/prototype-audit-and-admin
 ```
 
-That branch should add create/update/proposal routes using the same role capabilities and audit model.
+That branch should add admin/read-audit endpoints and any internal inspection helpers needed before MCP.
