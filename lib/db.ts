@@ -1,8 +1,10 @@
-import { neon } from "@neondatabase/serverless";
+import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-let sql: ReturnType<typeof neon> | null = null;
+type Sql = NeonQueryFunction<false, false>;
 
-export function getSql(): ReturnType<typeof neon> {
+let sql: Sql | null = null;
+
+export function getSql(): Sql {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is not set.");
