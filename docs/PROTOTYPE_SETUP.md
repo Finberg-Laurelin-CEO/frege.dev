@@ -9,8 +9,9 @@ This doc covers the first product-prototype branches:
 - `feature/prototype-documents-read-api`
 - `feature/prototype-semantic-map`
 - `feature/prototype-documents-write-api`
+- `feature/prototype-audit-and-admin`
 
-They create the database foundation, API-key auth layer, permission-filtered read/write API, and semantic-map layer for Frege's usable prototype: orgs, roles, API keys, markdown documents, immutable revisions, safe proposals, audit events, `/api/v1/me`, document list/read/search/create/update/proposal routes, chunks, concepts, explicit links, and map/context routes.
+They create the database foundation, API-key auth layer, permission-filtered read/write API, semantic-map layer, and operator inspection tools for Frege's usable prototype: orgs, roles, API keys, markdown documents, immutable revisions, safe proposals, audit events, `/api/v1/me`, document list/read/search/create/update/proposal routes, chunks, concepts, explicit links, map/context routes, and audit-event queries.
 
 ## What this branch adds
 
@@ -40,6 +41,12 @@ They create the database foundation, API-key auth layer, permission-filtered rea
 - `db/004_document_proposals.sql`
 - `lib/prototype/document-write-schema.ts`
 - `app/api/v1/documents/[slug]/proposals/route.ts`
+- `app/api/v1/audit-events/route.ts`
+- `scripts/prototype/create-org.mjs`
+- `scripts/prototype/create-role.mjs`
+- `scripts/prototype/import-markdown-dir.mjs`
+- `scripts/prototype/revoke-api-key.mjs`
+- `docs/PROTOTYPE_OPERATIONS.md`
 
 MCP lands in a later branch.
 
@@ -210,6 +217,24 @@ curl -X POST -H "Authorization: Bearer $FREGE_WRITER_KEY" -H "Content-Type: appl
 
 Writer keys cannot create or update documents with sensitivity labels outside their `allowed_labels`.
 
+## Smoke test audit events
+
+Create an admin key first:
+
+```bash
+node --env-file=.env.local scripts/prototype/create-api-key.mjs frege-demo admin "Local admin"
+export FREGE_ADMIN_KEY="frg_live_..."
+```
+
+Then query audit events:
+
+```bash
+curl -H "Authorization: Bearer $FREGE_ADMIN_KEY" http://localhost:3000/api/v1/audit-events
+curl -H "Authorization: Bearer $FREGE_ADMIN_KEY" "http://localhost:3000/api/v1/audit-events?action=documents.read&limit=25"
+```
+
+Only roles with `can_read_audit=true` can read audit events. See `docs/PROTOTYPE_OPERATIONS.md` for org/role/key/import/revoke commands.
+
 ## Tables
 
 ```txt
@@ -235,7 +260,7 @@ semantic_index_runs
 After these branches land, cut:
 
 ```txt
-feature/prototype-audit-and-admin
+feature/prototype-mcp-gateway
 ```
 
-That branch should add admin/read-audit endpoints and any internal inspection helpers needed before MCP.
+That branch should add the local stdio MCP adapter over the existing REST API.
