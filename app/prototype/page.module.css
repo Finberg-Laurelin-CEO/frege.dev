@@ -1,0 +1,474 @@
+.console {
+  min-height: calc(100vh - var(--bar-h));
+  padding: 24px var(--pad) 56px;
+  background: #f5f7f7;
+  color: #111111;
+}
+
+.header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 520px);
+  gap: 28px;
+  align-items: end;
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #d8dddd;
+}
+
+.kicker {
+  margin: 0 0 6px;
+  color: #52605a;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(32px, 5vw, 72px);
+  font-weight: 400;
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.summary {
+  max-width: 74ch;
+  margin: 14px 0 0;
+  color: #343a38;
+}
+
+.statusGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid #c4cccc;
+  background: #ffffff;
+}
+
+.statusGrid div {
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid #d8dddd;
+}
+
+.statusGrid div:last-child {
+  border-right: 0;
+}
+
+.statusGrid span,
+.field span,
+.panelHead span,
+.documentPath,
+.metaRow,
+.linkRow span,
+.linkRow em,
+.conceptRow span,
+.conceptRow small,
+.chunkSection blockquote span,
+.auditRows span,
+.auditRows em,
+.auditRows small {
+  color: #66706c;
+  font-size: 12px;
+}
+
+.statusGrid strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 400;
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 240px minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.field {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  border: 1px solid #b9c0c0;
+  border-radius: 0;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+}
+
+.field input,
+.field select {
+  height: 38px;
+  padding: 0 10px;
+}
+
+.field textarea {
+  min-height: 120px;
+  padding: 10px;
+  resize: vertical;
+}
+
+.roleMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 38px;
+}
+
+.roleMeta span,
+.badge,
+.hiddenCount {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border: 1px solid #c4cccc;
+  padding: 2px 7px;
+  background: #ffffff;
+  color: #343a38;
+  font-size: 12px;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tabs button,
+.formPanel button {
+  min-height: 36px;
+  border: 1px solid #111111;
+  border-radius: 0;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabs button:hover,
+.tabs button:focus-visible,
+.tabs .activeTab,
+.formPanel button:hover,
+.formPanel button:focus-visible {
+  background: #111111;
+  color: #ffffff;
+}
+
+.formPanel button:disabled {
+  border-color: #c4cccc;
+  background: #eceff1;
+  color: #8a8f8b;
+  cursor: not-allowed;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  min-height: 620px;
+  border: 1px solid #c4cccc;
+  background: #ffffff;
+}
+
+.documentList {
+  min-width: 0;
+  border-right: 1px solid #c4cccc;
+  background: #fbfcfc;
+}
+
+.panelHead {
+  display: flex;
+  gap: 14px;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px;
+  border-bottom: 1px solid #d8dddd;
+}
+
+.panelHead h2,
+.panelHead h3,
+.formPanel h3,
+.mapGrid h3,
+.proposalList h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.panelHead p {
+  margin: 4px 0 0;
+  color: #66706c;
+  font-size: 13px;
+}
+
+.listScroll {
+  display: grid;
+  max-height: 690px;
+  overflow: auto;
+}
+
+.documentButton,
+.selectedDocument {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  width: 100%;
+  min-height: 78px;
+  border: 0;
+  border-bottom: 1px solid #e0e5e5;
+  padding: 12px 14px;
+  background: transparent;
+  color: #111111;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.documentButton:hover,
+.documentButton:focus-visible,
+.selectedDocument {
+  background: #eceff1;
+}
+
+.documentTitle {
+  overflow-wrap: anywhere;
+}
+
+.documentPath {
+  grid-column: 1 / -1;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  min-width: 0;
+  background: #ffffff;
+}
+
+.documentDetail,
+.mapView,
+.writeView,
+.auditView {
+  min-width: 0;
+}
+
+.metaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px 0;
+}
+
+.summaryText {
+  max-width: 88ch;
+  margin: 14px;
+  color: #343a38;
+}
+
+.markdown {
+  margin: 14px;
+  max-width: 100%;
+  min-height: 270px;
+  overflow: auto;
+  border: 1px solid #d8dddd;
+  background: #f5f7f7;
+  padding: 14px;
+  color: #111111;
+  font: inherit;
+  white-space: pre-wrap;
+}
+
+.mapGrid {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, 0.85fr);
+  gap: 0;
+}
+
+.mapGrid section {
+  min-width: 0;
+  border-right: 1px solid #d8dddd;
+  border-bottom: 1px solid #d8dddd;
+  padding: 14px;
+}
+
+.mapGrid section:nth-child(2) {
+  border-right: 0;
+}
+
+.mapGrid .chunkSection {
+  grid-column: 1 / -1;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.linkRow,
+.conceptRow,
+.auditRows article,
+.proposalList article {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  margin-top: 10px;
+  border: 1px solid #d8dddd;
+  background: #fbfcfc;
+  padding: 10px;
+  color: #111111;
+  font: inherit;
+  text-align: left;
+}
+
+.linkRow {
+  cursor: pointer;
+}
+
+.linkRow:hover,
+.linkRow:focus-visible {
+  border-color: #111111;
+}
+
+.linkRow strong,
+.conceptRow strong,
+.auditRows strong,
+.proposalList strong {
+  font-weight: 400;
+}
+
+.linkRow small,
+.conceptRow p,
+.conceptRow small,
+.auditRows p,
+.auditRows small,
+.proposalList p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.chunkSection blockquote {
+  margin: 10px 0 0;
+  border-left: 2px solid #111111;
+  padding: 2px 0 2px 12px;
+}
+
+.chunkSection blockquote p {
+  max-width: 92ch;
+  margin: 4px 0 0;
+}
+
+.writeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px;
+}
+
+.formPanel {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid #d8dddd;
+  background: #fbfcfc;
+  padding: 14px;
+}
+
+.proposalList {
+  padding: 0 14px 14px;
+}
+
+.auditRows {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.auditRows article {
+  grid-template-columns: minmax(110px, 0.5fr) minmax(160px, 0.8fr) minmax(140px, 0.6fr) minmax(180px, 1fr);
+  align-items: start;
+  margin: 0;
+}
+
+.auditRows small {
+  grid-column: 1 / -1;
+}
+
+.forbidden,
+.empty {
+  margin: 14px;
+  color: #66706c;
+}
+
+.forbidden {
+  border: 1px solid #d8dddd;
+  background: #fbfcfc;
+  padding: 14px;
+}
+
+.forbidden strong {
+  color: #111111;
+  font-weight: 400;
+}
+
+.forbidden p {
+  margin: 6px 0 0;
+}
+
+.public {
+  border-color: #a7beb5;
+  background: #eff8f4;
+}
+
+.internal {
+  border-color: #c9b98f;
+  background: #fbf6e7;
+}
+
+.restricted {
+  border-color: #bd9a9a;
+  background: #fbefef;
+}
+
+@media (max-width: 980px) {
+  .header,
+  .controls,
+  .workspace,
+  .writeGrid,
+  .mapGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statusGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .statusGrid div,
+  .documentList,
+  .mapGrid section {
+    border-right: 0;
+  }
+
+  .roleMeta {
+    justify-content: flex-start;
+  }
+
+  .workspace {
+    min-height: 0;
+  }
+
+  .listScroll {
+    max-height: 360px;
+  }
+
+  .auditRows article {
+    grid-template-columns: 1fr;
+  }
+}
