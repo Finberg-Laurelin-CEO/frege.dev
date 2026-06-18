@@ -6,8 +6,9 @@ This doc covers the first product-prototype branches:
 
 - `feature/prototype-db-core`
 - `feature/prototype-api-key-auth`
+- `feature/prototype-documents-read-api`
 
-They create the database foundation and API-key auth layer for Frege's usable prototype: orgs, roles, API keys, markdown documents, immutable revisions, audit events, and `/api/v1/me`.
+They create the database foundation, API-key auth layer, and permission-filtered read API for Frege's usable prototype: orgs, roles, API keys, markdown documents, immutable revisions, audit events, `/api/v1/me`, and document list/read/search routes.
 
 ## What this branch adds
 
@@ -20,8 +21,13 @@ They create the database foundation and API-key auth layer for Frege's usable pr
 - `scripts/prototype/create-api-key.mjs`
 - `app/api/v1/health/route.ts`
 - `app/api/v1/me/route.ts`
+- `lib/prototype/audit.ts`
+- `lib/prototype/documents.ts`
+- `app/api/v1/documents/route.ts`
+- `app/api/v1/documents/search/route.ts`
+- `app/api/v1/documents/[slug]/route.ts`
 
-No document API routes are exposed yet. Document APIs, semantic map, and MCP land in later branches.
+Semantic map and MCP land in later branches.
 
 ## Required env
 
@@ -104,6 +110,20 @@ curl -H "Authorization: Bearer $FREGE_API_KEY" http://localhost:3000/api/v1/me
 
 `/api/v1/me` returns the org, role, key prefix, allowed labels, and capabilities attached to the key.
 
+## Smoke test document reads
+
+With the same dev server and key:
+
+```bash
+curl -H "Authorization: Bearer $FREGE_API_KEY" http://localhost:3000/api/v1/documents
+curl -H "Authorization: Bearer $FREGE_API_KEY" "http://localhost:3000/api/v1/documents/search?q=refund"
+curl -H "Authorization: Bearer $FREGE_API_KEY" http://localhost:3000/api/v1/documents/customer-refunds
+```
+
+The reader role can see `public` and `internal` documents. It cannot discover or read `restricted` documents such as `pricing-exceptions`.
+
+Successful search and read calls write `audit_events` with the actor key id, hashed client IP, user agent, and non-content metadata.
+
 ## Tables
 
 ```txt
@@ -122,7 +142,7 @@ Semantic-map tables are intentionally not here. They land in `db/003_semantic_ma
 After these branches land, cut:
 
 ```txt
-feature/prototype-documents-read-api
+feature/prototype-semantic-map
 ```
 
-That branch should add permission-filtered document list/read/search endpoints and audit events for successful reads/searches.
+That branch should add document chunks, embeddings, neighbor edges, and semantic-map endpoints that respect the same sensitivity filters.
