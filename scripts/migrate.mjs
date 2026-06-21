@@ -33,7 +33,7 @@ console.log(`Running ${statements.length} statement(s) from ${file}…`);
 for (const stmt of statements) {
   const preview = stmt.replace(/\s+/g, " ").slice(0, 70);
   process.stdout.write(`  • ${preview}… `);
-  await sql.query(stmt);
+  await sql(stmt);
   console.log("ok");
 }
 console.log("Migration complete.");

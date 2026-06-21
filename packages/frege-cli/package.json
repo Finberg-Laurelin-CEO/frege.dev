@@ -1,0 +1,18 @@
+{
+  "name": "@frege/cli",
+  "version": "0.1.0",
+  "description": "Frege CLI and MCP thin client for agent-side org memory access.",
+  "type": "module",
+  "bin": {
+    "frege": "bin/frege-mcp.mjs",
+    "frege-mcp": "bin/frege-mcp.mjs"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "INSTALL_FOR_AGENTS.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
