@@ -29,7 +29,7 @@ export default function Home() {
         <div className="hero__actions" aria-label="Primary actions">
           <a className="button button--primary" href="/login?next=/admin">Sign in to Frege</a>
           <a className="button" href="/docs">Read the docs</a>
-          <a className="button" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
+          <a className="button" href={githubUrl}>GitHub</a>
         </div>
         <div className="hero__actions hero__actions--secondary" aria-label="Pilot actions">
           <a className="button" href="/signup">Claim a pilot seat</a>
@@ -112,7 +112,7 @@ export default function Home() {
         <div className="hero__actions">
           <a className="button button--primary" href="/signup">Claim your pilot seat</a>
           <a className="button" href="/login?next=/admin">Sign in</a>
-          <a className="button" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
+          <a className="button" href={githubUrl}>GitHub</a>
         </div>
       </section>
     </main>

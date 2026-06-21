@@ -621,7 +621,7 @@ export default function AdminConsole() {
                     The user or agent installs the CLI from GitHub, connects the key once, then registers
                     `frege mcp serve` with Claude, Codex, Hermes, or another MCP-aware client.
                   </p>
-                  <a className={`${styles.button} ${styles.buttonSecondary}`} href={GITHUB_URL} target="_blank" rel="noreferrer">
+                  <a className={`${styles.button} ${styles.buttonSecondary}`} href={GITHUB_URL}>
                     GitHub repo
                   </a>
                 </section>

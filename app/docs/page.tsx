@@ -49,7 +49,7 @@ export default function DocsPage() {
         </p>
         <div className="hero__actions">
           <a className="button button--primary" href="/login?next=/admin">Open control plane</a>
-          <a className="button" href={githubUrl} target="_blank" rel="noreferrer">View GitHub</a>
+          <a className="button" href={githubUrl}>View GitHub</a>
         </div>
       </section>
 

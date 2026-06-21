@@ -11,7 +11,7 @@ export default function SiteNav() {
         <a className="lnk" href="/#security">security</a>
         <a className="lnk" href="/#pilot">pilot</a>
         <a className="lnk" href="/signup">claim pilot</a>
-        <a className="lnk" href={githubUrl} target="_blank" rel="noreferrer">github</a>
+        <a className="lnk" href={githubUrl}>github</a>
         <a className="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a>
         <a className="button button--small" href="/login?next=/admin">sign in</a>
       </nav>
