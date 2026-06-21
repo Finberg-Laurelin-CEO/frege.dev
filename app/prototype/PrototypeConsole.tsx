@@ -233,24 +233,24 @@ export default function PrototypeConsole() {
 
   return (
     <main id="main" className={styles.console}>
-      <section className={styles.header} aria-label="Prototype status">
+      <section className={styles.header} aria-label="Knowledge console status">
         <div>
-          <p className={styles.kicker}>frege prototype</p>
-          <h1>Prototype Console</h1>
-          <p className={styles.summary}>Local demo workspace for role-scoped knowledge, semantic context, write proposals, and audit review.</p>
+          <p className={styles.kicker}>Frege control plane</p>
+          <h1>Knowledge Console</h1>
+          <p className={styles.summary}>Password-protected workspace for role-scoped knowledge, semantic context, write proposals, and audit review.</p>
         </div>
-        <div className={styles.statusGrid} aria-label="Prototype state">
+        <div className={styles.statusGrid} aria-label="Console state">
           <div>
-            <span>branch</span>
-            <strong>feature/prototype-local-console</strong>
+            <span>access</span>
+            <strong>password protected</strong>
           </div>
           <div>
-            <span>mode</span>
-            <strong>local demo</strong>
+            <span>scope</span>
+            <strong>role gated</strong>
           </div>
           <div>
-            <span>api stack</span>
-            <strong>preserved</strong>
+            <span>writes</span>
+            <strong>reviewable</strong>
           </div>
         </div>
       </section>
@@ -277,7 +277,7 @@ export default function PrototypeConsole() {
         </div>
       </section>
 
-      <nav className={styles.tabs} aria-label="Prototype views">
+      <nav className={styles.tabs} aria-label="Knowledge console views">
         {(["documents", "map", "write", "audit"] as ConsoleTab[]).map((tab) => (
           <button
             key={tab}

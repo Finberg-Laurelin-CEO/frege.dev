@@ -66,7 +66,7 @@ export const DEMO_ROLES: DemoRole[] = [
   {
     slug: "reader",
     name: "Reader key",
-    keyPrefix: "frg_demo_reader",
+    keyPrefix: "frg_reader",
     allowedLabels: ["public", "internal"],
     capabilities: {
       canCreateDocs: false,
@@ -77,7 +77,7 @@ export const DEMO_ROLES: DemoRole[] = [
   {
     slug: "writer",
     name: "Writer key",
-    keyPrefix: "frg_demo_writer",
+    keyPrefix: "frg_writer",
     allowedLabels: ["public", "internal"],
     capabilities: {
       canCreateDocs: true,
@@ -88,7 +88,7 @@ export const DEMO_ROLES: DemoRole[] = [
   {
     slug: "admin",
     name: "Admin key",
-    keyPrefix: "frg_demo_admin",
+    keyPrefix: "frg_admin",
     allowedLabels: ["public", "internal", "restricted"],
     capabilities: {
       canCreateDocs: true,
@@ -107,7 +107,7 @@ export const DEMO_DOCUMENTS: DemoDocument[] = [
     sensitivity: "public",
     status: "published",
     tags: ["company", "overview"],
-    summary: "Public company context for every agent in the demo workspace.",
+    summary: "Public company context for every approved agent workspace.",
     revisionNumber: 1,
     updatedAt: "2026-06-18T19:05:00Z",
     bodyMd: `# Company Overview
@@ -338,7 +338,7 @@ export const DEMO_AUDIT_EVENTS: DemoAuditEvent[] = [
     action: "documents.search",
     resourceType: "query",
     resourceSlug: "refund",
-    actor: "frg_demo_reader",
+    actor: "frg_reader",
     createdAt: "2026-06-18T19:31:00Z",
     metadata: { visible_results: 2, hidden_results: 1 },
   },
@@ -347,7 +347,7 @@ export const DEMO_AUDIT_EVENTS: DemoAuditEvent[] = [
     action: "documents.read",
     resourceType: "knowledge_document",
     resourceSlug: "customer-refunds",
-    actor: "frg_demo_reader",
+    actor: "frg_reader",
     createdAt: "2026-06-18T19:32:00Z",
     metadata: { sensitivity: "internal", revision_number: 3 },
   },
@@ -356,7 +356,7 @@ export const DEMO_AUDIT_EVENTS: DemoAuditEvent[] = [
     action: "map.context",
     resourceType: "knowledge_document",
     resourceSlug: "customer-refunds",
-    actor: "frg_demo_writer",
+    actor: "frg_writer",
     createdAt: "2026-06-18T19:34:00Z",
     metadata: { link_count: 1, concept_count: 2, hidden_links: 1 },
   },
@@ -365,7 +365,7 @@ export const DEMO_AUDIT_EVENTS: DemoAuditEvent[] = [
     action: "documents.proposal.created",
     resourceType: "document_revision_proposal",
     resourceSlug: "sales-handoff",
-    actor: "frg_demo_writer",
+    actor: "frg_writer",
     createdAt: "2026-06-18T19:36:00Z",
     metadata: { base_revision_number: 1, status: "pending" },
   },
@@ -374,7 +374,7 @@ export const DEMO_AUDIT_EVENTS: DemoAuditEvent[] = [
     action: "audit_events.list",
     resourceType: "audit_events",
     resourceSlug: "latest",
-    actor: "frg_demo_admin",
+    actor: "frg_admin",
     createdAt: "2026-06-18T19:38:00Z",
     metadata: { limit: 25, filter: "none" },
   },

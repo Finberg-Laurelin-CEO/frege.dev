@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { requireUserPageSession } from "@/lib/prototype/page-auth";
+import PrototypeConsole from "../prototype/PrototypeConsole";
 
 export const metadata: Metadata = {
   title: "Frege Knowledge Console",
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function PrototypeRedirectPage() {
-  await requireUserPageSession("/prototype");
-  redirect("/console");
+export default async function ConsolePage() {
+  await requireUserPageSession("/console");
+  return <PrototypeConsole />;
 }

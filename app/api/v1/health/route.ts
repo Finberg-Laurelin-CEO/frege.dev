@@ -4,7 +4,7 @@ export async function GET() {
   return Response.json(
     {
       ok: true,
-      service: "frege-prototype-api",
+      service: "frege-api",
     },
     { status: 200 },
   );
