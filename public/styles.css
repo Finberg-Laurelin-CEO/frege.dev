@@ -324,6 +324,16 @@ p {
   color: #ffffff;
 }
 
+.button--small {
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.hero__actions--secondary {
+  margin-top: 12px;
+}
+
 .hero__metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -487,6 +497,85 @@ p {
   margin-top: 26px;
 }
 
+.cta .hero__actions {
+  margin-top: 26px;
+}
+
+.cta .hero__actions .button {
+  margin-top: 0;
+}
+
+.docsPage {
+  padding-bottom: 72px;
+}
+
+.docsHero {
+  display: grid;
+  align-content: end;
+  min-height: min(640px, calc(100vh - var(--bar-h)));
+  padding: clamp(52px, 8vh, 92px) 0 clamp(40px, 7vh, 72px);
+  border-bottom: 1px solid var(--line);
+}
+
+.docsHero h1 {
+  max-width: 980px;
+  margin: 0;
+  font-size: clamp(48px, 8vw, 106px);
+  font-weight: 650;
+  line-height: 0.96;
+}
+
+.docsHero p {
+  max-width: 780px;
+  margin: 24px 0 0;
+  color: #29302d;
+  font-size: clamp(18px, 2vw, 23px);
+  line-height: 1.4;
+}
+
+.docsWorkflow {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.docsCodeGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.docsCodeGrid h3 {
+  margin: 0 0 10px;
+  font-size: 18px;
+}
+
+.docsCode {
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.docsNote {
+  max-width: 86ch;
+  margin: 16px 0 0;
+  color: #37403c;
+}
+
+.toolList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-content: start;
+}
+
+.toolList code {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  background: var(--surface);
+  color: var(--accent-dark);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
 @media (max-width: 960px) {
   .bar {
     grid-template-columns: 1fr;
@@ -499,7 +588,9 @@ p {
   .sectionHead,
   .split,
   .workflow,
-  .featureGrid {
+  .featureGrid,
+  .docsWorkflow,
+  .docsCodeGrid {
     grid-template-columns: 1fr;
   }
 
@@ -527,8 +618,13 @@ p {
   }
 
   .hero__actions,
-  .button {
+  .hero__actions .button,
+  .cta .button {
     width: 100%;
+  }
+
+  .bar__nav .button {
+    width: auto;
   }
 
   .securityList div {

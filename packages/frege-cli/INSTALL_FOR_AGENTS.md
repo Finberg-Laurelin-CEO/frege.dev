@@ -36,7 +36,7 @@ npm link
 Future GitHub path:
 
 ```bash
-bun install -g github:laurelin-inc/frege
+npm install -g github:Finberg-Laurelin-CEO/frege.dev
 ```
 
 ## Step 3: Connect The Token

@@ -14,6 +14,8 @@ const workflow = [
   ["4", "Improve memory", "Useful discoveries become reviewable proposals before they update the canonical brain."],
 ];
 
+const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
+
 export default function Home() {
   return (
     <main id="main" className="site">
@@ -25,7 +27,12 @@ export default function Home() {
           It turns runbooks, docs, tickets, and tribal knowledge into governed context that agents can safely use.
         </p>
         <div className="hero__actions" aria-label="Primary actions">
-          <a className="button button--primary" href="/signup">Claim a pilot seat</a>
+          <a className="button button--primary" href="/login?next=/admin">Sign in to Frege</a>
+          <a className="button" href="/docs">Read the docs</a>
+          <a className="button" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
+        </div>
+        <div className="hero__actions hero__actions--secondary" aria-label="Pilot actions">
+          <a className="button" href="/signup">Claim a pilot seat</a>
           <a className="button" href="mailto:hello@frege.dev">Talk to us</a>
         </div>
         <dl className="hero__metrics" aria-label="Product shape">
@@ -102,7 +109,11 @@ export default function Home() {
         <p>
           We are working with teams that already use agents and need a safer way to share institutional context.
         </p>
-        <a className="button button--primary" href="/signup">Claim your pilot seat</a>
+        <div className="hero__actions">
+          <a className="button button--primary" href="/signup">Claim your pilot seat</a>
+          <a className="button" href="/login?next=/admin">Sign in</a>
+          <a className="button" href={githubUrl} target="_blank" rel="noreferrer">GitHub</a>
+        </div>
       </section>
     </main>
   );

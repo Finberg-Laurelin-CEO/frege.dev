@@ -3,7 +3,21 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./admin.module.css";
 
-type Tab = "overview" | "keys" | "models" | "context" | "brain" | "agents" | "telemetry" | "audit";
+type Tab = "setup" | "overview" | "keys" | "models" | "context" | "brain" | "agents" | "telemetry" | "audit";
+
+const GITHUB_URL = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
+
+const adminTabs: { id: Tab; label: string }[] = [
+  { id: "setup", label: "setup docs" },
+  { id: "overview", label: "orgs & roles" },
+  { id: "keys", label: "api keys" },
+  { id: "brain", label: "brain" },
+  { id: "agents", label: "agents" },
+  { id: "models", label: "models" },
+  { id: "context", label: "context" },
+  { id: "telemetry", label: "telemetry" },
+  { id: "audit", label: "audit" },
+];
 
 type Membership = {
   org_id: string;
@@ -184,7 +198,7 @@ async function readJson(response: Response) {
 export default function AdminConsole() {
   const [session, setSession] = useState<Session | null>(null);
   const [selectedOrgSlug, setSelectedOrgSlug] = useState("");
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("setup");
   const [status, setStatus] = useState("loading");
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
@@ -500,10 +514,10 @@ export default function AdminConsole() {
       <main id="main" className={styles.shell}>
         <div className={styles.header}>
           <div>
-            <h1 className={styles.title}>admin</h1>
+            <h1 className={styles.title}>Frege control plane</h1>
             <p className={styles.meta}>not authenticated</p>
           </div>
-          <a className="lnk" href="/login">login</a>
+          <a className="lnk" href="/login?next=/admin">login</a>
         </div>
       </main>
     );
@@ -513,14 +527,18 @@ export default function AdminConsole() {
     <main id="main" className={styles.shell}>
       <div className={styles.header}>
         <div>
-          <h1 className={styles.title}>admin</h1>
+          <h1 className={styles.title}>Frege control plane</h1>
           <p className={styles.meta}>
             {session ? `${session.user.email} / ${selectedOrg?.org_name ?? "no org"}` : "loading"}
           </p>
         </div>
-        <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={logout}>
-          logout
-        </button>
+        <div className={styles.headerActions}>
+          <a className={`${styles.button} ${styles.buttonSecondary}`} href="/docs">docs</a>
+          <a className={`${styles.button} ${styles.buttonSecondary}`} href="/console">knowledge console</a>
+          <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={logout}>
+            logout
+          </button>
+        </div>
       </div>
 
       <div className={styles.grid}>
@@ -539,20 +557,116 @@ export default function AdminConsole() {
               ))}
             </select>
           </label>
-          {(["overview", "keys", "models", "context", "brain", "agents", "telemetry", "audit"] as Tab[]).map((item) => (
+          {adminTabs.map((item) => (
             <button
-              key={item}
-              className={`${styles.tab} ${tab === item ? styles.tabActive : ""}`}
+              key={item.id}
+              className={`${styles.tab} ${tab === item.id ? styles.tabActive : ""}`}
               type="button"
-              onClick={() => setTab(item)}
+              onClick={() => setTab(item.id)}
             >
-              {item}
+              {item.label}
             </button>
           ))}
           <span className={styles.status}>{status}</span>
         </aside>
 
         <section className={styles.panel}>
+          {tab === "setup" && (
+            <>
+              <div className={`${styles.section} ${styles.setupHero}`}>
+                <div>
+                  <span className={styles.kicker}>Setup</span>
+                  <h2 className={styles.heroTitle}>Connect this org to agent memory.</h2>
+                  <p className={styles.sectionLead}>
+                    Create the org shape, issue a scoped API key, then let the agent install Frege MCP from GitHub.
+                    Agents pull governed context and write reviewable memory proposals; they do not get direct database access.
+                  </p>
+                </div>
+                <div className={styles.inlineActions}>
+                  <button className={styles.button} type="button" onClick={() => setTab("overview")}>manage org</button>
+                  <button className={styles.button} type="button" onClick={() => setTab("keys")}>create api key</button>
+                  <a className={`${styles.button} ${styles.buttonSecondary}`} href="/docs">open docs</a>
+                </div>
+              </div>
+
+              <div className={styles.setupGrid}>
+                <section className={styles.setupPanel}>
+                  <span className={styles.kicker}>1. Org</span>
+                  <h3>Set up members and roles</h3>
+                  <p>
+                    Create or choose an org, invite users, then define what each agent role can read and write.
+                    Role permissions drive trust-zone access, session visibility, proposals, and hosted agent execution.
+                  </p>
+                  <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => setTab("overview")}>
+                    orgs and roles
+                  </button>
+                </section>
+
+                <section className={styles.setupPanel}>
+                  <span className={styles.kicker}>2. Keys</span>
+                  <h3>Generate per-user API keys</h3>
+                  <p>
+                    Keys belong to this org and a human owner. Frege derives org, user, role, and telemetry identity
+                    from the key, so agents never provide trusted identity in requests.
+                  </p>
+                  <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => setTab("keys")}>
+                    api keys
+                  </button>
+                </section>
+
+                <section className={styles.setupPanel}>
+                  <span className={styles.kicker}>3. MCP</span>
+                  <h3>Install on the agent machine</h3>
+                  <p>
+                    The user or agent installs the CLI from GitHub, connects the key once, then registers
+                    `frege mcp serve` with Claude, Codex, Hermes, or another MCP-aware client.
+                  </p>
+                  <a className={`${styles.button} ${styles.buttonSecondary}`} href={GITHUB_URL} target="_blank" rel="noreferrer">
+                    GitHub repo
+                  </a>
+                </section>
+              </div>
+
+              <div className={styles.section}>
+                <h2 className={styles.sectionTitle}>agent install commands</h2>
+                <pre className={styles.codeBlock}>{`npm install -g github:Finberg-Laurelin-CEO/frege.dev
+frege connect https://frege.dev --token frg_live_...
+frege doctor
+
+claude mcp add frege -- frege mcp serve
+codex mcp add frege -- frege mcp serve`}</pre>
+                <p className={styles.meta}>
+                  Use the API key created in the keys tab. `frege connect` stores local config at
+                  {" "}~/.frege/mcp/config.json and avoids putting secrets in browser instructions.
+                </p>
+              </div>
+
+              <div className={styles.section}>
+                <h2 className={styles.sectionTitle}>agent operating instructions</h2>
+                <pre className={styles.codeBlock}>{`Use Frege MCP tools for organization memory.
+Start a Frege session for substantial workflows.
+Build context before answering from Frege knowledge.
+If Frege reports denied context, do not guess what was denied.
+Submit memory proposals instead of rewriting canonical knowledge directly.
+Use frege_run_agent only when the user asks Frege's hosted runtime to execute work.`}</pre>
+              </div>
+
+              <div className={styles.section}>
+                <h2 className={styles.sectionTitle}>documentation database</h2>
+                <p className={styles.sectionLead}>
+                  The public docs page explains setup, org management, MCP installation, and the agent contract.
+                  The brain tab shows hosted sources, pages, sessions, and memory proposals for this org.
+                </p>
+                <div className={styles.inlineActions}>
+                  <a className={styles.button} href="/docs">read docs</a>
+                  <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => setTab("brain")}>
+                    review brain
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
           {tab === "overview" && (
             <>
               <div className={styles.section}>
@@ -660,8 +774,10 @@ export default function AdminConsole() {
               <div className={styles.section}>
                 <h2 className={styles.sectionTitle}>docs</h2>
                 <p className={styles.meta}>
+                  <a className="lnk" href="/docs">setup docs</a>
+                  {", "}
                   <a className="lnk" href="/console">knowledge console</a>
-                  {" "}and document operations are available through the API and MCP smoke tools.
+                  {", and MCP tools are the supported path for agent-side access."}
                 </p>
               </div>
             </>
@@ -700,7 +816,7 @@ export default function AdminConsole() {
                   <span className={styles.label}>raw key shown once</span>
                   <code className={styles.code}>{rawKey}</code>
                   <span className={styles.status}>
-                    Give this key to the agent installer. Frege MCP setup is CLI-first, not browser-config-first.
+                    Store this now. Frege stores only the key hash, and MCP setup should use `frege connect`.
                   </span>
                 </div>
               )}

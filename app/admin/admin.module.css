@@ -1,5 +1,7 @@
 .shell {
-  padding: 22px var(--pad) 56px;
+  max-width: 1480px;
+  margin: 0 auto;
+  padding: 24px var(--pad) 64px;
 }
 
 .header {
@@ -12,10 +14,17 @@
   padding-bottom: 14px;
 }
 
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 400;
+  font-size: 24px;
+  font-weight: 650;
   line-height: 1.2;
 }
 
@@ -27,7 +36,7 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 24px;
   align-items: start;
 }
@@ -42,17 +51,19 @@
 .tab {
   width: 100%;
   border: 1px solid var(--line);
+  border-radius: 6px;
   background: #fff;
   color: var(--fg);
   font: inherit;
   text-align: left;
-  padding: 8px 10px;
+  padding: 10px 12px;
   cursor: pointer;
 }
 
 .tabActive,
 .tab:hover {
-  background: #000;
+  border-color: var(--accent-dark);
+  background: var(--accent-dark);
   color: #fff;
 }
 
@@ -62,19 +73,83 @@
 }
 
 .section {
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: #fff;
 }
 
 .section:first-child {
-  border-top: 0;
-  padding-top: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
 }
 
 .sectionTitle {
   margin: 0 0 10px;
-  font-size: 16px;
-  font-weight: 400;
+  font-size: 18px;
+  font-weight: 650;
+}
+
+.heroTitle {
+  max-width: 760px;
+  margin: 0;
+  font-size: clamp(28px, 4vw, 54px);
+  font-weight: 650;
+  line-height: 1;
+}
+
+.sectionLead {
+  max-width: 78ch;
+  margin: 10px 0 0;
+  color: #37403c;
+}
+
+.kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.setupHero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: end;
+  background: #f3f7f5;
+}
+
+.setupGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.setupPanel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+}
+
+.setupPanel h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.setupPanel p {
+  margin: 0 0 14px;
+  color: #37403c;
+}
+
+.inlineActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }
 
 .form {
@@ -103,11 +178,11 @@
 .textarea {
   width: 100%;
   border: 1px solid var(--line);
-  border-radius: 0;
+  border-radius: 6px;
   background: #fff;
   color: var(--fg);
   font: inherit;
-  padding: 8px 9px;
+  padding: 9px 10px;
 }
 
 .textarea {
@@ -123,17 +198,28 @@
 }
 
 .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1px solid #000;
+  border-radius: 6px;
   background: #000;
   color: #fff;
   font: inherit;
-  padding: 8px 11px;
+  min-height: 38px;
+  padding: 0 12px;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .buttonSecondary {
   background: #fff;
   color: #000;
+}
+
+.buttonSecondary:hover {
+  border-color: var(--accent-dark);
+  color: var(--accent-dark);
 }
 
 .button:disabled {
@@ -165,13 +251,28 @@
   max-width: 100%;
   overflow-wrap: anywhere;
   border: 1px solid var(--line);
+  border-radius: 6px;
   padding: 8px;
   background: #fafafa;
   font-size: 12px;
 }
 
+.codeBlock {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid #1f2b27;
+  border-radius: 8px;
+  padding: 14px;
+  background: #111513;
+  color: #e9f0ed;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .output {
   border: 1px solid var(--line);
+  border-radius: 6px;
   padding: 10px;
   background: #fafafa;
   white-space: pre-wrap;
@@ -186,8 +287,10 @@
 }
 
 .metric {
-  border-top: 1px solid var(--line);
-  padding-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
 }
 
 .metricValue {
@@ -209,9 +312,10 @@
 .notice {
   display: grid;
   gap: 6px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  padding: 10px 0;
+  border: 1px solid var(--strong-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--accent-soft);
 }
 
 .checkbox {
@@ -225,11 +329,17 @@
   .header,
   .grid,
   .form,
-  .summary {
+  .summary,
+  .setupHero,
+  .setupGrid {
     grid-template-columns: 1fr;
   }
 
   .nav {
     position: static;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
   }
 }

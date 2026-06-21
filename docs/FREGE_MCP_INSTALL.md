@@ -50,7 +50,7 @@ Restricted imports are mapped to `trust_zone=red`; public/internal imports are m
 After Frege is pushed to GitHub, the intended install shape is:
 
 ```bash
-bun install -g github:laurelin-inc/frege
+npm install -g github:Finberg-Laurelin-CEO/frege.dev
 frege connect https://frege.dev --token frg_live_...
 frege doctor
 ```
@@ -58,7 +58,7 @@ frege doctor
 For local development against the worktree dev server:
 
 ```bash
-bun install -g github:laurelin-inc/frege
+npm install -g github:Finberg-Laurelin-CEO/frege.dev
 frege connect http://localhost:3000 --token frg_live_...
 frege doctor
 ```

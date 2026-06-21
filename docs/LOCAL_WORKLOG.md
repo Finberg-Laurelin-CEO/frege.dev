@@ -298,6 +298,32 @@ Failed to load dynamic font for ● . Status: 400
 
 After `pnpm run build`, the Next dev server can hold a stale `.next` cache. Restart `pnpm dev` and re-check `/api/v1/health` before continuing local browser work.
 
+## 2026-06-21 UI Docs And Entry Points
+
+Added a public `/docs` page with the user-facing setup path for orgs, roles, API keys, MCP installation, and agent operating instructions. The homepage now exposes sign-in, docs, and the GitHub repo link while keeping `/admin`, `/console`, and `/prototype` protected by login.
+
+The admin console now opens on a setup-docs tab before the operational tabs. It points users to org/role setup, per-user API-key generation, GitHub CLI install, MCP registration, hosted brain review, and the public docs page.
+
+Updated MCP install docs to use the current GitHub remote:
+
+```bash
+npm install -g github:Finberg-Laurelin-CEO/frege.dev
+frege connect https://frege.dev --token frg_live_...
+frege doctor
+```
+
+Verification passed:
+
+```text
+pnpm run typecheck
+pnpm run build
+GET /docs -> 200
+GET /admin -> 307 /login?next=%2Fadmin
+GET /console -> 307 /login?next=%2Fconsole
+GET /prototype -> 307 /login?next=%2Fprototype
+Browser check -> homepage/docs no horizontal overflow, docs include API-key and GitHub install guidance
+```
+
 Known local npm note:
 
 ```text
