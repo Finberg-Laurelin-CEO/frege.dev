@@ -9,6 +9,11 @@ export default function LoginPanel() {
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);
 
+  function safeNextPath(value: string | null): string {
+    if (!value || !value.startsWith("/") || value.startsWith("//") || value === "/login") return "/admin";
+    return value;
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -28,7 +33,7 @@ export default function LoginPanel() {
     }
 
     setStatus("ok");
-    window.location.href = "/admin";
+    window.location.href = safeNextPath(new URLSearchParams(window.location.search).get("next"));
   }
 
   return (
@@ -36,9 +41,9 @@ export default function LoginPanel() {
       <div className={styles.header}>
         <div>
           <h1 className={styles.title}>login</h1>
-          <p className={styles.meta}>frege admin control plane</p>
+          <p className={styles.meta}>frege internal control plane</p>
         </div>
-        <a className="lnk" href="/setup">setup</a>
+        <a className="lnk" href="/">home</a>
       </div>
 
       <form className={styles.form} onSubmit={submit}>

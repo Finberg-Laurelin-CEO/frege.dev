@@ -659,7 +659,10 @@ export default function AdminConsole() {
 
               <div className={styles.section}>
                 <h2 className={styles.sectionTitle}>docs</h2>
-                <p className={styles.meta}><a className="lnk" href="/prototype">prototype document console</a></p>
+                <p className={styles.meta}>
+                  <a className="lnk" href="/prototype">authenticated prototype console</a>
+                  {" "}and document operations are available through the API and MCP smoke tools.
+                </p>
               </div>
             </>
           )}

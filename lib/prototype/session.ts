@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 
-const SESSION_COOKIE = "frege_session";
+export const SESSION_COOKIE = "frege_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
 export type UserSessionMembership = {
@@ -104,8 +104,7 @@ export async function revokeCurrentSession(req: Request): Promise<void> {
   `;
 }
 
-export async function authenticateUserRequest(req: Request): Promise<UserSessionContext | null> {
-  const rawToken = readSessionToken(req);
+export async function authenticateSessionToken(rawToken: string | null): Promise<UserSessionContext | null> {
   if (!rawToken) return null;
 
   const sql = getSql();
@@ -161,6 +160,10 @@ export async function authenticateUserRequest(req: Request): Promise<UserSession
     },
     memberships: memberships as MembershipRow[],
   };
+}
+
+export async function authenticateUserRequest(req: Request): Promise<UserSessionContext | null> {
+  return authenticateSessionToken(readSessionToken(req));
 }
 
 export function userUnauthorized(): Response {

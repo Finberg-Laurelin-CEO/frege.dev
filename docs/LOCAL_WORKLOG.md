@@ -42,6 +42,8 @@ Rules followed:
 - Hosted agent definitions and queued agent runs are implemented. Agents are queued by API-key/user actors, executed by a separate runtime worker, and written back into the run/session ledger.
 - Frege CLI/MCP is implemented at `packages/frege-cli`.
 - Frege is planned as hosted SaaS for customers. Local runtime remains for development and the thin MCP/CLI client.
+- The public landing page no longer links to internal prototype/admin/setup routes. `/admin` and `/prototype` are password-session protected and redirect to `/login` before rendering.
+- The authenticated admin console links to `/prototype`; the public site does not.
 
 ## Local Environment
 
