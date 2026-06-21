@@ -17,12 +17,20 @@ export type PrototypeAuthContext = {
     id: string;
     name: string;
     prefix: string;
+    owner_user_id: string | null;
+    owner_user_email: string | null;
   };
   allowedLabels: SensitivityLabel[];
   capabilities: {
     canCreateDocs: boolean;
     canUpdateDocs: boolean;
     canReadAudit: boolean;
+    canReadSessions: boolean;
+    canWriteSessions: boolean;
+    canProposeMemory: boolean;
+    canReviewMemoryProposals: boolean;
+    canManageSources: boolean;
+    canExecuteAgents: boolean;
   };
 };
 
@@ -31,6 +39,8 @@ type AuthRow = {
   key_name: string;
   key_prefix: string;
   key_hash: string;
+  owner_user_id: string | null;
+  owner_user_email: string | null;
   status: string;
   expires_at: Date | string | null;
   org_id: string;
@@ -43,6 +53,12 @@ type AuthRow = {
   can_create_docs: boolean;
   can_update_docs: boolean;
   can_read_audit: boolean;
+  can_read_sessions: boolean | null;
+  can_write_sessions: boolean | null;
+  can_propose_memory: boolean | null;
+  can_review_memory_proposals: boolean | null;
+  can_manage_sources: boolean | null;
+  can_execute_agents: boolean | null;
 };
 
 function bearerToken(req: Request): string | null {
@@ -76,12 +92,20 @@ function toAuthContext(row: AuthRow): PrototypeAuthContext {
       id: row.key_id,
       name: row.key_name,
       prefix: row.key_prefix,
+      owner_user_id: row.owner_user_id,
+      owner_user_email: row.owner_user_email,
     },
     allowedLabels: row.can_read_labels,
     capabilities: {
       canCreateDocs: row.can_create_docs,
       canUpdateDocs: row.can_update_docs,
       canReadAudit: row.can_read_audit,
+      canReadSessions: Boolean(row.can_read_sessions),
+      canWriteSessions: row.can_write_sessions !== false,
+      canProposeMemory: Boolean(row.can_propose_memory),
+      canReviewMemoryProposals: Boolean(row.can_review_memory_proposals),
+      canManageSources: Boolean(row.can_manage_sources),
+      canExecuteAgents: Boolean(row.can_execute_agents),
     },
   };
 }
@@ -100,6 +124,8 @@ export async function authenticatePrototypeRequest(req: Request): Promise<Protot
       api_keys.name as key_name,
       api_keys.key_prefix,
       api_keys.key_hash,
+      api_keys.owner_user_id,
+      owner.email as owner_user_email,
       api_keys.status,
       api_keys.expires_at,
       organizations.id as org_id,
@@ -111,10 +137,17 @@ export async function authenticatePrototypeRequest(req: Request): Promise<Protot
       roles.can_read_labels,
       roles.can_create_docs,
       roles.can_update_docs,
-      roles.can_read_audit
+      roles.can_read_audit,
+      roles.can_read_sessions,
+      roles.can_write_sessions,
+      roles.can_propose_memory,
+      roles.can_review_memory_proposals,
+      roles.can_manage_sources,
+      roles.can_execute_agents
     from api_keys
     join organizations on organizations.id = api_keys.org_id
     join roles on roles.id = api_keys.role_id and roles.org_id = api_keys.org_id
+    left join users owner on owner.id = api_keys.owner_user_id
     where api_keys.key_prefix = ${parsed.keyPrefix}
     limit 1
   `;

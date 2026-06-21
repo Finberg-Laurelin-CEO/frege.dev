@@ -32,7 +32,7 @@ export default function Home() {
             <div><dt>status</dt><dd>founding pilots opening now. bring your existing runbooks, docs, and agent workflows.</dd></div>
             <div><dt>works with</dt><dd>Codex, Claude Code, internal agents, and any MCP client.</dd></div>
             <div><dt>setup</dt><dd>pilot target: under 30 minutes from existing markdown or docs to first agent-readable skill.</dd></div>
-            <div><dt>deployment</dt><dd>hosted or self-hosted private backend, with exportable markdown and backups.</dd></div>
+            <div><dt>deployment</dt><dd>hosted Frege control plane and brain database, with exportable markdown and backups.</dd></div>
             <div><dt>demo</dt><dd>pilot walkthroughs available for teams already using agents in production workflows.</dd></div>
           </dl>
         </section>
@@ -126,8 +126,8 @@ export default function Home() {
           <dl className="rows">
             <div><dt>skills</dt><dd>structured, executable knowledge units — how a refund gets handled, how a deploy gets rolled back, how an incident is triaged — that any agent can load and run</dd></div>
             <div><dt>persistent memory</dt><dd>facts, decisions, and context that survive the chat session, the model swap, and the vendor change. your brain, not theirs.</dd></div>
-            <div><dt>model agnostic</dt><dd>same MCP surface for Codex, Claude Code, OpenRouter, local models, internal agents. swap the model without rebuilding the memory.</dd></div>
-            <div><dt>private backend</dt><dd>self-host on your infrastructure, or run hosted in an isolated tenant. either way the data stays yours and the keys stay yours.</dd></div>
+            <div><dt>model agnostic</dt><dd>same MCP surface for Codex, Claude Code, OpenRouter, Vercel AI Gateway, and internal agents. swap the model without rebuilding the memory.</dd></div>
+            <div><dt>private backend</dt><dd>hosted isolated tenants with per-org keys, role gates, audit logs, and markdown export. local runtime is only for the thin MCP client and development.</dd></div>
             <div><dt>backups</dt><dd>point-in-time snapshots, export to plain markdown, no lock-in. if you ever leave, you leave with everything readable.</dd></div>
           </dl>
         </section>

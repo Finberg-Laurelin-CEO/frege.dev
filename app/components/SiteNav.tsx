@@ -3,6 +3,9 @@ export default function SiteNav() {
     <header className="bar" role="banner">
       <nav className="bar__nav" aria-label="Site">
         <a className="lnk" data-nav href="/prototype">prototype</a>
+        <a className="lnk" data-nav href="/admin">admin</a>
+        <a className="lnk" data-nav href="/login">login</a>
+        <a className="lnk" data-nav href="/setup">setup</a>
         <a className="lnk" data-nav href="/signup">claim pilot</a>
         <a className="lnk" data-nav href="/">home</a>
         <a className="lnk" data-nav href="/#status">status</a>

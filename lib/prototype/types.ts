@@ -1,6 +1,9 @@
 export const SENSITIVITY_LABELS = ["public", "internal", "restricted"] as const;
 export type SensitivityLabel = (typeof SENSITIVITY_LABELS)[number];
 
+export const TRUST_ZONES = ["green", "red"] as const;
+export type TrustZone = (typeof TRUST_ZONES)[number];
+
 export const DOCUMENT_STATUSES = ["draft", "published", "archived"] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 
@@ -23,6 +26,12 @@ export type Role = {
   can_create_docs: boolean;
   can_update_docs: boolean;
   can_read_audit: boolean;
+  can_read_sessions?: boolean;
+  can_write_sessions?: boolean;
+  can_propose_memory?: boolean;
+  can_review_memory_proposals?: boolean;
+  can_manage_sources?: boolean;
+  can_execute_agents?: boolean;
   created_at: Date | string;
 };
 
@@ -33,6 +42,7 @@ export type ApiKeyRecord = {
   name: string;
   key_prefix: string;
   key_hash: string;
+  owner_user_id?: string | null;
   status: ApiKeyStatus;
   created_at: Date | string;
   last_used_at: Date | string | null;
@@ -46,6 +56,7 @@ export type KnowledgeDocument = {
   path: string;
   title: string;
   sensitivity: SensitivityLabel;
+  trust_zone?: TrustZone;
   status: DocumentStatus;
   tags: string[];
   created_at: Date | string;
@@ -73,6 +84,33 @@ export type SemanticIndexRunStatus = (typeof SEMANTIC_INDEX_RUN_STATUSES)[number
 
 export const DOCUMENT_REVISION_PROPOSAL_STATUSES = ["pending", "accepted", "rejected"] as const;
 export type DocumentRevisionProposalStatus = (typeof DOCUMENT_REVISION_PROPOSAL_STATUSES)[number];
+
+export const BRAIN_SOURCE_STATUSES = ["active", "disabled"] as const;
+export type BrainSourceStatus = (typeof BRAIN_SOURCE_STATUSES)[number];
+
+export const BRAIN_PAGE_STATUSES = ["draft", "published", "archived"] as const;
+export type BrainPageStatus = (typeof BRAIN_PAGE_STATUSES)[number];
+
+export const BRAIN_SESSION_STATUSES = ["active", "closed"] as const;
+export type BrainSessionStatus = (typeof BRAIN_SESSION_STATUSES)[number];
+
+export const BRAIN_SESSION_EVENT_TYPES = [
+  "user_message",
+  "assistant_message",
+  "tool_call",
+  "tool_result",
+  "context_build",
+  "model_invoke",
+  "memory_signal",
+  "note",
+] as const;
+export type BrainSessionEventType = (typeof BRAIN_SESSION_EVENT_TYPES)[number];
+
+export const MEMORY_PROPOSAL_TYPES = ["page_create", "page_update", "source_create", "link_update"] as const;
+export type MemoryProposalType = (typeof MEMORY_PROPOSAL_TYPES)[number];
+
+export const MEMORY_PROPOSAL_STATUSES = ["pending", "accepted", "rejected"] as const;
+export type MemoryProposalStatus = (typeof MEMORY_PROPOSAL_STATUSES)[number];
 
 export type KnowledgeChunk = {
   id: string;

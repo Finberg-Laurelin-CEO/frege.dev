@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
 import type { PrototypeAuthContext } from "@/lib/prototype/auth";
-import type { DocumentStatus, SensitivityLabel } from "@/lib/prototype/types";
+import type { DocumentStatus, SensitivityLabel, TrustZone } from "@/lib/prototype/types";
 
 export type DocumentListItem = {
   id: string;
@@ -8,6 +8,7 @@ export type DocumentListItem = {
   path: string;
   title: string;
   sensitivity: SensitivityLabel;
+  trust_zone: TrustZone;
   tags: string[];
   summary: string;
   revision_number: number;
@@ -43,6 +44,7 @@ function toListItem(row: DocumentRow): DocumentListItem {
     path: row.path,
     title: row.title,
     sensitivity: row.sensitivity,
+    trust_zone: row.trust_zone,
     tags: row.tags,
     summary: row.summary,
     revision_number: row.revision_number,
@@ -77,6 +79,7 @@ export async function listVisibleDocuments(
       knowledge_documents.path,
       knowledge_documents.title,
       knowledge_documents.sensitivity,
+      knowledge_documents.trust_zone,
       knowledge_documents.status,
       knowledge_documents.tags,
       knowledge_documents.updated_at,
@@ -114,6 +117,7 @@ export async function readVisibleDocument(
       knowledge_documents.path,
       knowledge_documents.title,
       knowledge_documents.sensitivity,
+      knowledge_documents.trust_zone,
       knowledge_documents.status,
       knowledge_documents.tags,
       knowledge_documents.updated_at,
@@ -153,6 +157,7 @@ export async function searchVisibleDocuments(
       knowledge_documents.path,
       knowledge_documents.title,
       knowledge_documents.sensitivity,
+      knowledge_documents.trust_zone,
       knowledge_documents.status,
       knowledge_documents.tags,
       knowledge_documents.updated_at,
@@ -259,6 +264,10 @@ function summarizeMarkdown(body: string): string {
     .slice(0, 240);
 }
 
+function trustZoneForSensitivity(sensitivity: SensitivityLabel): TrustZone {
+  return sensitivity === "restricted" ? "red" : "green";
+}
+
 function toWriteResult(row: DocumentWriteResult): DocumentWriteResult {
   return {
     id: row.id,
@@ -266,6 +275,7 @@ function toWriteResult(row: DocumentWriteResult): DocumentWriteResult {
     path: row.path,
     title: row.title,
     sensitivity: row.sensitivity,
+    trust_zone: row.trust_zone,
     status: row.status,
     tags: row.tags,
     summary: row.summary,
@@ -287,11 +297,11 @@ export async function createDocument(
   const rows = await sql`
     with inserted_document as (
       insert into knowledge_documents (
-        org_id, slug, path, title, sensitivity, status, tags, updated_at
+        org_id, slug, path, title, sensitivity, trust_zone, status, tags, updated_at
       ) values (
-        ${auth.organization.id}, ${slug}, ${input.path}, ${input.title}, ${input.sensitivity}, ${input.status}, ${input.tags}, now()
+        ${auth.organization.id}, ${slug}, ${input.path}, ${input.title}, ${input.sensitivity}, ${trustZoneForSensitivity(input.sensitivity)}, ${input.status}, ${input.tags}, now()
       )
-      returning id, slug, path, title, sensitivity, status, tags, updated_at
+      returning id, slug, path, title, sensitivity, trust_zone, status, tags, updated_at
     ),
     inserted_revision as (
       insert into knowledge_document_revisions (
@@ -307,6 +317,7 @@ export async function createDocument(
       inserted_document.path,
       inserted_document.title,
       inserted_document.sensitivity,
+      inserted_document.trust_zone,
       inserted_document.status,
       inserted_document.tags,
       inserted_document.updated_at,
@@ -330,7 +341,7 @@ export async function updateDocument(
   const summary = input.summary ?? summarizeMarkdown(input.body_md);
   const rows = await sql`
     with existing as (
-      select id, title, sensitivity, status, tags
+      select id, title, sensitivity, trust_zone, status, tags
       from knowledge_documents
       where org_id = ${auth.organization.id}
         and slug = ${slug}
@@ -342,6 +353,11 @@ export async function updateDocument(
       set
         title = coalesce(${input.title ?? null}, existing.title),
         sensitivity = coalesce(${input.sensitivity ?? null}, existing.sensitivity),
+        trust_zone = case
+          when ${input.sensitivity ?? null}::text is null then existing.trust_zone
+          when ${input.sensitivity ?? null} = 'restricted' then 'red'
+          else 'green'
+        end,
         status = coalesce(${input.status ?? null}, existing.status),
         tags = coalesce(${input.tags ?? null}::text[], existing.tags),
         updated_at = now()
@@ -353,6 +369,7 @@ export async function updateDocument(
         knowledge_documents.path,
         knowledge_documents.title,
         knowledge_documents.sensitivity,
+        knowledge_documents.trust_zone,
         knowledge_documents.status,
         knowledge_documents.tags,
         knowledge_documents.updated_at
@@ -376,6 +393,7 @@ export async function updateDocument(
       updated_document.path,
       updated_document.title,
       updated_document.sensitivity,
+      updated_document.trust_zone,
       updated_document.status,
       updated_document.tags,
       updated_document.updated_at,

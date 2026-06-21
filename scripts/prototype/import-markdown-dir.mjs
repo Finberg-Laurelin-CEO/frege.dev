@@ -23,6 +23,7 @@ const orgSlug = process.argv[2];
 const markdownDir = process.argv[3];
 const sensitivity = process.argv[4] ?? "internal";
 const status = process.argv[5] ?? "published";
+const trustZone = sensitivity === "restricted" ? "red" : "green";
 
 if (!orgSlug || !markdownDir) {
   console.error(
@@ -129,14 +130,15 @@ for (const absolutePath of files) {
   const [row] = await sql`
     with upserted_document as (
       insert into knowledge_documents (
-        org_id, slug, path, title, sensitivity, status, tags, updated_at
+        org_id, slug, path, title, sensitivity, trust_zone, status, tags, updated_at
       ) values (
-        ${org.id}, ${slug}, ${relativePath}, ${title}, ${sensitivity}, ${status}, ${tags}, now()
+        ${org.id}, ${slug}, ${relativePath}, ${title}, ${sensitivity}, ${trustZone}, ${status}, ${tags}, now()
       )
       on conflict (org_id, slug) do update set
         path = excluded.path,
         title = excluded.title,
         sensitivity = excluded.sensitivity,
+        trust_zone = excluded.trust_zone,
         status = excluded.status,
         tags = excluded.tags,
         updated_at = now()

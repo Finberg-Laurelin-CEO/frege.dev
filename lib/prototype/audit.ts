@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { getSql } from "@/lib/db";
 import type { PrototypeAuthContext } from "@/lib/prototype/auth";
+import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 import type { AuditEvent } from "@/lib/prototype/types";
 
 export type PrototypeAuditInput = {
@@ -43,6 +44,7 @@ export async function logPrototypeAuditEvent(
   input: PrototypeAuditInput,
 ): Promise<void> {
   const sql = getSql();
+  const startedAt = Date.now();
 
   await sql`
     insert into audit_events (
@@ -65,6 +67,17 @@ export async function logPrototypeAuditEvent(
       ${JSON.stringify(input.metadata ?? {})}::jsonb
     )
   `;
+
+  await logTelemetryEvent({
+    actor: { type: "api_key", auth },
+    req,
+    action: input.action,
+    resourceType: input.resourceType,
+    resourceId: input.resourceId,
+    outcome: "success",
+    latencyMs: Date.now() - startedAt,
+    metadata: input.metadata,
+  });
 }
 
 export async function listPrototypeAuditEvents(

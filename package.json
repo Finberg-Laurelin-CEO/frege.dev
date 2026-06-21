@@ -2,12 +2,20 @@
   "name": "frege-dev",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "frege": "packages/frege-cli/bin/frege-mcp.mjs",
+    "frege-mcp": "packages/frege-cli/bin/frege-mcp.mjs"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "agent:worker": "node scripts/prototype/frege-agent-worker.mjs",
+    "agent:worker:once": "node scripts/prototype/frege-agent-worker.mjs --once --verbose",
+    "smoke:backend": "node scripts/prototype/smoke-backend.mjs",
+    "smoke:backend:agent": "node scripts/prototype/smoke-backend.mjs --include-agent-run"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

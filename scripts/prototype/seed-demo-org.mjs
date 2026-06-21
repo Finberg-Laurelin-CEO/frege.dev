@@ -28,6 +28,12 @@ const roles = [
     can_create_docs: false,
     can_update_docs: false,
     can_read_audit: false,
+    can_read_sessions: false,
+    can_write_sessions: true,
+    can_propose_memory: false,
+    can_review_memory_proposals: false,
+    can_manage_sources: false,
+    can_execute_agents: false,
   },
   {
     slug: "writer",
@@ -36,6 +42,12 @@ const roles = [
     can_create_docs: true,
     can_update_docs: true,
     can_read_audit: false,
+    can_read_sessions: true,
+    can_write_sessions: true,
+    can_propose_memory: true,
+    can_review_memory_proposals: false,
+    can_manage_sources: false,
+    can_execute_agents: true,
   },
   {
     slug: "restricted-reader",
@@ -44,6 +56,12 @@ const roles = [
     can_create_docs: false,
     can_update_docs: false,
     can_read_audit: false,
+    can_read_sessions: true,
+    can_write_sessions: true,
+    can_propose_memory: true,
+    can_review_memory_proposals: false,
+    can_manage_sources: false,
+    can_execute_agents: true,
   },
   {
     slug: "admin",
@@ -52,6 +70,12 @@ const roles = [
     can_create_docs: true,
     can_update_docs: true,
     can_read_audit: true,
+    can_read_sessions: true,
+    can_write_sessions: true,
+    can_propose_memory: true,
+    can_review_memory_proposals: true,
+    can_manage_sources: true,
+    can_execute_agents: true,
   },
 ];
 
@@ -171,38 +195,66 @@ async function main() {
     const [row] = await sql`
       insert into roles (
         org_id, slug, name, can_read_labels,
-        can_create_docs, can_update_docs, can_read_audit
+        can_create_docs, can_update_docs, can_read_audit,
+        can_read_sessions, can_write_sessions, can_propose_memory,
+        can_review_memory_proposals, can_manage_sources, can_execute_agents
       ) values (
         ${org.id}, ${role.slug}, ${role.name}, ${role.can_read_labels},
-        ${role.can_create_docs}, ${role.can_update_docs}, ${role.can_read_audit}
+        ${role.can_create_docs}, ${role.can_update_docs}, ${role.can_read_audit},
+        ${role.can_read_sessions}, ${role.can_write_sessions}, ${role.can_propose_memory},
+        ${role.can_review_memory_proposals}, ${role.can_manage_sources}, ${role.can_execute_agents}
       )
       on conflict (org_id, slug) do update set
         name = excluded.name,
         can_read_labels = excluded.can_read_labels,
         can_create_docs = excluded.can_create_docs,
         can_update_docs = excluded.can_update_docs,
-        can_read_audit = excluded.can_read_audit
+        can_read_audit = excluded.can_read_audit,
+        can_read_sessions = excluded.can_read_sessions,
+        can_write_sessions = excluded.can_write_sessions,
+        can_propose_memory = excluded.can_propose_memory,
+        can_review_memory_proposals = excluded.can_review_memory_proposals,
+        can_manage_sources = excluded.can_manage_sources,
+        can_execute_agents = excluded.can_execute_agents
       returning id, slug
     `;
     console.log(`role: ${row.slug} (${row.id})`);
   }
 
   for (const doc of documents) {
-    const [documentRow] = await sql`
-      insert into knowledge_documents (
-        org_id, slug, path, title, sensitivity, status, tags, updated_at
-      ) values (
-        ${org.id}, ${doc.slug}, ${doc.path}, ${doc.title}, ${doc.sensitivity}, ${doc.status}, ${doc.tags}, now()
-      )
-      on conflict (org_id, slug) do update set
-        path = excluded.path,
-        title = excluded.title,
-        sensitivity = excluded.sensitivity,
-        status = excluded.status,
-        tags = excluded.tags,
-        updated_at = now()
-      returning id, slug
+    const [existingDocument] = await sql`
+      select id
+      from knowledge_documents
+      where org_id = ${org.id}
+        and (path = ${doc.path} or slug = ${doc.slug})
+      order by (path = ${doc.path}) desc, updated_at desc
+      limit 1
     `;
+
+    const [documentRow] = existingDocument
+      ? await sql`
+          update knowledge_documents
+          set
+            slug = ${doc.slug},
+            path = ${doc.path},
+            title = ${doc.title},
+            sensitivity = ${doc.sensitivity},
+            trust_zone = ${doc.sensitivity === "restricted" ? "red" : "green"},
+            status = ${doc.status},
+            tags = ${doc.tags},
+            updated_at = now()
+          where id = ${existingDocument.id}
+          returning id, slug
+        `
+      : await sql`
+          insert into knowledge_documents (
+            org_id, slug, path, title, sensitivity, trust_zone, status, tags, updated_at
+          ) values (
+            ${org.id}, ${doc.slug}, ${doc.path}, ${doc.title}, ${doc.sensitivity},
+            ${doc.sensitivity === "restricted" ? "red" : "green"}, ${doc.status}, ${doc.tags}, now()
+          )
+          returning id, slug
+        `;
 
     await sql`
       insert into knowledge_document_revisions (

@@ -4,7 +4,7 @@
 //   DATABASE_URL
 //
 // Usage:
-//   node --env-file=.env.local scripts/prototype/create-role.mjs <org-slug> <role-slug> <role-name> [labels] [can-create-docs] [can-update-docs] [can-read-audit]
+//   node --env-file=.env.local scripts/prototype/create-role.mjs <org-slug> <role-slug> <role-name> [labels] [can-create-docs] [can-update-docs] [can-read-audit] [can-read-sessions] [can-write-sessions] [can-propose-memory] [can-review-memory] [can-manage-sources] [can-execute-agents]
 //
 // labels is comma-separated: public,internal,restricted
 
@@ -26,6 +26,12 @@ const labels = (process.argv[5] ?? "public,internal")
 const canCreateDocs = process.argv[6] === "true";
 const canUpdateDocs = process.argv[7] === "true";
 const canReadAudit = process.argv[8] === "true";
+const canReadSessions = process.argv[9] === "true";
+const canWriteSessions = process.argv[10] !== "false";
+const canProposeMemory = process.argv[11] === "true";
+const canReviewMemory = process.argv[12] === "true";
+const canManageSources = process.argv[13] === "true";
+const canExecuteAgents = process.argv[14] === "true";
 
 if (!orgSlug || !roleSlug || !roleName) {
   console.error(
@@ -58,18 +64,41 @@ if (!org) {
 const [role] = await sql`
   insert into roles (
     org_id, slug, name, can_read_labels,
-    can_create_docs, can_update_docs, can_read_audit
+    can_create_docs, can_update_docs, can_read_audit,
+    can_read_sessions, can_write_sessions, can_propose_memory,
+    can_review_memory_proposals, can_manage_sources, can_execute_agents
   ) values (
     ${org.id}, ${roleSlug}, ${roleName}, ${labels},
-    ${canCreateDocs}, ${canUpdateDocs}, ${canReadAudit}
+    ${canCreateDocs}, ${canUpdateDocs}, ${canReadAudit},
+    ${canReadSessions}, ${canWriteSessions}, ${canProposeMemory},
+    ${canReviewMemory}, ${canManageSources}, ${canExecuteAgents}
   )
   on conflict (org_id, slug) do update set
     name = excluded.name,
     can_read_labels = excluded.can_read_labels,
     can_create_docs = excluded.can_create_docs,
     can_update_docs = excluded.can_update_docs,
-    can_read_audit = excluded.can_read_audit
-  returning id, slug, name, can_read_labels, can_create_docs, can_update_docs, can_read_audit
+    can_read_audit = excluded.can_read_audit,
+    can_read_sessions = excluded.can_read_sessions,
+    can_write_sessions = excluded.can_write_sessions,
+    can_propose_memory = excluded.can_propose_memory,
+    can_review_memory_proposals = excluded.can_review_memory_proposals,
+    can_manage_sources = excluded.can_manage_sources,
+    can_execute_agents = excluded.can_execute_agents
+  returning
+    id,
+    slug,
+    name,
+    can_read_labels,
+    can_create_docs,
+    can_update_docs,
+    can_read_audit,
+    can_read_sessions,
+    can_write_sessions,
+    can_propose_memory,
+    can_review_memory_proposals,
+    can_manage_sources,
+    can_execute_agents
 `;
 
 console.log("Created/updated prototype role.");
@@ -79,3 +108,9 @@ console.log(`labels: ${role.can_read_labels.join(",")}`);
 console.log(`can_create_docs: ${role.can_create_docs}`);
 console.log(`can_update_docs: ${role.can_update_docs}`);
 console.log(`can_read_audit: ${role.can_read_audit}`);
+console.log(`can_read_sessions: ${role.can_read_sessions}`);
+console.log(`can_write_sessions: ${role.can_write_sessions}`);
+console.log(`can_propose_memory: ${role.can_propose_memory}`);
+console.log(`can_review_memory_proposals: ${role.can_review_memory_proposals}`);
+console.log(`can_manage_sources: ${role.can_manage_sources}`);
+console.log(`can_execute_agents: ${role.can_execute_agents}`);
