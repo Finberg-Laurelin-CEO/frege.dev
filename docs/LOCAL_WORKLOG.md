@@ -44,6 +44,7 @@ Rules followed:
 - Frege is planned as hosted SaaS for customers. Local runtime remains for development and the thin MCP/CLI client.
 - The public landing page no longer links to internal prototype/admin/setup routes. `/admin` and `/prototype` are password-session protected and redirect to `/login` before rendering.
 - The authenticated admin console links to `/prototype`; the public site does not.
+- `/setup` is noindexed, unlinked, and redirects to `/login` after the first user exists; it only renders for initial bootstrap when `FREGE_BOOTSTRAP_TOKEN` is configured and the user table is empty.
 
 ## Local Environment
 
