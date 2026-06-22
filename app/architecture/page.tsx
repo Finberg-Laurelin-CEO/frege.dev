@@ -72,7 +72,7 @@ export const metadata: Metadata = {
 
 export default function ArchitecturePage() {
   return (
-    <main id="main" className="docs">
+    <main id="main" className="docs docs--withSidebar">
       <header className="docs__head">
         <p className="eyebrow">Architecture</p>
         <h1>How Frege works.</h1>
@@ -86,13 +86,16 @@ export default function ArchitecturePage() {
           <a className="button button--primary" href="/docs">Read the docs</a>
           <a className="button" href={githubUrl}>View GitHub</a>
         </div>
-        <nav className="docs__toc" aria-label="Contents">
+      </header>
+
+      <div className="docs__layout">
+        <nav className="docs__sidebar" aria-label="Contents">
           {toc.map(([n, id, label]) => (
             <a key={id} href={`#${id}`} data-n={n}>{label}</a>
           ))}
         </nav>
-      </header>
 
+        <div className="docs__main">
       <section id="overview">
         <h2>Overview</h2>
         <p>
@@ -287,6 +290,8 @@ export default function ArchitecturePage() {
           <a className="button" href="/signup">Request pilot access</a>
         </div>
       </section>
+        </div>
+      </div>
     </main>
   );
 }

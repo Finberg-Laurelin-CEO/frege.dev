@@ -57,7 +57,7 @@ export const metadata: Metadata = {
 
 export default function DocsPage() {
   return (
-    <main id="main" className="docs">
+    <main id="main" className="docs docs--withSidebar">
       <header className="docs__head">
         <p className="eyebrow">Documentation</p>
         <h1>Set up Frege for your agents.</h1>
@@ -72,13 +72,16 @@ export default function DocsPage() {
           <a className="button" href="/pricing">Pricing</a>
           <a className="button" href={githubUrl}>View GitHub</a>
         </div>
-        <nav className="docs__toc" aria-label="Contents">
+      </header>
+
+      <div className="docs__layout">
+        <nav className="docs__sidebar" aria-label="Contents">
           {toc.map(([n, id, label]) => (
             <a key={id} href={`#${id}`} data-n={n}>{label}</a>
           ))}
         </nav>
-      </header>
 
+        <div className="docs__main">
       <section id="overview">
         <h2>Overview</h2>
         <p>
@@ -141,19 +144,18 @@ export default function DocsPage() {
       <section id="cli-install">
         <h2>Install the CLI</h2>
         <p>
-          Frege CLI requires Node.js 20 or newer and npm. npm is the primary install channel
-          for the pilot CLI because the Frege command is a Node executable.
+          The CLI is a Node.js executable (Node 20+). Install it globally with npm, then verify
+          the <code>frege</code> command is on your path.
         </p>
-        <h3>Check Node</h3>
-        <pre><code>{`node --version
-npm --version`}</code></pre>
-        <p>The target public package is <code>@frege/cli</code>:</p>
-        <pre><code>{`npm install -g @frege/cli`}</code></pre>
-        <p>Until <code>@frege/cli</code> is public, use the GitHub npm fallback:</p>
-        <pre><code>{`npm install -g github:Finberg-Laurelin-CEO/frege.dev`}</code></pre>
-        <p>Verify the command is installed:</p>
-        <pre><code>{`command -v frege
+        <pre><code>{`# Install (works today)
+npm install -g github:Finberg-Laurelin-CEO/frege.dev
+
+# Verify
 frege --help`}</code></pre>
+        <p className="docs__note">
+          A published <code>@frege/cli</code> npm package and a Homebrew tap are planned. Until then,
+          the GitHub install above is the supported channel.
+        </p>
       </section>
 
       <section id="zsh-path">
@@ -179,17 +181,35 @@ frege --help`}</code></pre>
       <section id="mcp-register">
         <h2>Connect and register MCP</h2>
         <p>
-          Connect once on the agent machine. <code>frege connect</code> stores local config at{" "}
-          <code>~/.frege/mcp/config.json</code>, so MCP client JSON does not need to contain the
-          API key.
+          One command does everything. <code>frege connect</code> saves your key, verifies it
+          against Frege, and automatically registers <code>frege mcp serve</code> with any MCP
+          client it finds (Claude Code, Codex). After it prints your org and role, you are ready
+          to use Frege from that agent.
         </p>
-        <pre><code>{`frege connect https://frege.dev --token frg_live_...
-frege doctor`}</code></pre>
-        <h3>Claude Code</h3>
-        <pre><code>{`claude mcp add frege -- frege mcp serve`}</code></pre>
-        <h3>Codex</h3>
-        <pre><code>{`codex mcp add frege -- frege mcp serve`}</code></pre>
-        <h3>Generic MCP JSON</h3>
+        <pre><code>{`frege connect https://frege.dev --token frg_live_...`}</code></pre>
+        <p>Expected output:</p>
+        <pre><code>{`Frege config saved to ~/.frege/mcp/config.json
+Connected: org acme, role reader, key abc123
+
+Registering Frege with Claude Code... done
+Registering Frege with Codex... done
+
+You're set. Restart your MCP client if it was already running.`}</code></pre>
+        <p>
+          That is the whole setup. Restart your agent client if it was already running, and the
+          Frege tools are available.
+        </p>
+        <h3>If a client is not detected</h3>
+        <p>
+          Install the client CLI, then register it explicitly. This is the same command
+          <code> frege connect</code> runs for you:
+        </p>
+        <pre><code>{`frege agent install claude
+frege agent install codex`}</code></pre>
+        <h3>Manual / generic MCP JSON</h3>
+        <p>
+          Use <code>--no-register</code> to skip auto-registration, or configure a client by hand:
+        </p>
         <pre><code>{`{
   "mcpServers": {
     "frege": {
@@ -199,8 +219,9 @@ frege doctor`}</code></pre>
   }
 }`}</code></pre>
         <p className="docs__note">
-          Environment variables <code>FREGE_BASE_URL</code> and <code>FREGE_API_KEY</code> override
-          local config for automation. Prefer <code>frege connect</code> for day-to-day agent use.
+          The API key lives only in <code>~/.frege/mcp/config.json</code>, so MCP client JSON never
+          needs to contain it. <code>FREGE_BASE_URL</code> and <code>FREGE_API_KEY</code> override
+          local config for automation.
         </p>
       </section>
 
@@ -213,12 +234,12 @@ frege doctor`}</code></pre>
         <pre><code>{`# Using the Frege company brain
 
 - Confirm Node.js 20+ is installed.
-- Install the Frege CLI with npm. Use @frege/cli when public;
-  otherwise use github:Finberg-Laurelin-CEO/frege.dev.
-- Make sure zsh can call frege directly with command -v frege.
+- Install the Frege CLI:
+  npm install -g github:Finberg-Laurelin-CEO/frege.dev
+- Make sure the shell can call frege directly: command -v frege.
 - Run frege connect with the base URL and API key I provide.
-  Run frege doctor and show me the org, role, and key prefix.
-- Register frege mcp serve with this agent client.
+  It verifies the key and auto-registers this client; show me the
+  org, role, and key prefix it prints.
 - Before answering from memory, call frege_build_context so you
   start from scoped, cited company knowledge.
 - Search with frege_search_pages; read specifics with
@@ -301,6 +322,8 @@ npm install -g @frege/cli
 brew tap frege-dev/tap
 brew install frege`}</code></pre>
       </section>
+        </div>
+      </div>
     </main>
   );
 }

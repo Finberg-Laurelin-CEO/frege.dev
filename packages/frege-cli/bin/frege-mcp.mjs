@@ -2,6 +2,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { appendFileSync } from "node:fs";
 import { constants } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -673,11 +674,41 @@ function serve() {
   process.on("exit", (code) => debug(`process:exit:${code}`));
 }
 
+const MCP_CLIENTS = [
+  { id: "claude", bin: "claude", label: "Claude Code" },
+  { id: "codex", bin: "codex", label: "Codex" },
+];
+
+function hasCommand(bin) {
+  const probe = process.platform === "win32" ? "where" : "command";
+  const probeArgs = process.platform === "win32" ? [bin] : ["-v", bin];
+  const result = spawnSync(probe, probeArgs, { stdio: "ignore", shell: process.platform === "win32" });
+  return result.status === 0;
+}
+
+function registerMcpClient(client) {
+  // Idempotent: remove any prior registration, then add. Ignore remove failures.
+  spawnSync(client.bin, ["mcp", "remove", "frege"], { stdio: "ignore" });
+  const result = spawnSync(client.bin, ["mcp", "add", "frege", "--", "frege", "mcp", "serve"], {
+    stdio: "inherit",
+  });
+  return result.status === 0;
+}
+
+async function verifyConnection() {
+  try {
+    const me = await frege("/api/v1/me");
+    return { ok: true, me };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 async function connect(args) {
   const baseUrl = normalizeBaseUrl(args["base-url"] || args._[1] || DEFAULT_BASE_URL);
   const apiKey = args.token || args["api-key"] || process.env.FREGE_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing token. Use: frege connect http://localhost:3000 --token frg_live_...");
+    throw new Error("Missing token. Use: frege connect https://frege.dev --token frg_live_...");
   }
 
   await writeConfig({
@@ -685,17 +716,46 @@ async function connect(args) {
     apiKey,
     connectedAt: new Date().toISOString(),
   });
-
   console.log(`Frege config saved to ${CONFIG_PATH}`);
+
+  const verification = await verifyConnection();
+  if (!verification.ok) {
+    console.log("");
+    console.log("Saved the key, but verifying it failed:");
+    console.log(`  ${verification.error}`);
+    console.log("Check the base URL and token, then run: frege doctor");
+    process.exitCode = 1;
+    return;
+  }
+
+  const { me } = verification;
+  console.log(`Connected: org ${me.organization?.slug ?? "unknown"}, role ${me.role?.slug ?? "unknown"}, key ${me.key?.prefix ?? "unknown"}`);
+
+  if (args["no-register"]) {
+    console.log("");
+    console.log("Skipped MCP client registration (--no-register).");
+    console.log("Register manually with: frege agent install claude|codex");
+    return;
+  }
+
+  const detected = MCP_CLIENTS.filter((client) => hasCommand(client.bin));
+  if (detected.length === 0) {
+    console.log("");
+    console.log("No MCP client CLI detected (claude, codex).");
+    console.log("After installing one, run: frege agent install claude  (or codex)");
+    return;
+  }
+
   console.log("");
-  console.log("Verify:");
-  console.log("  frege doctor");
+  for (const client of detected) {
+    process.stdout.write(`Registering Frege with ${client.label}... `);
+    const ok = registerMcpClient(client);
+    console.log(ok ? "done" : "failed (register manually: frege agent install " + client.id + ")");
+  }
+
   console.log("");
-  console.log("Wire into an MCP-aware agent:");
-  console.log("  claude mcp add frege -- frege mcp serve");
-  console.log("  codex mcp add frege -- frege mcp serve");
-  console.log("");
-  console.log("The agent should use Frege tools for org memory and never touch the database directly.");
+  console.log("You're set. Restart your MCP client if it was already running.");
+  console.log("The agent now has Frege tools for org memory and never touches the database directly.");
 }
 
 async function doctor() {
@@ -740,31 +800,37 @@ async function buildContextCli(args) {
 
 async function installAgent(args) {
   const agent = args._[2] || args.agent || "";
-  if (agent === "claude") {
-    console.log("Run:");
-    console.log("  claude mcp add frege -- frege mcp serve");
-    return;
+  const client = MCP_CLIENTS.find((entry) => entry.id === agent);
+  if (!client) {
+    throw new Error("Missing or unknown agent. Use: frege agent install claude|codex");
   }
-  if (agent === "codex") {
-    console.log("Run:");
-    console.log("  codex mcp add frege -- frege mcp serve");
-    return;
+  if (!hasCommand(client.bin)) {
+    throw new Error(`${client.label} CLI ('${client.bin}') not found on PATH. Install it first.`);
   }
-  throw new Error("Missing agent. Use: frege agent install claude|codex");
+
+  process.stdout.write(`Registering Frege with ${client.label}... `);
+  const ok = registerMcpClient(client);
+  if (!ok) {
+    console.log("failed");
+    throw new Error(`Could not register with ${client.label}. Run manually: ${client.bin} mcp add frege -- frege mcp serve`);
+  }
+  console.log("done");
+  console.log("Restart your MCP client if it was already running.");
 }
 
 function printHelp() {
   console.log(`frege
 
 Usage:
-  frege connect <base-url> --token <frg_live_...>
-  frege doctor
+  frege connect <base-url> --token <frg_live_...>   connect + verify + auto-register MCP clients
+  frege connect ... --no-register                   connect without registering MCP clients
+  frege doctor                                       check stored config and connectivity
   frege status
   frege docs
   frege search "query"
   frege context "query"
   frege mcp serve
-  frege agent install claude|codex
+  frege agent install claude|codex                   register Frege with an MCP client
 
 Compatibility:
   frege-mcp serve

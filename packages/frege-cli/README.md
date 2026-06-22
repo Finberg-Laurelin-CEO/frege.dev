@@ -53,36 +53,42 @@ frege --help
 
 If a GUI MCP client cannot find `frege`, use the absolute path from `command -v frege` in that client's MCP config.
 
-## Connect
+## Connect (one command)
 
 ```bash
 frege connect https://frege.dev --token frg_live_...
-frege doctor
 ```
 
-`connect` writes local machine config:
+`frege connect` does three things:
+
+1. Saves local config to `~/.frege/mcp/config.json`.
+2. Verifies the key against Frege and prints your org, role, and key prefix.
+3. Auto-registers `frege mcp serve` with any MCP client it finds (Claude Code, Codex).
+
+Expected output:
 
 ```text
-~/.frege/mcp/config.json
+Frege config saved to ~/.frege/mcp/config.json
+Connected: org acme, role reader, key abc123
+
+Registering Frege with Claude Code... done
+Registering Frege with Codex... done
+
+You're set. Restart your MCP client if it was already running.
 ```
 
-The config file contains the Frege base URL and API key. It is local machine state and must not be committed. `FREGE_BASE_URL` and `FREGE_API_KEY` override this file for automation.
+That is the whole setup. The config file contains the Frege base URL and API key; it is local machine state and must not be committed. `FREGE_BASE_URL` and `FREGE_API_KEY` override this file for automation.
 
-## Register MCP
+## Register MCP manually
 
-Claude Code:
+`frege connect` registers automatically. If a client was not detected (install its CLI first), register it explicitly:
 
 ```bash
-claude mcp add frege -- frege mcp serve
+frege agent install claude
+frege agent install codex
 ```
 
-Codex:
-
-```bash
-codex mcp add frege -- frege mcp serve
-```
-
-Generic MCP JSON:
+To connect without auto-registering, pass `--no-register`. Generic MCP JSON:
 
 ```json
 {
