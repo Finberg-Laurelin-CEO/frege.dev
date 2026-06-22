@@ -52,7 +52,7 @@ async function main() {
   const routes = [
     { path: "/", needles: ["Request pilot access", "Frege"] },
     { path: "/signup", needles: ["Full name", "Work email", "Org size", "request access"] },
-    { path: "/docs", needles: ["Set up Frege", "Connect over MCP", "frege doctor"] },
+    { path: "/docs", needles: ["Set up Frege", "register MCP", "frege doctor"] },
     { path: "/privacy", needles: ["privacy policy", "org size"] },
     { path: "/login", needles: ["login", "frege internal control plane"] },
   ];
