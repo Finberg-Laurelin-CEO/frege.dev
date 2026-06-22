@@ -59,7 +59,7 @@ Initial scope:
 - Single-page public landing site at `frege.dev`.
 - Signup form for qualified early-access leads.
 - Postgres-backed signup storage.
-- Lead scoring based on urgency, expected users, agent stack, and willingness to join a pilot.
+- Lightweight access requests with qualification handled in follow-up.
 - Basic product narrative around secure agent-readable institutional memory.
 
 Product scope after validation:
@@ -89,23 +89,21 @@ The first job is to validate that companies want a managed, permission-aware mem
 
 ## Signup Form
 
-The public site should collect enough data to validate demand and estimate serving cost.
+The public site should minimize friction and collect only enough data to start a pilot conversation.
 
 Required fields:
 
 - Name.
 - Work email.
 - Company.
-- Role.
-- Company size.
-- Expected number of users.
-- Current agent tools.
-- Monthly AI/tool spend.
-- Decision timeline.
-- Main pain point.
-- Permission to contact.
+- Org size.
 
-The form should not collect confidential company documents or API keys.
+Optional fields:
+
+- Role/title.
+- Other pilot context.
+
+Operational qualification details such as agent tools, expected users, spend, and timeline can be collected during follow-up. The form should not collect confidential company documents or API keys.
 
 ## Data Pathway
 
@@ -116,9 +114,8 @@ Signup flow:
 3. TypeScript backend validates the payload again.
 4. Backend applies basic spam and rate-limit checks.
 5. Backend writes the signup to Postgres.
-6. Lead is scored for qualification.
-7. High-scoring leads get discovery outreach.
-8. Interview notes and aggregate metrics inform pricing, product scope, and investor materials.
+6. Qualified pilot requests get setup outreach.
+7. Follow-up notes and aggregate metrics inform onboarding, pricing, product scope, and investor materials.
 
 Postgres should be the source of truth. Spreadsheet exports are fine for operations, but not as the canonical database.
 

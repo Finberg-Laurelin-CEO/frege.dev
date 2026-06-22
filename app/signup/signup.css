@@ -189,6 +189,35 @@
   border-color: var(--accent);
 }
 
+/* compact access request variant */
+.form--compact {
+  max-width: 72ch;
+}
+
+.form--compact fieldset {
+  margin-bottom: clamp(20px, 4vw, 28px);
+}
+
+.form--compact .field {
+  margin-bottom: 14px;
+}
+
+.form--compact .field textarea {
+  min-height: 4.5em;
+}
+
+.compact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
+}
+
+@media (max-width: 720px) {
+  .compact-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* honeypot — visually removed, still in the DOM for bots */
 .hp {
   position: absolute;

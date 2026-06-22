@@ -1,10 +1,19 @@
 import { z } from "zod";
 
+const NOT_PROVIDED = "Not provided";
+
+function optionalText(defaultValue = NOT_PROVIDED, maxLength = 200) {
+  return z.preprocess(
+    (value) => (typeof value === "string" && value.trim().length === 0 ? undefined : value),
+    z.string().trim().max(maxLength).optional().default(defaultValue),
+  );
+}
+
 /* ───────────────────────────────────────────────────────────────────────────
    Frege signup schema — single source of truth shared by the client form
    (app/signup/page.tsx) and the server route (app/api/signup/route.ts).
 
-   The visible-field validators live in `signupFields`. `clientSchema` is what
+   The stored-field validators live in `signupFields`. `clientSchema` is what
    the form validates against; `signupSchema` adds the anti-spam fields
    (honeypot + client timestamp) that the server checks.
    ─────────────────────────────────────────────────────────────────────────── */
@@ -57,7 +66,7 @@ export const WILLING_TO_PAY = [
   "$10,000+ / mo",
 ] as const;
 
-/** The visible, user-entered fields. */
+/** Stored signup fields. Some qualification fields default to "Not provided" for the short access-request form. */
 export const signupFields = {
   name: z.string().trim().min(1, "Your name is required.").max(200),
   work_email: z
@@ -68,36 +77,35 @@ export const signupFields = {
     .max(320)
     .transform((s) => s.toLowerCase()),
   company: z.string().trim().min(1, "Company is required.").max(200),
-  role: z.string().trim().min(1, "Your role is required.").max(200),
+  role: optionalText(),
   company_size: z.enum(COMPANY_SIZES, {
-    errorMap: () => ({ message: "Select a company size." }),
+    errorMap: () => ({ message: "Select an org size." }),
   }),
   expected_users: z.coerce
     .number({ invalid_type_error: "Enter a number." })
     .int("Enter a whole number.")
-    .min(1, "Must be at least 1.")
-    .max(100000, "That seems too large."),
-  current_agent_tools: z
-    .array(z.enum(AGENT_TOOLS))
-    .min(1, "Select at least one tool."),
+    .min(0, "Must be at least 0.")
+    .max(100000, "That seems too large.")
+    .optional()
+    .default(0),
+  current_agent_tools: z.array(z.enum(AGENT_TOOLS)).optional().default([]),
   // Free text shown when "Other" is checked. Required-if-Other is enforced on
   // the object schema below (a field validator can't see sibling fields).
   other_tool: z.string().trim().max(200).optional().default(""),
-  monthly_ai_spend: z.enum(MONTHLY_AI_SPEND, {
-    errorMap: () => ({ message: "Select a monthly spend range." }),
-  }),
-  willing_to_pay: z.enum(WILLING_TO_PAY, {
-    errorMap: () => ({ message: "Select what you'd expect to pay." }),
-  }),
-  decision_timeline: z.enum(DECISION_TIMELINES, {
-    errorMap: () => ({ message: "Select a decision timeline." }),
-  }),
-  main_pain_point: z
-    .string()
-    .trim()
-    .min(10, "Tell us a little more (at least 10 characters).")
-    .max(1000, "Keep it under 1000 characters."),
-  other_comments: z.string().trim().max(2000).optional().default(""),
+  monthly_ai_spend: z
+    .union([z.enum(MONTHLY_AI_SPEND), z.literal(NOT_PROVIDED)])
+    .optional()
+    .default(NOT_PROVIDED),
+  willing_to_pay: z
+    .union([z.enum(WILLING_TO_PAY), z.literal(NOT_PROVIDED)])
+    .optional()
+    .default(NOT_PROVIDED),
+  decision_timeline: z
+    .union([z.enum(DECISION_TIMELINES), z.literal(NOT_PROVIDED)])
+    .optional()
+    .default(NOT_PROVIDED),
+  main_pain_point: optionalText("Pilot access request", 1000),
+  other_comments: optionalText("", 2000),
   permission_to_contact: z.literal(true, {
     errorMap: () => ({ message: "We need your permission to contact you." }),
   }),

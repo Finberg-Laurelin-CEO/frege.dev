@@ -75,7 +75,7 @@ export default function Home() {
           <a className="button" href={githubUrl}>GitHub</a>
         </div>
         <div className="hero__actions hero__actions--secondary" aria-label="Pilot actions">
-          <a className="button" href="/signup">Claim a pilot seat</a>
+          <a className="button" href="/signup">Request pilot access</a>
           <a className="button" href="mailto:hello@frege.dev">Talk to us</a>
         </div>
         <p className="hero__meta" aria-label="Product shape">
@@ -156,11 +156,11 @@ export default function Home() {
         <p className="eyebrow">Founding pilot</p>
         <h2 id="pilot-title">Bring your agents. Frege brings the governed memory layer.</h2>
         <p>
-          We are working with teams that already run agents and need a safer way to share
-          institutional context.
+          Frege is ready for hands-on pilot teams. The remaining work is onboarding each
+          org: connecting sources, defining trust zones, and issuing first MCP keys.
         </p>
         <div className="hero__actions">
-          <a className="button button--primary" href="/signup">Claim your pilot seat</a>
+          <a className="button button--primary" href="/signup">Request pilot access</a>
           <a className="button" href="/login?next=/admin">Sign in</a>
           <a className="button" href={githubUrl}>GitHub</a>
         </div>

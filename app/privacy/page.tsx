@@ -14,7 +14,7 @@ export default function Privacy() {
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">cat privacy-policy.txt</span></p>
           <p className="out wrap cmt"># frege privacy policy · last updated 2026-06-07. plain language, no dark patterns.</p>
           <dl className="rows policy">
-            <div><dt>what we collect</dt><dd>only what you type into the early-access form: name, work email, company, role, company size, expected users, current agent tools, monthly AI spend, what you'd expect to pay, decision timeline, your main pain point, and any optional comments. nothing else.</dd></div>
+            <div><dt>what we collect</dt><dd>only what you type into the pilot access form: name, work email, company, role/title if provided, org size, optional other info, and permission to contact you. nothing else.</dd></div>
             <div><dt>what we never collect</dt><dd>we do not ask for, store, or transmit your company documents, source code, customer data, or API keys through this site. there is no tracking pixel, no third-party analytics, and no advertising cookie on this page.</dd></div>
             <div><dt>why we collect it</dt><dd>to evaluate early demand, gauge fit for a pilot, and reach out about early access. that is the only purpose.</dd></div>
             <div><dt>how it is stored</dt><dd>submissions are written to a private Postgres database with access limited to the Frege founding team. data is encrypted in transit (TLS) and at rest.</dd></div>
