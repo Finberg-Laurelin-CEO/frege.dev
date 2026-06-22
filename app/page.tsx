@@ -161,6 +161,7 @@ export default function Home() {
         </p>
         <div className="hero__actions">
           <a className="button button--primary" href="/signup">Request pilot access</a>
+          <a className="button" href="/pricing">See pricing</a>
           <a className="button" href="/login?next=/admin">Sign in</a>
           <a className="button" href={githubUrl}>GitHub</a>
         </div>
@@ -172,6 +173,9 @@ export default function Home() {
           <span>Frege — agent memory, governed.</span>
           <span className="foot__links">
             <a href="/docs">docs</a>
+            <a href="/architecture">architecture</a>
+            <a href="/pricing">pricing</a>
+            <a href="/contact">contact</a>
             <a href="/signup">request access</a>
             <a href="/login?next=/admin">sign in</a>
             <a href={githubUrl}>github</a>

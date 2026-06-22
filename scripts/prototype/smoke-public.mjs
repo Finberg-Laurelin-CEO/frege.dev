@@ -53,6 +53,9 @@ async function main() {
     { path: "/", needles: ["Request pilot access", "Frege"] },
     { path: "/signup", needles: ["Full name", "Work email", "Org size", "request access"] },
     { path: "/docs", needles: ["Set up Frege", "register MCP", "frege doctor"] },
+    { path: "/architecture", needles: ["Architecture", "control plane", "trust zone"] },
+    { path: "/pricing", needles: ["$20", "$15", "Enterprise"] },
+    { path: "/contact", needles: ["hello@frege.dev", "Contact"] },
     { path: "/privacy", needles: ["privacy policy", "org size"] },
     { path: "/login", needles: ["login", "frege internal control plane"] },
   ];

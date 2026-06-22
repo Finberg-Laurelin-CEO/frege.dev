@@ -68,6 +68,8 @@ export default function DocsPage() {
         </p>
         <div className="hero__actions">
           <a className="button button--primary" href="/login?next=/admin">Open control plane</a>
+          <a className="button" href="/architecture">Architecture</a>
+          <a className="button" href="/pricing">Pricing</a>
           <a className="button" href={githubUrl}>View GitHub</a>
         </div>
         <nav className="docs__toc" aria-label="Contents">
@@ -289,13 +291,13 @@ frege doctor`}</code></pre>
           exposes <code>frege</code> and <code>frege-mcp</code> binaries. Homebrew is a good later
           macOS convenience once releases, checksums, and a tap are stable.
         </p>
-        <pre><code>{`# Now
-npm install -g @frege/cli
-
-# Fallback until @frege/cli is public
+        <pre><code>{`# Works today (until @frege/cli is published to npm)
 npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
-# Later, after a stable tap exists
+# Coming soon: published npm package
+npm install -g @frege/cli
+
+# Planned: Homebrew tap
 brew tap frege-dev/tap
 brew install frege`}</code></pre>
       </section>
