@@ -62,8 +62,11 @@ function clientIp(req?: Request): string {
 
 function hashIp(ip: string): string {
   const day = new Date().toISOString().slice(0, 10);
-  const salt = process.env.IP_HASH_SALT ?? "frege-default-salt";
-  return createHash("sha256").update(`${ip}|${day}|${salt}`).digest("hex");
+  const salt = process.env.IP_HASH_SALT;
+  if (!salt && process.env.NODE_ENV === "production") {
+    throw new Error("IP_HASH_SALT is not set");
+  }
+  return createHash("sha256").update(`${ip}|${day}|${salt ?? "frege-dev-salt"}`).digest("hex");
 }
 
 function orgIdForActor(actor: TelemetryActor): string | null {

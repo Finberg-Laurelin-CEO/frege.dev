@@ -1,8 +1,8 @@
 # Frege CLI Installation Guide For Agents
 
-Read this file, then install the Frege CLI for the user. Do not ask the user to paste JSON into a browser.
+Read this file, then install the Frege CLI for the user. Do not ask the user to paste API keys into browser JSON. Install the CLI, make sure the shell can call `frege`, connect once, run `frege doctor`, then register `frege mcp serve` with the MCP client.
 
-## Step 1: Get The Frege API Key
+## Step 1: Get the Frege connection details
 
 Ask the user for:
 
@@ -11,7 +11,13 @@ FREGE_BASE_URL
 FREGE_API_KEY
 ```
 
-For local development:
+Hosted pilot default:
+
+```text
+FREGE_BASE_URL=https://frege.dev
+```
+
+For local development only:
 
 ```text
 FREGE_BASE_URL=http://localhost:3000
@@ -23,28 +29,70 @@ The API key starts with:
 frg_live_
 ```
 
-## Step 2: Install The CLI
+Never print the full key after you receive it. If it appears in logs or chat, tell the user to rotate it.
 
-Local repo path:
+## Step 2: Confirm Node.js 20+
 
 ```bash
-cd /Users/Joe/frege/worktrees/feature-prototype-audit-and-admin
-cd packages/frege-cli
-npm link
+node --version
+npm --version
 ```
 
-Future GitHub path:
+Frege requires Node.js 20 or newer. If Node is too old, stop and tell the user to install or activate Node 20+ before continuing.
+
+## Step 3: Install the CLI
+
+Preferred public npm package:
+
+```bash
+npm install -g @frege/cli
+```
+
+Until `@frege/cli` is public, use the GitHub npm fallback:
 
 ```bash
 npm install -g github:Finberg-Laurelin-CEO/frege.dev
 ```
 
-## Step 3: Connect The Token
+Local repo development path:
+
+```bash
+cd /path/to/frege.dev/packages/frege-cli
+npm link
+```
+
+Verify:
+
+```bash
+command -v frege
+frege --help
+```
+
+## Step 4: Make zsh able to call `frege`
+
+If `command -v frege` fails in zsh, add npm's global bin directory to `~/.zshrc`:
+
+```bash
+npm config get prefix
+
+echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+hash -r
+
+command -v frege
+frege --help
+```
+
+If the MCP client is launched from a GUI and still cannot find `frege`, use the absolute path from `command -v frege` in the client config.
+
+## Step 5: Connect the token
 
 ```bash
 frege connect "$FREGE_BASE_URL" --token "$FREGE_API_KEY"
 frege doctor
 ```
+
+`frege doctor` should show the connected org, role, and key prefix. If the org or role is wrong, ask the user for a new API key with the correct role.
 
 `connect` stores local machine config at:
 
@@ -52,27 +100,62 @@ frege doctor
 ~/.frege/mcp/config.json
 ```
 
-Do not commit this file.
+Do not commit this file. `FREGE_BASE_URL` and `FREGE_API_KEY` environment variables override this file for automation.
 
-## Step 4: Register With The Agent
+## Step 6: Register with the agent
 
-Use the agent's native MCP registration command. Examples:
+Use the agent's native MCP registration command.
+
+Claude Code:
 
 ```bash
-claude mcp add frege -- /usr/local/bin/frege mcp serve
+claude mcp add frege -- frege mcp serve
+```
+
+Codex:
+
+```bash
 codex mcp add frege -- frege mcp serve
 ```
 
-If the target client does not have a CLI installer, configure the MCP command equivalent:
+Generic MCP JSON:
 
-```text
-command: frege
-args: mcp serve
+```json
+{
+  "mcpServers": {
+    "frege": {
+      "command": "frege",
+      "args": ["mcp", "serve"]
+    }
+  }
+}
 ```
+
+If the client cannot resolve `frege`, replace `"command": "frege"` with the absolute path from `command -v frege`.
 
 Do not embed the API key in the client config unless the client cannot run local commands. Prefer `frege connect`, which stores the token once in the user's home directory.
 
-## Operating Protocol
+## Step 7: Verify MCP behavior
+
+After registering the MCP server, call the Frege status tool from the client. It should report the same org, role, and key prefix shown by `frege doctor`.
+
+If the client supports tool discovery, confirm tools such as:
+
+```text
+frege_status
+frege_brain_status
+frege_build_context
+frege_search_pages
+frege_get_page
+frege_write_page_proposal
+frege_start_session
+frege_append_session_event
+frege_list_agents
+frege_run_agent
+frege_get_agent_run
+```
+
+## Operating protocol
 
 - Use Frege MCP tools for org memory.
 - Never touch the Frege database directly.
@@ -86,7 +169,50 @@ Do not embed the API key in the client config unless the client cannot run local
 - Use memory proposal tools for changes so Frege can audit and review them.
 - Customer agents should connect to the hosted Frege API. Localhost is for development and smoke testing.
 
-## Hosted Agent Tools
+## Troubleshooting
+
+### `frege: command not found`
+
+```bash
+npm install -g @frege/cli
+# or, until public npm publishing is complete:
+npm install -g github:Finberg-Laurelin-CEO/frege.dev
+
+echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+command -v frege
+```
+
+### Node version error
+
+```bash
+node --version
+```
+
+Frege requires Node.js 20 or newer.
+
+### `frege doctor` says the API key is missing or invalid
+
+```bash
+frege connect "$FREGE_BASE_URL" --token "$FREGE_API_KEY"
+frege doctor
+```
+
+### Wrong org or role
+
+Ask the user to create a new API key in the Frege admin console with the correct role, then reconnect.
+
+### MCP client cannot find `frege`
+
+Use the absolute path returned by:
+
+```bash
+command -v frege
+```
+
+Then configure that path as the MCP command, keeping `args` as `["mcp", "serve"]`.
+
+## Hosted agent tools
 
 The MCP server exposes these hosted-runtime tools when the connected key has `canExecuteAgents`:
 
@@ -97,3 +223,31 @@ frege_get_agent_run
 ```
 
 Hosted agent runs are asynchronous. After `frege_run_agent`, poll `frege_get_agent_run` until `status` is `succeeded`, `failed`, or `cancelled`. Do not call runtime endpoints directly; they are reserved for Frege workers and require `FREGE_RUNTIME_TOKEN`.
+
+## Security
+
+- Frege CLI never reads the database directly.
+- Frege CLI only calls REST APIs with the user's API key.
+- API keys are scoped by org role and owner user.
+- Admins can revoke keys in Frege.
+- `~/.frege/mcp/config.json` is local secret state. Do not commit it.
+- Rotate the API key if it appears in logs, shell history, screenshots, chat, or committed files.
+- Prefer `frege connect` over storing `FREGE_API_KEY` in MCP client JSON.
+
+## Install channel guidance
+
+Use npm now. Add Homebrew later.
+
+```bash
+# Now
+npm install -g @frege/cli
+
+# Fallback until @frege/cli is public
+npm install -g github:Finberg-Laurelin-CEO/frege.dev
+
+# Later
+brew tap frege-dev/tap
+brew install frege
+```
+
+npm is the right first channel because Frege CLI is Node-based and already exposes npm binaries. Homebrew is useful after CLI usage is proven and releases are stable enough to maintain a tap, tarballs, and checksums.

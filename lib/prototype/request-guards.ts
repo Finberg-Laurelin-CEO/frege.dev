@@ -1,3 +1,5 @@
+import { readSessionToken } from "@/lib/prototype/session";
+
 export function assertSafeOrigin(req: Request): Response | null {
   const origin = req.headers.get("origin");
   if (!origin) return null;
@@ -13,6 +15,19 @@ export function assertSafeOrigin(req: Request): Response | null {
   }
 
   return Response.json({ error: "forbidden_origin" }, { status: 403 });
+}
+
+export function assertSafeBrowserMutation(req: Request): Response | null {
+  const fetchSite = req.headers.get("sec-fetch-site");
+  if (fetchSite === "cross-site") return Response.json({ error: "forbidden_origin" }, { status: 403 });
+
+  const hasSessionCookie = Boolean(readSessionToken(req));
+  const method = req.method.toUpperCase();
+  if (hasSessionCookie && ["POST", "PATCH", "PUT", "DELETE"].includes(method) && !req.headers.get("origin")) {
+    return Response.json({ error: "missing_origin" }, { status: 403 });
+  }
+
+  return assertSafeOrigin(req);
 }
 
 export async function readJson(req: Request): Promise<{ ok: true; value: unknown } | { ok: false; response: Response }> {

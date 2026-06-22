@@ -5,4 +5,4 @@ alter table org_model_configs
 
 alter table org_model_configs
   add constraint org_model_configs_provider_chk
-    check (provider in ('openrouter', 'ollama', 'vercel-ai-gateway'));
+    check (provider in ('openrouter', 'ollama', 'vercel-ai-gateway', 'openai-compatible'));

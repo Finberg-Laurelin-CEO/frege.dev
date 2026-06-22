@@ -104,6 +104,27 @@ export async function revokeCurrentSession(req: Request): Promise<void> {
   `;
 }
 
+export async function revokeOtherUserSessions(userId: string, keepSessionId: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    update user_sessions
+    set status = 'revoked', revoked_at = now()
+    where user_id = ${userId}
+      and id <> ${keepSessionId}
+      and status = 'active'
+  `;
+}
+
+export async function revokeAllUserSessions(userId: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    update user_sessions
+    set status = 'revoked', revoked_at = now()
+    where user_id = ${userId}
+      and status = 'active'
+  `;
+}
+
 export async function authenticateSessionToken(rawToken: string | null): Promise<UserSessionContext | null> {
   if (!rawToken) return null;
 

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { normalizeEmail } from "@/lib/prototype/org-guard";
 import { verifyPassword } from "@/lib/prototype/password";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
 import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
 import { createUserSession } from "@/lib/prototype/session";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
@@ -35,6 +36,14 @@ export async function POST(req: Request) {
     if (!parsed.success) return Response.json({ error: "validation" }, { status: 400 });
 
     const email = normalizeEmail(parsed.data.email);
+    const limit = await checkRateLimit(req, {
+      action: "auth.login",
+      limit: 10,
+      windowSeconds: 10 * 60,
+      keyParts: [email],
+    });
+    if (!limit.allowed) return rateLimitedResponse(limit);
+
     const sql = getSql();
     const rows = await sql`
       select users.id, users.email, users.name, creds.password_hash, creds.password_salt

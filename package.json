@@ -12,10 +12,18 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "check": "pnpm typecheck && pnpm build",
+    "db:migrate": "node scripts/prototype/migrate-db.mjs",
+    "db:status": "node scripts/prototype/migrate-db.mjs --status",
+    "db:verify": "node scripts/prototype/migrate-db.mjs --verify",
+    "user:disable": "node scripts/prototype/disable-user.mjs",
+    "user:password": "node scripts/prototype/change-user-password.mjs",
     "agent:worker": "node scripts/prototype/frege-agent-worker.mjs",
     "agent:worker:once": "node scripts/prototype/frege-agent-worker.mjs --once --verbose",
     "smoke:backend": "node scripts/prototype/smoke-backend.mjs",
-    "smoke:backend:agent": "node scripts/prototype/smoke-backend.mjs --include-agent-run"
+    "smoke:backend:agent": "node scripts/prototype/smoke-backend.mjs --include-agent-run",
+    "smoke:public": "node scripts/prototype/smoke-public.mjs",
+    "smoke:admin": "node scripts/prototype/smoke-admin.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",

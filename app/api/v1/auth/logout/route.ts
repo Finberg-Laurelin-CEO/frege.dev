@@ -1,4 +1,4 @@
-import { assertSafeOrigin, routeError } from "@/lib/prototype/request-guards";
+import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
 import { authenticateUserRequest, clearSessionCookie, revokeCurrentSession, userUnauthorized } from "@/lib/prototype/session";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const originError = assertSafeOrigin(req);
+  const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
 
   try {

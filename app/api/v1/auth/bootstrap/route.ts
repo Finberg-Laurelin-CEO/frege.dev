@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
 import { hashPassword } from "@/lib/prototype/password";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
 import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
 import { createUserSession } from "@/lib/prototype/session";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
@@ -24,6 +25,19 @@ export async function POST(req: Request) {
 
   const startedAt = Date.now();
   try {
+    const sql = getSql();
+    const [userCount] = await sql`select count(*)::int as count from users`;
+    if (Number((userCount as { count: number }).count) > 0) {
+      return Response.json({ error: "bootstrap_closed" }, { status: 409 });
+    }
+
+    const limit = await checkRateLimit(req, {
+      action: "auth.bootstrap",
+      limit: 5,
+      windowSeconds: 10 * 60,
+    });
+    if (!limit.allowed) return rateLimitedResponse(limit);
+
     const expectedToken = process.env.FREGE_BOOTSTRAP_TOKEN;
     if (!expectedToken) return Response.json({ error: "bootstrap_disabled" }, { status: 403 });
 
@@ -36,12 +50,6 @@ export async function POST(req: Request) {
     }
     if (parsed.data.token !== expectedToken) {
       return Response.json({ error: "forbidden" }, { status: 403 });
-    }
-
-    const sql = getSql();
-    const [userCount] = await sql`select count(*)::int as count from users`;
-    if (Number((userCount as { count: number }).count) > 0) {
-      return Response.json({ error: "already_bootstrapped" }, { status: 409 });
     }
 
     const email = normalizeEmail(parsed.data.email);

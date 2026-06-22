@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { listAgentDefinitionsForAdmin, upsertAgentDefinitionForAdmin } from "@/lib/prototype/agent-runtime";
-import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
 export const runtime = "nodejs";
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const originError = assertSafeOrigin(req);
+  const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
 
   const startedAt = Date.now();

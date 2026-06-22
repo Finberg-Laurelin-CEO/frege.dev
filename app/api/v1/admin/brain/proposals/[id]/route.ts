@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { resolveMemoryProposal } from "@/lib/prototype/brain";
-import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ const resolveSchema = z.object({
 });
 
 export async function PATCH(req: Request, context: RouteContext) {
-  const originError = assertSafeOrigin(req);
+  const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
 
   const startedAt = Date.now();

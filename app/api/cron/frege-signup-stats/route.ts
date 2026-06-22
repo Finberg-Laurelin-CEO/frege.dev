@@ -29,11 +29,22 @@ export async function GET(req: Request) {
     const hermes = await postHermesStats(stats);
 
     if (!hermes.ok) {
+      if (hermes.skipped) {
+        return Response.json(
+          {
+            ok: true,
+            hermes: "skipped",
+            total_signups: stats.total_signups,
+            signups_last_8h: stats.signups_last_8h,
+            signups_last_24h: stats.signups_last_24h,
+            latest_signup_at: stats.latest_signup_at,
+          },
+          { status: 200 },
+        );
+      }
+
       console.error("hermes signup stats cron failed", hermes);
-      return Response.json(
-        { ok: false, error: hermes.skipped ? "hermes_webhook_not_configured" : "hermes_webhook_failed" },
-        { status: hermes.skipped ? 500 : 502 },
-      );
+      return Response.json({ ok: false, error: "hermes_webhook_failed" }, { status: 502 });
     }
 
     return Response.json(

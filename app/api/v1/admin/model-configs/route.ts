@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { listModelConfigs, upsertModelConfig } from "@/lib/prototype/model-configs";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
 export const runtime = "nodejs";
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const originError = assertSafeOrigin(req);
+  const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
 
   const startedAt = Date.now();
