@@ -63,6 +63,34 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
     }
   }
 
+  async function openPortal() {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/v1/billing/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ org_slug: orgSlug }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(
+          json.error === "no_subscription"
+            ? "This organization has no active subscription to manage yet."
+            : `Could not open billing portal (${json.error ?? res.status}).`,
+        );
+        return;
+      }
+      if (json.portal_url) {
+        window.location.href = json.portal_url;
+      }
+    } catch {
+      setError("Could not open billing portal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <main id="main" className={styles.shell}>
       <header className={styles.header}>
@@ -116,6 +144,9 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
             <div className={styles.buttonRow}>
               <button type="button" className={styles.button} disabled={busy || !orgSlug} onClick={startCheckout}>
                 {busy ? "Starting…" : "Continue to payment"}
+              </button>
+              <button type="button" className={styles.buttonSecondary} disabled={busy || !orgSlug} onClick={openPortal}>
+                Manage billing & seats
               </button>
             </div>
             <p className={styles.sectionLead}>

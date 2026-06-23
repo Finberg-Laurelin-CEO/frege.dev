@@ -120,6 +120,28 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }
 
+  async function openOrgPortal(id: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/orgs/${id}/billing-portal`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(
+          json.error === "no_subscription"
+            ? "This org has no Stripe customer yet."
+            : `Could not open billing portal (${json.error ?? res.status}).`,
+        );
+      } else if (json.portal_url) {
+        window.open(json.portal_url, "_blank", "noopener");
+      }
+    } catch {
+      setError("Could not open billing portal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function approveSignup(id: string) {
     setBusy(true);
     setError("");
@@ -201,6 +223,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                         ) : null}
                         {o.status !== "suspended" ? (
                           <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => setOrgStatus(o.id, "suspended")}>suspend</button>
+                        ) : null}
+                        {o.subscription_status ? (
+                          <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => openOrgPortal(o.id)}>billing</button>
                         ) : null}
                       </td>
                     </tr>

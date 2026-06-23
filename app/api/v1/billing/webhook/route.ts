@@ -10,19 +10,22 @@ async function activateOrg(orgId: string, sub: {
   subscriptionId?: string | null;
   status?: string | null;
   currentPeriodEnd?: number | null;
+  seats?: number | null;
 }) {
   const sql = getSql();
   await sql`
-    insert into org_billing (org_id, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, updated_at)
+    insert into org_billing (org_id, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, seats, updated_at)
     values (
       ${orgId}, ${sub.customerId ?? null}, ${sub.subscriptionId ?? null}, ${sub.status ?? null},
-      ${sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd * 1000).toISOString() : null}, now()
+      ${sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd * 1000).toISOString() : null},
+      ${sub.seats ?? 1}, now()
     )
     on conflict (org_id) do update set
       stripe_customer_id = coalesce(excluded.stripe_customer_id, org_billing.stripe_customer_id),
       stripe_subscription_id = coalesce(excluded.stripe_subscription_id, org_billing.stripe_subscription_id),
       subscription_status = excluded.subscription_status,
       current_period_end = coalesce(excluded.current_period_end, org_billing.current_period_end),
+      seats = coalesce(${sub.seats ?? null}, org_billing.seats),
       updated_at = now()
   `;
   await sql`
@@ -78,12 +81,14 @@ export async function POST(req: Request) {
       const sub = event.data.object as Stripe.Subscription;
       const orgId = sub.metadata?.org_id ?? null;
       const active = sub.status === "active" || sub.status === "trialing";
+      const seats = sub.items?.data?.[0]?.quantity ?? null;
       if (orgId && active) {
         await activateOrg(orgId, {
           customerId: typeof sub.customer === "string" ? sub.customer : null,
           subscriptionId: sub.id,
           status: sub.status,
           currentPeriodEnd: (sub as unknown as { current_period_end?: number }).current_period_end ?? null,
+          seats,
         });
       } else if (!active) {
         await suspendOrgBySubscription(sub.id, sub.status);
