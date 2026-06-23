@@ -36,10 +36,24 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       order by m.role asc, u.email asc
     `;
 
+    const apiKeys = await sql`
+      select
+        k.id, k.name, k.key_prefix, k.status, k.created_at, k.last_used_at, k.expires_at,
+        r.slug as role_slug, owner.email as owner_email
+      from api_keys k
+      left join roles r on r.id = k.role_id
+      left join users owner on owner.id = k.owner_user_id
+      where k.org_id = ${id}
+      order by k.created_at desc
+    `;
+
     const totals = await orgUsageTotals(id, 30);
     const byUser = await orgUsageByUser(id, 30);
 
-    return Response.json({ organization: org, members, usage: { totals, by_user: byUser } }, { status: 200 });
+    return Response.json(
+      { organization: org, members, api_keys: apiKeys, usage: { totals, by_user: byUser } },
+      { status: 200 },
+    );
   } catch (err) {
     return routeError("platform org detail failed", err);
   }

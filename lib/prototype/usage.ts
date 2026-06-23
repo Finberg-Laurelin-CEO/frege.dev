@@ -175,3 +175,23 @@ export async function platformUsageByOrg(days = 30) {
     order by estimated_cost_usd desc, model_calls desc
   `;
 }
+
+// Platform-wide daily totals across all orgs (trend over time).
+export async function platformUsageDailySeries(days = 30) {
+  const sql = getSql();
+  return sql`
+    select
+      ud.day,
+      coalesce(sum(ud.model_calls), 0)::int as model_calls,
+      coalesce(sum(ud.context_builds), 0)::int as context_builds,
+      coalesce(sum(ud.denied_events), 0)::int as denied_events,
+      coalesce(sum(ud.input_tokens), 0)::bigint as input_tokens,
+      coalesce(sum(ud.output_tokens), 0)::bigint as output_tokens,
+      coalesce(sum(ud.estimated_cost_usd), 0)::float as estimated_cost_usd
+    from usage_daily ud
+    where ud.actor_user_id is null
+      and ud.day > (now() - ${`${days} days`}::interval)::date
+    group by ud.day
+    order by ud.day asc
+  `;
+}

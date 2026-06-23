@@ -325,6 +325,34 @@
   min-height: 39px;
 }
 
+.linkButton {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent, #0a6b4d);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.detail {
+  margin-top: 18px;
+  border: 1px solid var(--strong-line);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--accent-soft);
+  display: grid;
+  gap: 16px;
+}
+
+.detailHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
 @media (max-width: 920px) {
   .header,
   .grid,
