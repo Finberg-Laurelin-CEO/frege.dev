@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSql } from "@/lib/db";
+import { resolveAdminSsoStaff } from "@/lib/prototype/admin-sso";
 import { authenticateSessionToken, SESSION_COOKIE, type UserSessionContext } from "@/lib/prototype/session";
 
 function loginUrl(nextPath: string): string {
@@ -17,6 +18,11 @@ export async function requireUserPageSession(nextPath: string): Promise<UserSess
 }
 
 export async function requirePlatformStaffPage(nextPath: string): Promise<UserSessionContext> {
+  // Admin-only deploy: Vercel SSO already gated this request. Skip the second
+  // app-level login and adopt the designated platform-staff identity.
+  const ssoStaff = await resolveAdminSsoStaff();
+  if (ssoStaff) return ssoStaff;
+
   const session = await requireUserPageSession(nextPath);
 
   const sql = getSql();

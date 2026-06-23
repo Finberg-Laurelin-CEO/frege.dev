@@ -1,4 +1,5 @@
 import { getSql } from "@/lib/db";
+import { resolveAdminSsoStaff } from "@/lib/prototype/admin-sso";
 import { authenticateUserRequest, type UserSessionContext } from "@/lib/prototype/session";
 
 export type PlatformStaffContext = {
@@ -11,7 +12,14 @@ export type PlatformAuthResult =
   | { ok: false; response: Response };
 
 // Cross-org operator access. Requires a valid user session AND users.is_platform_staff = true.
+// On the admin-only deploy, Vercel SSO is the single gate: adopt the designated
+// platform-staff identity without requiring a second app session.
 export async function authenticatePlatformStaff(req: Request): Promise<PlatformAuthResult> {
+  const ssoStaff = await resolveAdminSsoStaff();
+  if (ssoStaff) {
+    return { ok: true, auth: { user: ssoStaff.user, session: ssoStaff.session } };
+  }
+
   const session = await authenticateUserRequest(req);
   if (!session) {
     return { ok: false, response: Response.json({ error: "unauthorized" }, { status: 401 }) };
