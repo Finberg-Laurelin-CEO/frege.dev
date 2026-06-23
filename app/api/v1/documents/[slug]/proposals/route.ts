@@ -1,5 +1,5 @@
 import { logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
 import { proposeDocumentRevisionSchema } from "@/lib/prototype/document-write-schema";
 import { createDocumentRevisionProposal } from "@/lib/prototype/documents";
 
@@ -16,6 +16,8 @@ export async function POST(req: Request, context: RouteContext) {
   try {
     const auth = await authenticatePrototypeRequest(req);
     if (!auth) return prototypeUnauthorized();
+    const inactive = assertActiveOrg(auth);
+    if (inactive) return inactive;
     if (!auth.capabilities.canUpdateDocs) {
       return Response.json({ error: "forbidden" }, { status: 403 });
     }

@@ -18,6 +18,8 @@
     "db:verify": "node scripts/prototype/migrate-db.mjs --verify",
     "user:disable": "node scripts/prototype/disable-user.mjs",
     "user:password": "node scripts/prototype/change-user-password.mjs",
+    "user:staff": "node scripts/prototype/set-platform-staff.mjs",
+    "usage:rollup": "node scripts/prototype/rollup-usage.mjs",
     "agent:worker": "node scripts/prototype/frege-agent-worker.mjs",
     "agent:worker:once": "node scripts/prototype/frege-agent-worker.mjs --once --verbose",
     "smoke:backend": "node scripts/prototype/smoke-backend.mjs",
@@ -31,6 +33,7 @@
     "next": "15.5.19",
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "stripe": "^22.2.3",
     "zod": "^3.24.1"
   },
   "devDependencies": {

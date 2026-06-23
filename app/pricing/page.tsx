@@ -99,6 +99,10 @@ export default function PricingPage() {
             </div>
           </article>
         </div>
+        <p className="docs__note">
+          New here? <a className="lnk" href="/signup">Apply for the pilot</a> first. Already approved?{" "}
+          <a className="lnk" href="/billing">Activate your organization</a>.
+        </p>
       </section>
 
       <hr className="rule" aria-hidden="true" />

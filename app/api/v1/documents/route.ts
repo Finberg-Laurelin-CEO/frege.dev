@@ -1,5 +1,5 @@
 import { logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
 import { createDocumentSchema } from "@/lib/prototype/document-write-schema";
 import { createDocument, listVisibleDocuments, parseLimit } from "@/lib/prototype/documents";
 
@@ -10,6 +10,8 @@ export async function GET(req: Request) {
   try {
     const auth = await authenticatePrototypeRequest(req);
     if (!auth) return prototypeUnauthorized();
+    const inactive = assertActiveOrg(auth);
+    if (inactive) return inactive;
 
     const url = new URL(req.url);
     const limit = parseLimit(url.searchParams);
@@ -28,6 +30,8 @@ export async function POST(req: Request) {
   try {
     const auth = await authenticatePrototypeRequest(req);
     if (!auth) return prototypeUnauthorized();
+    const inactive = assertActiveOrg(auth);
+    if (inactive) return inactive;
     if (!auth.capabilities.canCreateDocs) {
       return Response.json({ error: "forbidden" }, { status: 403 });
     }

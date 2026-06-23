@@ -1,5 +1,5 @@
 import { listPrototypeAuditEvents, logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
 import { parseLimit } from "@/lib/prototype/documents";
 
 export const runtime = "nodejs";
@@ -14,6 +14,8 @@ export async function GET(req: Request) {
   try {
     const auth = await authenticatePrototypeRequest(req);
     if (!auth) return prototypeUnauthorized();
+    const inactive = assertActiveOrg(auth);
+    if (inactive) return inactive;
     if (!auth.capabilities.canReadAudit) {
       return Response.json({ error: "forbidden" }, { status: 403 });
     }

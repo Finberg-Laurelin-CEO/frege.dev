@@ -1,5 +1,5 @@
 import { logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
 import { parseLimit, searchVisibleDocuments } from "@/lib/prototype/documents";
 
 export const runtime = "nodejs";
@@ -9,6 +9,8 @@ export async function GET(req: Request) {
   try {
     const auth = await authenticatePrototypeRequest(req);
     if (!auth) return prototypeUnauthorized();
+    const inactive = assertActiveOrg(auth);
+    if (inactive) return inactive;
 
     const url = new URL(req.url);
     const query = url.searchParams.get("q")?.trim() ?? "";

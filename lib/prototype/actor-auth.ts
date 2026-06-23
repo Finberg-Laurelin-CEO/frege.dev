@@ -1,4 +1,4 @@
-import { authenticatePrototypeRequest, type PrototypeAuthContext } from "@/lib/prototype/auth";
+import { authenticatePrototypeRequest, assertActiveOrg, type PrototypeAuthContext } from "@/lib/prototype/auth";
 import { getMembershipForOrg, type HumanOrgContext } from "@/lib/prototype/org-guard";
 import { authenticateUserRequest } from "@/lib/prototype/session";
 import type { SensitivityLabel } from "@/lib/prototype/types";
@@ -51,6 +51,9 @@ export async function authenticateFregeActor(req: Request, orgSlug?: string): Pr
     if (orgSlug && auth.organization.slug !== orgSlug) {
       return { ok: false, response: Response.json({ error: "forbidden_org" }, { status: 403 }) };
     }
+    // Pay-to-activate gate: agents (API keys) are blocked until the org is active.
+    const inactive = assertActiveOrg(auth);
+    if (inactive) return { ok: false, response: inactive };
 
     return {
       ok: true,

@@ -70,6 +70,15 @@ async function main() {
       }
     });
   }
+
+  // Protected APIs must reject anonymous callers cleanly (401), never 500.
+  const guarded = ["/api/v1/platform/orgs", "/api/v1/platform/usage", "/api/v1/platform/users"];
+  for (const path of guarded) {
+    await step(`${path} (anon 401)`, async () => {
+      const res = await fetch(`${baseUrl}${path}`, { headers: { "User-Agent": "frege-public-smoke" } });
+      assert(res.status === 401, `${path} expected 401 for anon, got ${res.status}`);
+    });
+  }
 }
 
 main().catch((error) => {

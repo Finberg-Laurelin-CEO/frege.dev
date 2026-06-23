@@ -1,5 +1,5 @@
 import { logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
 import { createDocumentLink, isDocumentLinkType } from "@/lib/prototype/semantic-map";
 
 export const runtime = "nodejs";
@@ -28,6 +28,8 @@ export async function POST(req: Request) {
   try {
     const auth = await authenticatePrototypeRequest(req);
     if (!auth) return prototypeUnauthorized();
+    const inactive = assertActiveOrg(auth);
+    if (inactive) return inactive;
     if (!auth.capabilities.canUpdateDocs) {
       return Response.json({ error: "forbidden" }, { status: 403 });
     }

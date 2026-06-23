@@ -7,6 +7,7 @@ export type PrototypeAuthContext = {
     id: string;
     slug: string;
     name: string;
+    status: string;
   };
   role: {
     id: string;
@@ -46,6 +47,7 @@ type AuthRow = {
   org_id: string;
   org_slug: string;
   org_name: string;
+  org_status: string;
   role_id: string;
   role_slug: string;
   role_name: string;
@@ -82,6 +84,7 @@ function toAuthContext(row: AuthRow): PrototypeAuthContext {
       id: row.org_id,
       slug: row.org_slug,
       name: row.org_name,
+      status: row.org_status,
     },
     role: {
       id: row.role_id,
@@ -131,6 +134,7 @@ export async function authenticatePrototypeRequest(req: Request): Promise<Protot
       organizations.id as org_id,
       organizations.slug as org_slug,
       organizations.name as org_name,
+      organizations.status as org_status,
       roles.id as role_id,
       roles.slug as role_slug,
       roles.name as role_name,
@@ -171,4 +175,27 @@ export async function authenticatePrototypeRequest(req: Request): Promise<Protot
 
 export function prototypeUnauthorized(): Response {
   return Response.json({ error: "unauthorized" }, { status: 401 });
+}
+
+export function orgInactiveResponse(status: string): Response {
+  return Response.json(
+    {
+      error: "org_inactive",
+      message:
+        status === "suspended"
+          ? "This organization is suspended. Contact your admin or billing."
+          : "This organization is not active yet. Complete payment to activate agent access.",
+      org_status: status,
+    },
+    { status: 403 },
+  );
+}
+
+// Gate agent (API-key) access to data/cost routes behind org activation.
+// Returns a 403 response if the org is not active, otherwise null.
+export function assertActiveOrg(auth: PrototypeAuthContext): Response | null {
+  if (auth.organization.status !== "active") {
+    return orgInactiveResponse(auth.organization.status);
+  }
+  return null;
 }

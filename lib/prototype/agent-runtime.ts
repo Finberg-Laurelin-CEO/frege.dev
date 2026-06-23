@@ -171,6 +171,7 @@ function actorFromRun(row: AgentRunRow): FregeActorContext {
     id: row.org_id,
     slug: String(row.org_slug ?? (snapshot.organization as { slug?: string } | undefined)?.slug ?? "runtime-org"),
     name: String(row.org_name ?? (snapshot.organization as { name?: string } | undefined)?.name ?? "Runtime Org"),
+    status: String((snapshot.organization as { status?: string } | undefined)?.status ?? "active"),
   };
   const allowedLabels = row.allowed_labels;
   const capabilities = {
