@@ -60,8 +60,74 @@ type UsageOrgRow = {
   estimated_cost_usd: number;
 };
 
+type OrgDetail = {
+  organization: {
+    id: string;
+    slug: string;
+    name: string;
+    status: string;
+    plan: string | null;
+    billing_interval: string | null;
+    seats: number | null;
+    subscription_status: string | null;
+    current_period_end: string | null;
+  };
+  members: {
+    user_id: string;
+    email: string;
+    name: string | null;
+    user_status: string;
+    role: string;
+    membership_status: string;
+  }[];
+  api_keys: {
+    id: string;
+    name: string;
+    key_prefix: string;
+    status: string;
+    role_slug: string | null;
+    owner_email: string | null;
+    last_used_at: string | null;
+  }[];
+  usage: {
+    totals: {
+      model_calls: number;
+      context_builds: number;
+      denied_events: number;
+      input_tokens: number;
+      output_tokens: number;
+      estimated_cost_usd: number;
+    };
+    by_user: {
+      user_id: string;
+      email: string;
+      name: string | null;
+      model_calls: number;
+      context_builds: number;
+      denied_events: number;
+      input_tokens: number;
+      output_tokens: number;
+      estimated_cost_usd: number;
+    }[];
+  };
+};
+
+type UsageDayRow = {
+  day: string;
+  model_calls: number;
+  context_builds: number;
+  denied_events: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost_usd: number;
+};
+
 function money(n: number): string {
   return `$${(n ?? 0).toFixed(2)}`;
+}
+
+function shortDay(value: string): string {
+  return String(value).slice(0, 10);
 }
 
 export default function PlatformConsole({ staffEmail }: { staffEmail: string }) {
@@ -73,8 +139,11 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [users, setUsers] = useState<UserRow[]>([]);
   const [signups, setSignups] = useState<SignupRow[]>([]);
   const [usage, setUsage] = useState<UsageOrgRow[]>([]);
+  const [usageSeries, setUsageSeries] = useState<UsageDayRow[]>([]);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
+  const [detail, setDetail] = useState<OrgDetail | null>(null);
+  const [detailBusy, setDetailBusy] = useState(false);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -90,6 +159,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
       setUsers(u.users ?? []);
       setSignups(s.signups ?? []);
       setUsage(g.organizations ?? []);
+      setUsageSeries(g.series ?? []);
     } catch {
       setError("Failed to load platform data.");
     } finally {
@@ -163,6 +233,74 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }
 
+  const openDetail = useCallback(async (orgId: string) => {
+    setDetailBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/orgs/${orgId}`);
+      const json = await res.json();
+      if (!res.ok) {
+        setError(`Failed to load org detail (${res.status}).`);
+        return;
+      }
+      setDetail(json as OrgDetail);
+    } catch {
+      setError("Failed to load org detail.");
+    } finally {
+      setDetailBusy(false);
+    }
+  }, []);
+
+  async function refreshDetail(orgId: string) {
+    await openDetail(orgId);
+    await load();
+  }
+
+  async function revokeKey(orgId: string, keyId: string) {
+    setDetailBusy(true);
+    try {
+      const res = await fetch(`/api/v1/platform/api-keys/${keyId}`, { method: "PATCH" });
+      if (!res.ok) setError(`Revoke key failed (${res.status}).`);
+      else await refreshDetail(orgId);
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+
+  async function setMembershipStatus(orgId: string, userId: string, status: "active" | "disabled") {
+    setDetailBusy(true);
+    try {
+      const res = await fetch(`/api/v1/platform/orgs/${orgId}/members`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, membership_status: status }),
+      });
+      if (!res.ok) setError(`Membership update failed (${res.status}).`);
+      else await refreshDetail(orgId);
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+
+  async function setUserStatus(orgId: string, userId: string, status: "active" | "disabled") {
+    setDetailBusy(true);
+    try {
+      const res = await fetch(`/api/v1/platform/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(json.error === "cannot_disable_self" ? "You can't disable your own account." : `User update failed (${res.status}).`);
+      } else {
+        await refreshDetail(orgId);
+      }
+    } finally {
+      setDetailBusy(false);
+    }
+  }
+
   return (
     <main id="main" className={styles.shell}>
       <header className={styles.header}>
@@ -212,7 +350,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                 <tbody>
                   {orgs.map((o) => (
                     <tr key={o.id}>
-                      <td>{o.slug}</td>
+                      <td>
+                        <button type="button" className={styles.linkButton} onClick={() => openDetail(o.id)}>{o.slug}</button>
+                      </td>
                       <td>{o.status}</td>
                       <td>{o.plan ? `${o.plan}/${o.billing_interval}` : "—"}</td>
                       <td>{o.member_count}</td>
@@ -232,6 +372,115 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                   ))}
                 </tbody>
               </table>
+
+              {detailBusy && !detail ? <p className={styles.status}>Loading org…</p> : null}
+
+              {detail ? (
+                <div className={styles.detail}>
+                  <div className={styles.detailHeader}>
+                    <h3 className={styles.sectionTitle}>
+                      {detail.organization.name} ({detail.organization.slug}) — {detail.organization.status}
+                    </h3>
+                    <button type="button" className={styles.buttonSecondary} onClick={() => setDetail(null)}>close</button>
+                  </div>
+
+                  <div>
+                    <h4 className={styles.label}>Billing</h4>
+                    <p className={styles.sectionLead}>
+                      {detail.organization.plan
+                        ? `${detail.organization.plan} · ${detail.organization.billing_interval} · ${detail.organization.seats ?? 1} seat(s) · ${detail.organization.subscription_status ?? "no subscription"}`
+                        : "No billing record yet."}
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className={styles.label}>Members ({detail.members.length})</h4>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr><th>email</th><th>role</th><th>membership</th><th>user</th><th>actions</th></tr>
+                      </thead>
+                      <tbody>
+                        {detail.members.map((m) => (
+                          <tr key={m.user_id}>
+                            <td>{m.email}</td>
+                            <td>{m.role}</td>
+                            <td>{m.membership_status}</td>
+                            <td>{m.user_status}</td>
+                            <td>
+                              {m.membership_status === "active" ? (
+                                <button type="button" className={styles.buttonSecondary} disabled={detailBusy} onClick={() => setMembershipStatus(detail.organization.id, m.user_id, "disabled")}>revoke access</button>
+                              ) : (
+                                <button type="button" className={styles.button} disabled={detailBusy} onClick={() => setMembershipStatus(detail.organization.id, m.user_id, "active")}>restore</button>
+                              )}
+                              {m.user_status === "active" ? (
+                                <button type="button" className={styles.buttonSecondary} disabled={detailBusy} onClick={() => setUserStatus(detail.organization.id, m.user_id, "disabled")}>disable user</button>
+                              ) : (
+                                <button type="button" className={styles.button} disabled={detailBusy} onClick={() => setUserStatus(detail.organization.id, m.user_id, "active")}>enable user</button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div>
+                    <h4 className={styles.label}>API keys ({detail.api_keys.length})</h4>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr><th>name</th><th>prefix</th><th>role</th><th>owner</th><th>status</th><th>actions</th></tr>
+                      </thead>
+                      <tbody>
+                        {detail.api_keys.map((k) => (
+                          <tr key={k.id}>
+                            <td>{k.name}</td>
+                            <td><code className={styles.code}>{k.key_prefix}</code></td>
+                            <td>{k.role_slug ?? "—"}</td>
+                            <td>{k.owner_email ?? "—"}</td>
+                            <td>{k.status}</td>
+                            <td>
+                              {k.status === "active" ? (
+                                <button type="button" className={styles.buttonSecondary} disabled={detailBusy} onClick={() => revokeKey(detail.organization.id, k.id)}>revoke</button>
+                              ) : null}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div>
+                    <h4 className={styles.label}>Usage by user (30 days)</h4>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr><th>user</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>est. cost</th></tr>
+                      </thead>
+                      <tbody>
+                        {detail.usage.by_user.map((u) => (
+                          <tr key={u.user_id}>
+                            <td>{u.email}</td>
+                            <td>{u.model_calls}</td>
+                            <td>{u.context_builds}</td>
+                            <td>{u.denied_events}</td>
+                            <td>{u.input_tokens}</td>
+                            <td>{u.output_tokens}</td>
+                            <td>{money(u.estimated_cost_usd)}</td>
+                          </tr>
+                        ))}
+                        <tr>
+                          <td><strong>total</strong></td>
+                          <td><strong>{detail.usage.totals.model_calls}</strong></td>
+                          <td><strong>{detail.usage.totals.context_builds}</strong></td>
+                          <td><strong>{detail.usage.totals.denied_events}</strong></td>
+                          <td><strong>{detail.usage.totals.input_tokens}</strong></td>
+                          <td><strong>{detail.usage.totals.output_tokens}</strong></td>
+                          <td><strong>{money(detail.usage.totals.estimated_cost_usd)}</strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -292,7 +541,31 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
           {tab === "usage" ? (
             <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Usage by org (30 days)</h2>
+              <h2 className={styles.sectionTitle}>Daily trend (30 days)</h2>
+              {usageSeries.length === 0 ? (
+                <p className={styles.sectionLead}>No usage recorded in the window yet.</p>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr><th>day</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>est. cost</th></tr>
+                  </thead>
+                  <tbody>
+                    {usageSeries.map((d) => (
+                      <tr key={d.day}>
+                        <td>{shortDay(d.day)}</td>
+                        <td>{d.model_calls}</td>
+                        <td>{d.context_builds}</td>
+                        <td>{d.denied_events}</td>
+                        <td>{d.input_tokens}</td>
+                        <td>{d.output_tokens}</td>
+                        <td>{money(d.estimated_cost_usd)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Usage by org (30 days)</h2>
               <table className={styles.table}>
                 <thead>
                   <tr><th>org</th><th>status</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>est. cost</th></tr>
