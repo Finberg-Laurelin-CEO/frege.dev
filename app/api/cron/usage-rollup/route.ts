@@ -1,4 +1,5 @@
 import { rollupUsage } from "@/lib/prototype/usage";
+import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,6 +13,10 @@ function isCronAuthorized(req: Request): boolean {
 export async function GET(req: Request) {
   if (!isCronAuthorized(req)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  if (!cronsEnabled()) {
+    return cronDisabledResponse();
   }
 
   try {

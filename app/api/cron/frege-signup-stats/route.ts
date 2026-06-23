@@ -1,5 +1,6 @@
 import { getFregeSignupStats, type FregeSignupStats } from "@/lib/frege-signup-stats";
 import { postHermesEvent } from "@/lib/hermes-webhook";
+import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,10 @@ async function postHermesStats(stats: FregeSignupStats) {
 export async function GET(req: Request) {
   if (!isCronAuthorized(req)) {
     return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  if (!cronsEnabled()) {
+    return cronDisabledResponse();
   }
 
   try {

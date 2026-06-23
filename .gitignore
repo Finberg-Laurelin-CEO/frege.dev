@@ -10,3 +10,5 @@ private-plans/
 
 .gstack/
 next-env.d.ts
+.env.frege.local
+.env.stripe.local
