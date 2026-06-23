@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
+import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -47,6 +48,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       outcome: "success",
       latencyMs: Date.now() - startedAt,
       metadata: { status: org.status, by_user: staff.auth.user.email },
+    });
+
+    await recordPlatformAudit(staff.auth, {
+      action: "org.status",
+      targetType: "organization",
+      targetId: org.id,
+      metadata: { status: org.status, slug: org.slug },
     });
 
     return Response.json({ organization: org }, { status: 200 });

@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
+import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
 import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -36,6 +37,13 @@ async function revoke(req: Request, context: RouteContext) {
       outcome: "success",
       latencyMs: Date.now() - startedAt,
       metadata: { key_prefix: apiKey.key_prefix, by_user: staff.auth.user.email },
+    });
+
+    await recordPlatformAudit(staff.auth, {
+      action: "api_key.revoke",
+      targetType: "api_key",
+      targetId: apiKey.id,
+      metadata: { org_id: apiKey.org_id, key_prefix: apiKey.key_prefix },
     });
 
     return Response.json({ api_key: apiKey }, { status: 200 });
