@@ -1,0 +1,6 @@
+{
+  "_comment": "Source of truth for the admin Auth0 application's allowed URLs. Applied by scripts/prototype/auth0-sync-app.mjs against the app named by AUTH0_CLIENT_ID. These are union-merged with whatever is already set, so localhost/preview URLs added for dev are preserved. No secrets belong in this file.",
+  "callbacks": ["https://admin.frege.dev/auth/callback"],
+  "allowed_logout_urls": ["https://admin.frege.dev"],
+  "web_origins": ["https://admin.frege.dev"]
+}
