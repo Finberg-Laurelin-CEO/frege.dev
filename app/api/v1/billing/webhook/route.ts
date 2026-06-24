@@ -33,6 +33,14 @@ async function activateOrg(orgId: string, sub: {
     set status = 'active', activated_at = coalesce(activated_at, now())
     where id = ${orgId}
   `;
+  await sql`
+    update signups s
+    set paid_at = coalesce(s.paid_at, now())
+    from organization_invites i
+    where s.invite_id = i.id
+      and i.org_id = ${orgId}
+      and s.paid_at is null
+  `;
 }
 
 async function suspendOrgBySubscription(subscriptionId: string, status: string) {

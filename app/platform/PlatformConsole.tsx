@@ -26,6 +26,7 @@ type ActionItem = {
 
 type PaymentsOverview = {
   mrr_cents: number;
+  arr_cents: number;
   active_subscriptions: number;
   past_due_subscriptions: number;
   recent_charges: {
@@ -36,7 +37,11 @@ type PaymentsOverview = {
     refunded: boolean;
     description: string | null;
     created: string;
+    customer_id: string | null;
     customer_email: string | null;
+    org_id: string | null;
+    org_slug: string | null;
+    org_name: string | null;
   }[];
   open_invoices: {
     id: string;
@@ -49,6 +54,35 @@ type PaymentsOverview = {
     created: string;
   }[];
   payout: { enabled: boolean; disabled_reason: string | null } | null;
+};
+
+type RevenueTotals = {
+  total_charged_cents: number;
+  total_refunded_cents: number;
+  net_revenue_cents: number;
+  charge_count: number;
+};
+
+type RevenueSummary = RevenueTotals & {
+  mrr_cents: number;
+  arr_cents: number;
+  active_subscriptions: number;
+  unmapped: RevenueTotals;
+  organizations: {
+    org_id: string;
+    org_slug: string;
+    org_name: string;
+    org_status: string;
+    plan: string | null;
+    billing_interval: string | null;
+    seats: number | null;
+    subscription_status: string | null;
+    stripe_customer_id: string | null;
+    total_charged_cents: number;
+    total_refunded_cents: number;
+    net_revenue_cents: number;
+    charge_count: number;
+  }[];
 };
 
 type AuditEvent = {
@@ -94,6 +128,7 @@ type SignupRow = {
   expected_users: number | null;
   invited_at: string | null;
   invite_id: string | null;
+  paid_at: string | null;
 };
 
 type UsageOrgRow = {
@@ -179,6 +214,15 @@ function shortDay(value: string): string {
   return String(value).slice(0, 10);
 }
 
+function planLabel(plan: string | null, interval: string | null): string {
+  return plan ? `${plan}/${interval ?? "—"}` : "—";
+}
+
+function chargeCustomerLabel(charge: PaymentsOverview["recent_charges"][number]): string {
+  if (charge.org_slug) return `${charge.org_name ?? charge.org_slug} (${charge.org_slug})`;
+  return charge.customer_email ?? charge.customer_id ?? "—";
+}
+
 export default function PlatformConsole({ staffEmail }: { staffEmail: string }) {
   const [tab, setTab] = useState<Tab>("orgs");
   const [error, setError] = useState("");
@@ -191,6 +235,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [usageSeries, setUsageSeries] = useState<UsageDayRow[]>([]);
   const [queue, setQueue] = useState<ActionItem[]>([]);
   const [payments, setPayments] = useState<PaymentsOverview | null>(null);
+  const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
@@ -229,23 +274,44 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   }, []);
 
   const loadPayments = useCallback(async () => {
+    setError("");
     try {
-      const r = await fetch(`/api/v1/platform/payments/overview`);
-      const json = await r.json();
-      if (!r.ok) {
+      const [overviewRes, revenueRes] = await Promise.all([
+        fetch(`/api/v1/platform/payments/overview?limit=25`),
+        fetch(`/api/v1/platform/revenue/summary`),
+      ]);
+      const json = await overviewRes.json();
+      if (!overviewRes.ok) {
         setError(
           json.error === "insufficient_stripe_permission"
             ? "Stripe key lacks permission to read payments."
             : json.error === "billing_unavailable"
               ? "Stripe is not configured."
-              : `Failed to load payments (${r.status}).`,
+              : `Failed to load payments (${overviewRes.status}).`,
         );
         setPayments(null);
+        setRevenue(null);
         return;
       }
       setPayments(json as PaymentsOverview);
+
+      const revenueJson = await revenueRes.json();
+      if (!revenueRes.ok) {
+        setRevenue(null);
+        setError(
+          revenueJson.error === "insufficient_stripe_permission"
+            ? "Stripe key lacks permission to read revenue."
+            : revenueJson.error === "billing_unavailable"
+              ? "Stripe is not configured."
+              : `Failed to load revenue (${revenueRes.status}).`,
+        );
+        return;
+      }
+      setRevenue(revenueJson as RevenueSummary);
     } catch {
       setError("Failed to load payments.");
+      setPayments(null);
+      setRevenue(null);
     }
   }, []);
 
@@ -657,7 +723,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               <h2 className={styles.sectionTitle}>Pilot applications ({signups.length})</h2>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>email</th><th>company</th><th>status</th><th>willing to pay</th><th>action</th></tr>
+                  <tr><th>email</th><th>company</th><th>status</th><th>willing to pay</th><th>paid</th><th>action</th></tr>
                 </thead>
                 <tbody>
                   {signups.map((s) => (
@@ -666,6 +732,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       <td>{s.company ?? "—"}</td>
                       <td>{s.status}</td>
                       <td>{s.willing_to_pay ?? "—"}</td>
+                      <td>{s.paid_at ? shortDay(s.paid_at) : "—"}</td>
                       <td>
                         {s.invite_id ? (
                           inviteLinks[s.id] ? (
@@ -767,11 +834,12 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                 <>
                   <table className={styles.table}>
                     <thead>
-                      <tr><th>MRR</th><th>active subs</th><th>past due</th><th>payouts</th></tr>
+                      <tr><th>MRR</th><th>ARR</th><th>active subs</th><th>past due</th><th>payouts</th></tr>
                     </thead>
                     <tbody>
                       <tr>
                         <td>{money(payments.mrr_cents / 100)}</td>
+                        <td>{money(payments.arr_cents / 100)}</td>
                         <td>{payments.active_subscriptions}</td>
                         <td>{payments.past_due_subscriptions}</td>
                         <td>
@@ -784,6 +852,48 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       </tr>
                     </tbody>
                   </table>
+
+                  {revenue ? (
+                    <>
+                      <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Revenue summary</h2>
+                      <table className={styles.table}>
+                        <thead>
+                          <tr><th>gross</th><th>refunds</th><th>net</th><th>charges</th><th>unmapped net</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>{money(revenue.total_charged_cents / 100)}</td>
+                            <td>{money(revenue.total_refunded_cents / 100)}</td>
+                            <td>{money(revenue.net_revenue_cents / 100)}</td>
+                            <td>{revenue.charge_count}</td>
+                            <td>{money(revenue.unmapped.net_revenue_cents / 100)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+
+                      <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Revenue by org</h2>
+                      <table className={styles.table}>
+                        <thead>
+                          <tr><th>org</th><th>status</th><th>plan</th><th>seats</th><th>subscription</th><th>gross</th><th>refunds</th><th>net</th><th>charges</th></tr>
+                        </thead>
+                        <tbody>
+                          {revenue.organizations.map((org) => (
+                            <tr key={org.org_id}>
+                              <td>{org.org_name} ({org.org_slug})</td>
+                              <td>{org.org_status}</td>
+                              <td>{planLabel(org.plan, org.billing_interval)}</td>
+                              <td>{org.seats ?? "—"}</td>
+                              <td>{org.subscription_status ?? "—"}</td>
+                              <td>{money(org.total_charged_cents / 100)}</td>
+                              <td>{money(org.total_refunded_cents / 100)}</td>
+                              <td>{money(org.net_revenue_cents / 100)}</td>
+                              <td>{org.charge_count}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  ) : null}
 
                   <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Open invoices ({payments.open_invoices.length})</h2>
                   {payments.open_invoices.length === 0 ? (
@@ -819,7 +929,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       {payments.recent_charges.map((c) => (
                         <tr key={c.id}>
                           <td>{shortDay(c.created)}</td>
-                          <td>{c.customer_email ?? "—"}</td>
+                          <td>{chargeCustomerLabel(c)}</td>
                           <td>{money(c.amount / 100)} {c.currency.toUpperCase()}</td>
                           <td>{c.refunded ? "refunded" : c.status}</td>
                           <td>

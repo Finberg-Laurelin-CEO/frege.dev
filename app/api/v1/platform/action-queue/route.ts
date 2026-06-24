@@ -43,6 +43,47 @@ export async function GET(req: Request) {
       });
     }
 
+    // Approved/invited signups whose linked org has not become active after 3 days.
+    const approvedUnpaid = await sql`
+      select
+        s.id,
+        s.work_email,
+        s.invited_at,
+        o.id as org_id,
+        o.slug as org_slug,
+        o.name as org_name,
+        b.subscription_status
+      from signups s
+      join organization_invites i on i.id = s.invite_id
+      join organizations o on o.id = i.org_id
+      left join org_billing b on b.org_id = o.id
+      where s.invite_id is not null
+        and s.invited_at <= now() - interval '3 days'
+        and s.paid_at is null
+        and o.status = 'inactive'
+      order by s.invited_at asc
+      limit 50
+    `;
+    for (const s of approvedUnpaid as Array<{
+      id: string;
+      work_email: string;
+      invited_at: string;
+      org_id: string;
+      org_slug: string;
+      org_name: string;
+      subscription_status: string | null;
+    }>) {
+      const status = s.subscription_status ? `, subscription ${s.subscription_status}` : "";
+      items.push({
+        kind: "signup_approved_unpaid",
+        severity: "high",
+        title: "Approved signup unpaid after 3 days",
+        detail: `${s.work_email} for ${s.org_name ?? s.org_slug}, invited ${String(s.invited_at).slice(0, 10)}${status}`,
+        target_type: "signup",
+        target_id: s.id,
+      });
+    }
+
     // Orgs past_due / unpaid by subscription_status.
     const billingProblem = await sql`
       select o.id, o.name, o.slug, b.subscription_status
