@@ -12,8 +12,19 @@ export async function resolveAuth0Staff(): Promise<UserSessionContext | null> {
 
   const session = await auth0.getSession();
   const email = session?.user?.email;
-  const emailVerified = session?.user?.email_verified;
-  if (!email || emailVerified === false) return null;
+  if (!email) return null;
+
+  // Email-verification enforcement is optional. The real authority for admin
+  // access is the DB is_platform_staff flag below, so by default we accept any
+  // authenticated Auth0 identity whose email maps to a staff user. Set
+  // FREGE_AUTH0_REQUIRE_VERIFIED_EMAIL=true to additionally require a verified
+  // email (recommended once a real email provider is configured in Auth0).
+  if (
+    process.env.FREGE_AUTH0_REQUIRE_VERIFIED_EMAIL === "true" &&
+    session?.user?.email_verified === false
+  ) {
+    return null;
+  }
 
   const normalized = String(email).trim().toLowerCase();
   const sql = getSql();

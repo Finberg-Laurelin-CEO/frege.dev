@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server";
 import { Auth0Client } from "@auth0/nextjs-auth0/server";
 
 // Auth0 is the human sign-in for the admin-only deploy. The client is only
@@ -25,5 +26,17 @@ export const auth0: Auth0Client | null = hasAuth0Env()
       clientSecret: process.env.AUTH0_CLIENT_SECRET,
       secret: process.env.AUTH0_SECRET,
       appBaseUrl: process.env.APP_BASE_URL ?? process.env.AUTH0_BASE_URL,
+      // On callback error (e.g. user cancels, connection misconfigured), show a
+      // readable message instead of crashing with a 500.
+      onCallback: async (error, _ctx, session) => {
+        const base = process.env.APP_BASE_URL ?? process.env.AUTH0_BASE_URL ?? "";
+        if (error) {
+          const url = new URL("/auth/error", base);
+          url.searchParams.set("error", error.code ?? "callback_error");
+          if (error.message) url.searchParams.set("message", error.message);
+          return NextResponse.redirect(url);
+        }
+        return NextResponse.redirect(new URL(session ? "/platform" : "/auth/login", base));
+      },
     })
   : null;
