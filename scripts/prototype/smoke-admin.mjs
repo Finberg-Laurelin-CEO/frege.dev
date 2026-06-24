@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // Production-safe admin API smoke test. Requires FREGE_TEST_EMAIL and FREGE_TEST_PASSWORD.
-// Performs login plus read-only admin API checks. It does not create or mutate data.
+// Performs login plus read-only admin API checks by default. Pass
+// --include-api-key-lifecycle to create a temporary key, use it, revoke it, and
+// verify revoked-key rejection.
 
 function parseArgs(argv) {
   const parsed = {};
@@ -23,6 +25,15 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function assertEqual(actual, expected, message) {
+  if (actual !== expected) throw new Error(`${message}: expected ${expected}, got ${actual}`);
+}
+
+function redactKey(value) {
+  if (!value) return "missing";
+  return `${value.slice(0, 12)}...${value.slice(-4)}`;
+}
+
 function cookieFrom(headers) {
   const setCookie = headers.get("set-cookie");
   assert(setCookie, "login response did not set a session cookie");
@@ -33,11 +44,14 @@ function cookieFrom(headers) {
 }
 
 async function request(baseUrl, route, options = {}) {
+  const method = options.method ?? "GET";
+  const mutates = ["POST", "PATCH", "PUT", "DELETE"].includes(method.toUpperCase());
   const response = await fetch(`${baseUrl}${route}`, {
-    method: options.method ?? "GET",
+    method,
     headers: {
       ...(options.body ? { "Content-Type": "application/json" } : {}),
       ...(options.cookie ? { Cookie: options.cookie } : {}),
+      ...(options.cookie && mutates ? { Origin: baseUrl } : {}),
       "User-Agent": "frege-admin-smoke",
       ...(options.headers ?? {}),
     },
@@ -56,7 +70,7 @@ async function request(baseUrl, route, options = {}) {
   if (!options.expectedStatus && !response.ok) {
     throw new Error(`${route} returned ${response.status}: ${text}`);
   }
-  return { response, json };
+  return { response, status: response.status, json };
 }
 
 async function step(name, fn) {
@@ -71,6 +85,9 @@ async function main() {
   const baseUrl = normalizeBaseUrl(args["base-url"] || process.env.FREGE_BASE_URL);
   const email = args.email || process.env.FREGE_TEST_EMAIL;
   const password = args.password || process.env.FREGE_TEST_PASSWORD;
+  const includeApiKeyLifecycle = Boolean(
+    args["include-api-key-lifecycle"] || process.env.FREGE_SMOKE_API_KEY_LIFECYCLE === "true",
+  );
 
   if (!email || !password) {
     throw new Error("Set FREGE_TEST_EMAIL and FREGE_TEST_PASSWORD for the admin smoke test.");
@@ -96,8 +113,11 @@ async function main() {
     return json;
   });
 
-  const orgSlug = session.memberships.find((membership) => membership.status === "active")?.org_slug;
-  assert(orgSlug, "missing active org slug");
+  const adminMembership = session.memberships.find(
+    (membership) => membership.status === "active" && ["owner", "admin"].includes(membership.role),
+  );
+  assert(adminMembership, "test user must be an active org owner/admin for admin smoke checks");
+  const orgSlug = adminMembership.org_slug;
   const query = `org_slug=${encodeURIComponent(orgSlug)}`;
 
   await step("admin orgs list", async () => {
@@ -106,10 +126,18 @@ async function main() {
     assert(json.organizations.some((org) => org.org_slug === orgSlug), "selected org missing from org list");
   });
 
-  await step("admin roles list", async () => {
+  const members = await step("admin members list", async () => {
+    const { json } = await request(baseUrl, `/api/v1/admin/members?${query}`, { cookie });
+    assert(Array.isArray(json.members), "members response missing members");
+    assert(json.members.some((member) => member.email === email.toLowerCase()), "test user missing from members list");
+    return json.members;
+  });
+
+  const roles = await step("admin roles list", async () => {
     const { json } = await request(baseUrl, `/api/v1/admin/roles?${query}`, { cookie });
     assert(Array.isArray(json.roles), "roles response missing roles");
     assert(json.roles.length > 0, "expected at least one role");
+    return json.roles;
   });
 
   await step("admin api keys list", async () => {
@@ -135,6 +163,78 @@ async function main() {
     assert(json.summary && typeof json.summary === "object", "telemetry response missing summary");
     assert(Array.isArray(json.events), "telemetry response missing events");
   });
+
+  if (!includeApiKeyLifecycle) {
+    console.log("- api key lifecycle smoke... skipped (pass --include-api-key-lifecycle to mutate/revoke a temporary key)");
+    return;
+  }
+
+  const role = roles.find((candidate) => candidate.slug === "reader") ?? roles[0];
+  const owner = members.find((member) => member.email === email.toLowerCase()) ?? members[0];
+  assert(role?.slug, "missing role for API key lifecycle");
+  assert(owner?.id, "missing owner user for API key lifecycle");
+
+  let createdKeyId = "";
+  let rawKey = "";
+  try {
+    rawKey = await step("admin API key creation returns one raw frg_live key", async () => {
+      const { json } = await request(baseUrl, "/api/v1/admin/api-keys", {
+        cookie,
+        method: "POST",
+        body: {
+          org_slug: orgSlug,
+          role_slug: role.slug,
+          owner_user_id: owner.id,
+          name: `smoke ${new Date().toISOString()}`,
+          expires_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        },
+      });
+      assert(json.api_key?.id, "created key missing id");
+      assert(/^frg_live_[a-f0-9]{12}_.+/.test(json.raw_key ?? ""), "created key missing raw frg_live value");
+      createdKeyId = json.api_key.id;
+      console.log(`created ${redactKey(json.raw_key)}`);
+      return json.raw_key;
+    });
+
+    await step("generated API key can call actor status", async () => {
+      const { json } = await request(baseUrl, "/api/v1/brain/status", {
+        headers: { Authorization: `Bearer ${rawKey}` },
+      });
+      assertEqual(json.status?.actor_type, "api_key", "actor type");
+      assertEqual(json.status?.organization?.slug, orgSlug, "api key org slug");
+      assertEqual(json.status?.key?.owner_user_email, owner.email, "api key owner email");
+    });
+
+    await step("generated API key can call context build", async () => {
+      const { json } = await request(baseUrl, "/api/v1/context/build", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${rawKey}` },
+        body: { query: "refund policy", limit: 1 },
+      });
+      assert(json.context?.id, "context build missing id");
+    });
+  } finally {
+    if (createdKeyId) {
+      await step("admin API key revoke", async () => {
+        const { json } = await request(baseUrl, `/api/v1/admin/api-keys/${createdKeyId}?${query}`, {
+          cookie,
+          method: "PATCH",
+        });
+        assertEqual(json.api_key?.status, "revoked", "revoked key status");
+      });
+    }
+  }
+
+  if (rawKey) {
+    await step("revoked API key no longer authenticates", async () => {
+      const { status, json } = await request(baseUrl, "/api/v1/brain/status", {
+        expectedStatus: 401,
+        headers: { Authorization: `Bearer ${rawKey}` },
+      });
+      assertEqual(status, 401, "revoked key status code");
+      assertEqual(json.error, "unauthorized", "revoked key error");
+    });
+  }
 }
 
 main().catch((error) => {

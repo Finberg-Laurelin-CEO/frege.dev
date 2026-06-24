@@ -19,6 +19,9 @@ const acceptInviteSchema = z.object({
 type InviteRow = {
   id: string;
   org_id: string;
+  org_slug: string;
+  org_name: string;
+  org_status: "inactive" | "active" | "suspended";
   email: string;
   role: "owner" | "admin" | "member" | "viewer";
 };
@@ -57,11 +60,19 @@ export async function POST(req: Request) {
 
     const sql = getSql();
     const rows = await sql`
-      select id, org_id, email, role
+      select
+        organization_invites.id,
+        organization_invites.org_id,
+        organizations.slug as org_slug,
+        organizations.name as org_name,
+        organizations.status as org_status,
+        organization_invites.email,
+        organization_invites.role
       from organization_invites
+      join organizations on organizations.id = organization_invites.org_id
       where invite_token_hash = ${tokenHash}
-        and status = 'pending'
-        and expires_at > now()
+        and organization_invites.status = 'pending'
+        and organization_invites.expires_at > now()
       limit 1
     `;
     const invite = rows[0] as InviteRow | undefined;
@@ -118,6 +129,8 @@ export async function POST(req: Request) {
     `;
 
     const session = await createUserSession(user.id);
+    const canManageBilling = invite.role === "owner" || invite.role === "admin";
+    const nextPath = invite.org_status === "active" || !canManageBilling ? "/admin" : "/billing";
     await logTelemetryEvent({
       actor: { type: "system", orgId: invite.org_id },
       req,
@@ -130,7 +143,16 @@ export async function POST(req: Request) {
     });
 
     return Response.json(
-      { user: { id: user.id, email: user.email, name: user.name } },
+      {
+        user: { id: user.id, email: user.email, name: user.name },
+        organization: {
+          id: invite.org_id,
+          slug: invite.org_slug,
+          name: invite.org_name,
+          status: invite.org_status,
+        },
+        next_path: nextPath,
+      },
       { status: 200, headers: { "Set-Cookie": session.cookie } },
     );
   } catch (err) {
