@@ -1,8 +1,25 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import SiteNav from "./components/SiteNav";
+import AdminNav from "./components/AdminNav";
+import { isAuth0AdminMode } from "@/lib/prototype/auth0";
 
-export const metadata: Metadata = {
+// The admin-only deploy (admin.frege.dev) is an operations console, not the
+// public marketing site. We gate the nav and metadata on this flag.
+const isAdminOnly = process.env.FREGE_ADMIN_ONLY === "true";
+
+// Marketing metadata for the public site. On the admin-only deploy we serve a
+// minimal noindex shell instead so the operations console is never indexed and
+// never advertises the marketing brand.
+const adminMetadata: Metadata = {
+  title: "Frege Admin",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
+
+const siteMetadata: Metadata = {
   metadataBase: new URL("https://frege.dev/"),
   title: "Frege — the company brain for AI agents",
   description:
@@ -26,6 +43,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const metadata: Metadata = isAdminOnly ? adminMetadata : siteMetadata;
+
 export default function RootLayout({
   children,
 }: {
@@ -45,7 +64,7 @@ export default function RootLayout({
       </head>
       <body>
         <a className="skip" href="#main">skip to content</a>
-        <SiteNav />
+        {isAdminOnly ? <AdminNav auth0={isAuth0AdminMode()} /> : <SiteNav />}
         {children}
         <Analytics />
       </body>

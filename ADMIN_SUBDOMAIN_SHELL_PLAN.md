@@ -65,6 +65,33 @@ Manual checks:
 - `/auth/login` and `/auth/callback` still work.
 - `/platform` requires Auth0 and lands on the platform console.
 
+## Manual setup (Vercel + Auth0)
+
+These steps are not code and must be done in the dashboards. The admin shell is
+driven by `FREGE_ADMIN_ONLY=true`; the middleware additionally treats any request
+on an `admin.` host as admin mode.
+
+### Vercel (frege-admin project)
+
+1. **Custom domain** — add `admin.frege.dev` to the `frege-admin` project and
+   point the `admin` CNAME at Vercel per the dashboard instructions.
+2. **Environment variables** (Production):
+   - `APP_BASE_URL=https://admin.frege.dev`
+   - `FREGE_ADMIN_ONLY=true`
+   - Auth0 vars (usually injected by the Vercel Auth0 integration):
+     `AUTH0_DOMAIN`, `AUTH0_CLIENT_ID`, `AUTH0_CLIENT_SECRET`, `AUTH0_SECRET`.
+3. Redeploy after changing env vars so the new values take effect.
+
+### Auth0 (admin application)
+
+In the Auth0 application used for admin sign-in, set:
+
+- **Allowed Callback URLs:** `https://admin.frege.dev/auth/callback`
+- **Allowed Logout URLs:** `https://admin.frege.dev`
+- **Allowed Web Origins:** `https://admin.frege.dev`
+
+(Keep any existing localhost / preview URLs alongside these for development.)
+
 ## Out of scope
 
 - Do not migrate user-side auth to Auth0 here.
