@@ -3,6 +3,7 @@ node_modules
 out
 dist
 .env
+.env.*
 .env*.local
 *.tsbuildinfo
 private-plans/
