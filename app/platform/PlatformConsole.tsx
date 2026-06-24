@@ -6,13 +6,13 @@ import styles from "../admin/admin.module.css";
 type Tab = "queue" | "orgs" | "users" | "signups" | "usage" | "payments" | "audit";
 
 const tabs: { id: Tab; label: string }[] = [
-  { id: "queue", label: "action queue" },
-  { id: "orgs", label: "orgs" },
-  { id: "users", label: "users" },
-  { id: "signups", label: "approvals" },
-  { id: "usage", label: "usage" },
-  { id: "payments", label: "payments" },
-  { id: "audit", label: "audit" },
+  { id: "queue", label: "Queue" },
+  { id: "orgs", label: "Organizations" },
+  { id: "users", label: "Users" },
+  { id: "signups", label: "Approvals" },
+  { id: "usage", label: "Usage" },
+  { id: "payments", label: "Payments" },
+  { id: "audit", label: "Audit" },
 ];
 
 type ActionItem = {
@@ -210,6 +210,10 @@ function money(n: number): string {
   return `$${(n ?? 0).toFixed(2)}`;
 }
 
+function num(n: number): string {
+  return (n ?? 0).toLocaleString("en-US");
+}
+
 function shortDay(value: string): string {
   return String(value).slice(0, 10);
 }
@@ -222,6 +226,41 @@ function chargeCustomerLabel(charge: PaymentsOverview["recent_charges"][number])
   if (charge.org_slug) return `${charge.org_name ?? charge.org_slug} (${charge.org_slug})`;
   return charge.customer_email ?? charge.customer_id ?? "—";
 }
+
+type BadgeTone = "ok" | "warn" | "danger" | "muted" | "neutral";
+
+// Map a backend status string to a visual tone. Centralised so org status,
+// subscription status, membership, key, charge and invoice states stay
+// consistent across every table.
+function statusTone(status: string | null | undefined): BadgeTone {
+  const s = (status ?? "").toLowerCase();
+  if (!s) return "muted";
+  if (["active", "succeeded", "paid", "enabled", "trialing", "live"].includes(s)) return "ok";
+  if (["past_due", "unpaid", "incomplete", "pending", "open", "incomplete_expired"].includes(s)) return "warn";
+  if (["suspended", "canceled", "cancelled", "refunded", "disabled", "failed", "revoked", "inactive"].includes(s))
+    return "danger";
+  return "neutral";
+}
+
+const badgeClassByTone: Record<BadgeTone, string> = {
+  ok: styles.badgeOk,
+  warn: styles.badgeWarn,
+  danger: styles.badgeDanger,
+  muted: styles.badgeMuted,
+  neutral: "",
+};
+
+function Badge({ status, tone, label }: { status?: string | null; tone?: BadgeTone; label?: string }) {
+  const resolvedTone = tone ?? statusTone(status);
+  const text = label ?? (status && status.length ? status : "—");
+  return <span className={`${styles.badge} ${badgeClassByTone[resolvedTone]}`}>{text}</span>;
+}
+
+const severityTone: Record<string, BadgeTone> = {
+  high: "danger",
+  medium: "warn",
+  low: "neutral",
+};
 
 export default function PlatformConsole({ staffEmail }: { staffEmail: string }) {
   const [tab, setTab] = useState<Tab>("orgs");
@@ -273,8 +312,8 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }, []);
 
-  const loadPayments = useCallback(async () => {
-    setError("");
+  const loadPayments = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setError("");
     try {
       const [overviewRes, revenueRes] = await Promise.all([
         fetch(`/api/v1/platform/payments/overview?limit=25`),
@@ -282,13 +321,17 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
       ]);
       const json = await overviewRes.json();
       if (!overviewRes.ok) {
-        setError(
-          json.error === "insufficient_stripe_permission"
-            ? "Stripe key lacks permission to read payments."
-            : json.error === "billing_unavailable"
-              ? "Stripe is not configured."
-              : `Failed to load payments (${overviewRes.status}).`,
-        );
+        // When loading silently for the summary header, don't surface Stripe
+        // configuration errors as a top-level notice — the Payments tab will.
+        if (!opts?.silent) {
+          setError(
+            json.error === "insufficient_stripe_permission"
+              ? "Stripe key lacks permission to read payments."
+              : json.error === "billing_unavailable"
+                ? "Stripe is not configured."
+                : `Failed to load payments (${overviewRes.status}).`,
+          );
+        }
         setPayments(null);
         setRevenue(null);
         return;
@@ -298,18 +341,20 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
       const revenueJson = await revenueRes.json();
       if (!revenueRes.ok) {
         setRevenue(null);
-        setError(
-          revenueJson.error === "insufficient_stripe_permission"
-            ? "Stripe key lacks permission to read revenue."
-            : revenueJson.error === "billing_unavailable"
-              ? "Stripe is not configured."
-              : `Failed to load revenue (${revenueRes.status}).`,
-        );
+        if (!opts?.silent) {
+          setError(
+            revenueJson.error === "insufficient_stripe_permission"
+              ? "Stripe key lacks permission to read revenue."
+              : revenueJson.error === "billing_unavailable"
+                ? "Stripe is not configured."
+                : `Failed to load revenue (${revenueRes.status}).`,
+          );
+        }
         return;
       }
       setRevenue(revenueJson as RevenueSummary);
     } catch {
-      setError("Failed to load payments.");
+      if (!opts?.silent) setError("Failed to load payments.");
       setPayments(null);
       setRevenue(null);
     }
@@ -327,6 +372,14 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Load queue + payments once on mount so the operator summary header and tab
+  // counts are populated even before those tabs are opened. Runs silently so a
+  // missing Stripe key doesn't show an error before the operator asks for it.
+  useEffect(() => {
+    void loadQueue();
+    void loadPayments({ silent: true });
+  }, [loadQueue, loadPayments]);
 
   useEffect(() => {
     if (tab === "queue") void loadQueue();
@@ -499,6 +552,68 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }
 
+  // --- Derived summary / count values (from already-loaded data) ---
+  const pendingApprovals = signups.filter((s) => !s.invite_id).length;
+  const activeOrgs = orgs.filter((o) => o.status === "active").length;
+  const highQueue = queue.filter((q) => q.severity === "high").length;
+  const paymentIssues = payments
+    ? payments.past_due_subscriptions + payments.open_invoices.length
+    : 0;
+
+  // Counts shown on tab labels. null = don't render a count chip.
+  const tabCounts: Record<Tab, number | null> = {
+    queue: queue.length,
+    orgs: orgs.length,
+    users: users.length,
+    signups: pendingApprovals,
+    usage: null,
+    payments: payments ? payments.past_due_subscriptions : null,
+    audit: null,
+  };
+  const tabCountAlert: Partial<Record<Tab, boolean>> = {
+    queue: highQueue > 0,
+    signups: pendingApprovals > 0,
+    payments: !!payments && payments.past_due_subscriptions > 0,
+  };
+
+  const summaryCards: { key: string; label: string; value: string; hint?: string; alert?: boolean }[] = [
+    {
+      key: "queue",
+      label: "Action queue",
+      value: num(queue.length),
+      hint: highQueue > 0 ? `${highQueue} high priority` : "all clear",
+      alert: highQueue > 0,
+    },
+    {
+      key: "approvals",
+      label: "Pending approvals",
+      value: num(pendingApprovals),
+      hint: pendingApprovals > 0 ? "awaiting invite" : "none waiting",
+      alert: pendingApprovals > 0,
+    },
+    {
+      key: "orgs",
+      label: "Active orgs",
+      value: num(activeOrgs),
+      hint: `${num(orgs.length)} total`,
+    },
+    {
+      key: "payments",
+      label: "Payment issues",
+      value: payments ? num(paymentIssues) : "—",
+      hint: payments
+        ? `${num(payments.past_due_subscriptions)} past due · ${num(payments.open_invoices.length)} open inv.`
+        : "stripe not loaded",
+      alert: paymentIssues > 0,
+    },
+    {
+      key: "mrr",
+      label: "MRR",
+      value: payments ? money(payments.mrr_cents / 100) : "—",
+      hint: payments ? `${num(payments.active_subscriptions)} active subs` : "stripe not loaded",
+    },
+  ];
+
   return (
     <main id="main" className={styles.shell}>
       <header className={styles.header}>
@@ -511,25 +626,44 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
         </div>
       </header>
 
+      <div className={styles.summaryBar}>
+        {summaryCards.map((c) => (
+          <div key={c.key} className={`${styles.summaryCard} ${c.alert ? styles.summaryAlert : ""}`}>
+            <span className={styles.summaryValue}>{c.value}</span>
+            <span className={styles.summaryLabel}>{c.label}</span>
+            {c.hint ? <span className={styles.summaryHint}>{c.hint}</span> : null}
+          </div>
+        ))}
+      </div>
+
       <div className={styles.grid}>
         <nav className={styles.nav} aria-label="Platform sections">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={styles.tab}
-              aria-current={tab === t.id}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
+          {tabs.map((t) => {
+            const count = tabCounts[t.id];
+            return (
+              <button
+                key={t.id}
+                type="button"
+                className={styles.tab}
+                aria-current={tab === t.id}
+                onClick={() => setTab(t.id)}
+              >
+                <span>{t.label}</span>
+                {count !== null ? (
+                  <span className={`${styles.tabCount} ${tabCountAlert[t.id] ? styles.tabCountAlert : ""}`}>
+                    {num(count)}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
           <div style={{ marginTop: 12 }}>
             <input
-              className={styles.field}
-              placeholder="search orgs/users"
+              className={styles.input}
+              placeholder="Search orgs / users"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search organizations and users"
             />
           </div>
         </nav>
@@ -541,9 +675,16 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
           {tab === "orgs" ? (
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Organizations ({orgs.length})</h2>
+              {orgs.length === 0 ? (
+                <div className={styles.empty}>
+                  <strong>No organizations{search ? " match your search" : ""}.</strong>
+                  <span>{search ? "Try a different query." : "Orgs appear here once an approved pilot is created."}</span>
+                </div>
+              ) : (
+              <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>slug</th><th>status</th><th>plan</th><th>members</th><th>keys</th><th>actions</th></tr>
+                  <tr><th>org</th><th>status</th><th>plan</th><th>subscription</th><th>members</th><th>keys</th><th>actions</th></tr>
                 </thead>
                 <tbody>
                   {orgs.map((o) => (
@@ -551,62 +692,89 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       <td>
                         <button type="button" className={styles.linkButton} onClick={() => openDetail(o.id)}>{o.slug}</button>
                       </td>
-                      <td>{o.status}</td>
-                      <td>{o.plan ? `${o.plan}/${o.billing_interval}` : "—"}</td>
+                      <td><Badge status={o.status} /></td>
+                      <td>{o.plan ? `${o.plan} / ${o.billing_interval}` : "—"}</td>
+                      <td>{o.subscription_status ? <Badge status={o.subscription_status} /> : <span className={styles.status}>—</span>}</td>
                       <td>{o.member_count}</td>
                       <td>{o.active_keys}</td>
                       <td>
-                        {o.status !== "active" ? (
-                          <button type="button" className={styles.button} disabled={busy} onClick={() => setOrgStatus(o.id, "active")}>activate</button>
-                        ) : null}
-                        {o.status !== "suspended" ? (
-                          <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => setOrgStatus(o.id, "suspended")}>suspend</button>
-                        ) : null}
-                        {o.subscription_status ? (
-                          <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => openOrgPortal(o.id)}>billing</button>
-                        ) : null}
-                        {o.subscription_status && o.subscription_status !== "canceled" ? (
-                          <button
-                            type="button"
-                            className={styles.buttonSecondary}
-                            disabled={busy}
-                            onClick={() => {
-                              if (window.confirm(`Cancel ${o.slug}'s subscription at period end?`)) {
-                                void cancelSubscription(o.id, false);
-                              }
-                            }}
-                          >
-                            cancel sub
-                          </button>
-                        ) : null}
+                        <div className={styles.rowActions}>
+                          {o.status !== "active" ? (
+                            <button type="button" className={styles.button} disabled={busy} onClick={() => setOrgStatus(o.id, "active")}>activate</button>
+                          ) : null}
+                          {o.status !== "suspended" ? (
+                            <button
+                              type="button"
+                              className={styles.buttonSecondary}
+                              disabled={busy}
+                              onClick={() => {
+                                if (window.confirm(`Suspend ${o.slug}? Members lose access until reactivated.`)) {
+                                  void setOrgStatus(o.id, "suspended");
+                                }
+                              }}
+                            >
+                              suspend
+                            </button>
+                          ) : null}
+                          {o.subscription_status ? (
+                            <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => openOrgPortal(o.id)}>billing</button>
+                          ) : null}
+                          {o.subscription_status && o.subscription_status !== "canceled" ? (
+                            <button
+                              type="button"
+                              className={styles.buttonDanger}
+                              disabled={busy}
+                              onClick={() => {
+                                if (window.confirm(`Cancel ${o.slug}'s subscription at period end?`)) {
+                                  void cancelSubscription(o.id, false);
+                                }
+                              }}
+                            >
+                              cancel sub
+                            </button>
+                          ) : null}
+                        </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
+              )}
 
               {detailBusy && !detail ? <p className={styles.status}>Loading org…</p> : null}
 
               {detail ? (
                 <div className={styles.detail}>
                   <div className={styles.detailHeader}>
-                    <h3 className={styles.sectionTitle}>
-                      {detail.organization.name} ({detail.organization.slug}) — {detail.organization.status}
+                    <h3 className={styles.sectionTitle} style={{ margin: 0 }}>
+                      {detail.organization.name}{" "}
+                      <span className={styles.summaryHint}>({detail.organization.slug})</span>{" "}
+                      <Badge status={detail.organization.status} />
                     </h3>
-                    <button type="button" className={styles.buttonSecondary} onClick={() => setDetail(null)}>close</button>
+                    <button type="button" className={styles.buttonSecondary} onClick={() => setDetail(null)} aria-label="Close org detail">close</button>
                   </div>
 
-                  <div>
+                  {detailBusy ? <p className={styles.status}>Refreshing…</p> : null}
+
+                  <div className={styles.detailSection}>
                     <h4 className={styles.label}>Billing</h4>
-                    <p className={styles.sectionLead}>
-                      {detail.organization.plan
-                        ? `${detail.organization.plan} · ${detail.organization.billing_interval} · ${detail.organization.seats ?? 1} seat(s) · ${detail.organization.subscription_status ?? "no subscription"}`
-                        : "No billing record yet."}
-                    </p>
+                    {detail.organization.plan ? (
+                      <p className={styles.sectionLead} style={{ marginTop: 0, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                        <span>{detail.organization.plan} · {detail.organization.billing_interval} · {detail.organization.seats ?? 1} seat(s)</span>
+                        <Badge status={detail.organization.subscription_status ?? "no subscription"} />
+                        {detail.organization.current_period_end ? (
+                          <span className={styles.summaryHint}>renews {shortDay(detail.organization.current_period_end)}</span>
+                        ) : null}
+                      </p>
+                    ) : (
+                      <p className={styles.sectionLead} style={{ marginTop: 0 }}>No billing record yet.</p>
+                    )}
                   </div>
 
-                  <div>
+                  <div className={styles.detailSection}>
                     <h4 className={styles.label}>Members ({detail.members.length})</h4>
+                    <div className={styles.tableScroll}>
                     <table className={styles.table}>
                       <thead>
                         <tr><th>email</th><th>role</th><th>membership</th><th>user</th><th>actions</th></tr>
@@ -616,28 +784,35 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                           <tr key={m.user_id}>
                             <td>{m.email}</td>
                             <td>{m.role}</td>
-                            <td>{m.membership_status}</td>
-                            <td>{m.user_status}</td>
+                            <td><Badge status={m.membership_status} /></td>
+                            <td><Badge status={m.user_status} /></td>
                             <td>
-                              {m.membership_status === "active" ? (
-                                <button type="button" className={styles.buttonSecondary} disabled={detailBusy} onClick={() => setMembershipStatus(detail.organization.id, m.user_id, "disabled")}>revoke access</button>
-                              ) : (
-                                <button type="button" className={styles.button} disabled={detailBusy} onClick={() => setMembershipStatus(detail.organization.id, m.user_id, "active")}>restore</button>
-                              )}
-                              {m.user_status === "active" ? (
-                                <button type="button" className={styles.buttonSecondary} disabled={detailBusy} onClick={() => setUserStatus(detail.organization.id, m.user_id, "disabled")}>disable user</button>
-                              ) : (
-                                <button type="button" className={styles.button} disabled={detailBusy} onClick={() => setUserStatus(detail.organization.id, m.user_id, "active")}>enable user</button>
-                              )}
+                              <div className={styles.rowActions}>
+                                {m.membership_status === "active" ? (
+                                  <button type="button" className={styles.buttonDanger} disabled={detailBusy} onClick={() => { if (window.confirm(`Revoke ${m.email}'s access to ${detail.organization.slug}?`)) void setMembershipStatus(detail.organization.id, m.user_id, "disabled"); }}>revoke access</button>
+                                ) : (
+                                  <button type="button" className={styles.button} disabled={detailBusy} onClick={() => setMembershipStatus(detail.organization.id, m.user_id, "active")}>restore</button>
+                                )}
+                                {m.user_status === "active" ? (
+                                  <button type="button" className={styles.buttonDanger} disabled={detailBusy} onClick={() => { if (window.confirm(`Disable the user account for ${m.email}? This affects every org they belong to.`)) void setUserStatus(detail.organization.id, m.user_id, "disabled"); }}>disable user</button>
+                                ) : (
+                                  <button type="button" className={styles.button} disabled={detailBusy} onClick={() => setUserStatus(detail.organization.id, m.user_id, "active")}>enable user</button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   </div>
 
-                  <div>
+                  <div className={styles.detailSection}>
                     <h4 className={styles.label}>API keys ({detail.api_keys.length})</h4>
+                    {detail.api_keys.length === 0 ? (
+                      <div className={styles.empty}><strong>No API keys.</strong><span>This org hasn&apos;t created any keys yet.</span></div>
+                    ) : (
+                    <div className={styles.tableScroll}>
                     <table className={styles.table}>
                       <thead>
                         <tr><th>name</th><th>prefix</th><th>role</th><th>owner</th><th>status</th><th>actions</th></tr>
@@ -649,20 +824,26 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                             <td><code className={styles.code}>{k.key_prefix}</code></td>
                             <td>{k.role_slug ?? "—"}</td>
                             <td>{k.owner_email ?? "—"}</td>
-                            <td>{k.status}</td>
+                            <td><Badge status={k.status} /></td>
                             <td>
                               {k.status === "active" ? (
-                                <button type="button" className={styles.buttonSecondary} disabled={detailBusy} onClick={() => revokeKey(detail.organization.id, k.id)}>revoke</button>
+                                <button type="button" className={styles.buttonDanger} disabled={detailBusy} onClick={() => { if (window.confirm(`Revoke API key "${k.name}" (${k.key_prefix})? Requests using it will start failing immediately.`)) void revokeKey(detail.organization.id, k.id); }}>revoke</button>
                               ) : null}
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                    </div>
+                    )}
                   </div>
 
-                  <div>
+                  <div className={styles.detailSection}>
                     <h4 className={styles.label}>Usage by user (30 days)</h4>
+                    {detail.usage.by_user.length === 0 ? (
+                      <div className={styles.empty}><strong>No usage in the last 30 days.</strong></div>
+                    ) : (
+                    <div className={styles.tableScroll}>
                     <table className={styles.table}>
                       <thead>
                         <tr><th>user</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>est. cost</th></tr>
@@ -671,25 +852,27 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                         {detail.usage.by_user.map((u) => (
                           <tr key={u.user_id}>
                             <td>{u.email}</td>
-                            <td>{u.model_calls}</td>
-                            <td>{u.context_builds}</td>
-                            <td>{u.denied_events}</td>
-                            <td>{u.input_tokens}</td>
-                            <td>{u.output_tokens}</td>
+                            <td>{num(u.model_calls)}</td>
+                            <td>{num(u.context_builds)}</td>
+                            <td>{num(u.denied_events)}</td>
+                            <td>{num(u.input_tokens)}</td>
+                            <td>{num(u.output_tokens)}</td>
                             <td>{money(u.estimated_cost_usd)}</td>
                           </tr>
                         ))}
                         <tr>
                           <td><strong>total</strong></td>
-                          <td><strong>{detail.usage.totals.model_calls}</strong></td>
-                          <td><strong>{detail.usage.totals.context_builds}</strong></td>
-                          <td><strong>{detail.usage.totals.denied_events}</strong></td>
-                          <td><strong>{detail.usage.totals.input_tokens}</strong></td>
-                          <td><strong>{detail.usage.totals.output_tokens}</strong></td>
+                          <td><strong>{num(detail.usage.totals.model_calls)}</strong></td>
+                          <td><strong>{num(detail.usage.totals.context_builds)}</strong></td>
+                          <td><strong>{num(detail.usage.totals.denied_events)}</strong></td>
+                          <td><strong>{num(detail.usage.totals.input_tokens)}</strong></td>
+                          <td><strong>{num(detail.usage.totals.output_tokens)}</strong></td>
                           <td><strong>{money(detail.usage.totals.estimated_cost_usd)}</strong></td>
                         </tr>
                       </tbody>
                     </table>
+                    </div>
+                    )}
                   </div>
                 </div>
               ) : null}
@@ -699,6 +882,13 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
           {tab === "users" ? (
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Users ({users.length})</h2>
+              {users.length === 0 ? (
+                <div className={styles.empty}>
+                  <strong>No users{search ? " match your search" : ""}.</strong>
+                  <span>{search ? "Try a different query." : "Users appear here after they accept an invite."}</span>
+                </div>
+              ) : (
+              <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead>
                   <tr><th>email</th><th>name</th><th>status</th><th>staff</th><th>orgs</th></tr>
@@ -708,19 +898,29 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                     <tr key={u.id}>
                       <td>{u.email}</td>
                       <td>{u.name ?? "—"}</td>
-                      <td>{u.status}</td>
-                      <td>{u.is_platform_staff ? "yes" : ""}</td>
+                      <td><Badge status={u.status} /></td>
+                      <td>{u.is_platform_staff ? <Badge tone="ok" label="staff" /> : <span className={styles.status}>—</span>}</td>
                       <td>{u.memberships.map((m) => `${m.org_slug}:${m.role}`).join(", ") || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
+              )}
             </div>
           ) : null}
 
           {tab === "signups" ? (
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Pilot applications ({signups.length})</h2>
+              {signups.length === 0 ? (
+                <div className={styles.empty}>
+                  <strong>No pilot applications yet.</strong>
+                  <span>New applications from the signup form land here for review.</span>
+                </div>
+              ) : (
+              <>
+              <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead>
                   <tr><th>email</th><th>company</th><th>status</th><th>willing to pay</th><th>paid</th><th>action</th></tr>
@@ -730,7 +930,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                     <tr key={s.id}>
                       <td>{s.work_email}</td>
                       <td>{s.company ?? "—"}</td>
-                      <td>{s.status}</td>
+                      <td><Badge status={s.status} /></td>
                       <td>{s.willing_to_pay ?? "—"}</td>
                       <td>{s.paid_at ? shortDay(s.paid_at) : "—"}</td>
                       <td>
@@ -738,7 +938,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                           inviteLinks[s.id] ? (
                             <code className={styles.code}>{inviteLinks[s.id]}</code>
                           ) : (
-                            <span className={styles.status}>invited</span>
+                            <Badge tone="ok" label="invited" />
                           )
                         ) : (
                           <button type="button" className={styles.button} disabled={busy} onClick={() => approveSignup(s.id)}>approve + invite</button>
@@ -748,7 +948,10 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                   ))}
                 </tbody>
               </table>
+              </div>
               <p className={styles.sectionLead}>Approving creates an inactive org + owner invite. The org activates after payment.</p>
+              </>
+              )}
             </div>
           ) : null}
 
@@ -756,8 +959,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Daily trend (30 days)</h2>
               {usageSeries.length === 0 ? (
-                <p className={styles.sectionLead}>No usage recorded in the window yet.</p>
+                <div className={styles.empty}><strong>No usage recorded in the window yet.</strong></div>
               ) : (
+                <div className={styles.tableScroll}>
                 <table className={styles.table}>
                   <thead>
                     <tr><th>day</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>est. cost</th></tr>
@@ -766,19 +970,24 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                     {usageSeries.map((d) => (
                       <tr key={d.day}>
                         <td>{shortDay(d.day)}</td>
-                        <td>{d.model_calls}</td>
-                        <td>{d.context_builds}</td>
-                        <td>{d.denied_events}</td>
-                        <td>{d.input_tokens}</td>
-                        <td>{d.output_tokens}</td>
+                        <td>{num(d.model_calls)}</td>
+                        <td>{num(d.context_builds)}</td>
+                        <td>{num(d.denied_events)}</td>
+                        <td>{num(d.input_tokens)}</td>
+                        <td>{num(d.output_tokens)}</td>
                         <td>{money(d.estimated_cost_usd)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
 
               <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Usage by org (30 days)</h2>
+              {usage.length === 0 ? (
+                <div className={styles.empty}><strong>No per-org usage yet.</strong></div>
+              ) : (
+              <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead>
                   <tr><th>org</th><th>status</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>est. cost</th></tr>
@@ -787,17 +996,19 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                   {usage.map((u) => (
                     <tr key={u.org_id}>
                       <td>{u.slug}</td>
-                      <td>{u.status}</td>
-                      <td>{u.model_calls}</td>
-                      <td>{u.context_builds}</td>
-                      <td>{u.denied_events}</td>
-                      <td>{u.input_tokens}</td>
-                      <td>{u.output_tokens}</td>
+                      <td><Badge status={u.status} /></td>
+                      <td>{num(u.model_calls)}</td>
+                      <td>{num(u.context_builds)}</td>
+                      <td>{num(u.denied_events)}</td>
+                      <td>{num(u.input_tokens)}</td>
+                      <td>{num(u.output_tokens)}</td>
                       <td>{money(u.estimated_cost_usd)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
+              )}
             </div>
           ) : null}
 
@@ -805,8 +1016,12 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Action queue ({queue.length})</h2>
               {queue.length === 0 ? (
-                <p className={styles.sectionLead}>Nothing needs attention right now.</p>
+                <div className={styles.empty}>
+                  <strong>Nothing needs attention right now.</strong>
+                  <span>Past-due subscriptions, pending approvals, and other operator tasks show up here.</span>
+                </div>
               ) : (
+                <div className={styles.tableScroll}>
                 <table className={styles.table}>
                   <thead>
                     <tr><th>priority</th><th>item</th><th>detail</th></tr>
@@ -814,13 +1029,14 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                   <tbody>
                     {queue.map((item, i) => (
                       <tr key={`${item.kind}-${item.target_id ?? i}`}>
-                        <td>{item.severity}</td>
+                        <td><Badge tone={severityTone[item.severity] ?? "neutral"} label={item.severity} /></td>
                         <td>{item.title}</td>
                         <td>{item.detail}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           ) : null}
@@ -829,33 +1045,53 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Payments</h2>
               {payments === null ? (
-                <p className={styles.sectionLead}>No payments data loaded.</p>
+                <div className={styles.empty}>
+                  <strong>No payments data loaded.</strong>
+                  <span>Stripe may not be configured, or the key lacks read permission.</span>
+                </div>
               ) : (
                 <>
-                  <table className={styles.table}>
-                    <thead>
-                      <tr><th>MRR</th><th>ARR</th><th>active subs</th><th>past due</th><th>payouts</th></tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>{money(payments.mrr_cents / 100)}</td>
-                        <td>{money(payments.arr_cents / 100)}</td>
-                        <td>{payments.active_subscriptions}</td>
-                        <td>{payments.past_due_subscriptions}</td>
-                        <td>
-                          {payments.payout
-                            ? payments.payout.enabled
-                              ? "enabled"
-                              : `disabled${payments.payout.disabled_reason ? ` (${payments.payout.disabled_reason})` : ""}`
-                            : "unknown"}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className={styles.summary}>
+                    <div className={styles.metric}>
+                      <span className={styles.metricValue}>{money(payments.mrr_cents / 100)}</span>
+                      <span className={styles.metricLabel}>MRR</span>
+                    </div>
+                    <div className={styles.metric}>
+                      <span className={styles.metricValue}>{money(payments.arr_cents / 100)}</span>
+                      <span className={styles.metricLabel}>ARR</span>
+                    </div>
+                    <div className={styles.metric}>
+                      <span className={styles.metricValue}>{num(payments.active_subscriptions)}</span>
+                      <span className={styles.metricLabel}>Active subscriptions</span>
+                    </div>
+                    <div className={styles.metric}>
+                      <span className={styles.metricValue}>{num(payments.past_due_subscriptions)}</span>
+                      <span className={styles.metricLabel}>Past due</span>
+                    </div>
+                    <div className={styles.metric}>
+                      <span className={styles.metricValue} style={{ fontSize: 15 }}>
+                        {payments.payout ? (
+                          <Badge
+                            tone={payments.payout.enabled ? "ok" : "danger"}
+                            label={payments.payout.enabled ? "enabled" : "disabled"}
+                          />
+                        ) : (
+                          <Badge tone="muted" label="unknown" />
+                        )}
+                      </span>
+                      <span className={styles.metricLabel}>
+                        Payouts
+                        {payments.payout && !payments.payout.enabled && payments.payout.disabled_reason
+                          ? ` · ${payments.payout.disabled_reason}`
+                          : ""}
+                      </span>
+                    </div>
+                  </div>
 
                   {revenue ? (
                     <>
                       <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Revenue summary</h2>
+                      <div className={styles.tableScroll}>
                       <table className={styles.table}>
                         <thead>
                           <tr><th>gross</th><th>refunds</th><th>net</th><th>charges</th><th>unmapped net</th></tr>
@@ -865,13 +1101,15 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                             <td>{money(revenue.total_charged_cents / 100)}</td>
                             <td>{money(revenue.total_refunded_cents / 100)}</td>
                             <td>{money(revenue.net_revenue_cents / 100)}</td>
-                            <td>{revenue.charge_count}</td>
+                            <td>{num(revenue.charge_count)}</td>
                             <td>{money(revenue.unmapped.net_revenue_cents / 100)}</td>
                           </tr>
                         </tbody>
                       </table>
+                      </div>
 
                       <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Revenue by org</h2>
+                      <div className={styles.tableScroll}>
                       <table className={styles.table}>
                         <thead>
                           <tr><th>org</th><th>status</th><th>plan</th><th>seats</th><th>subscription</th><th>gross</th><th>refunds</th><th>net</th><th>charges</th></tr>
@@ -880,25 +1118,27 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                           {revenue.organizations.map((org) => (
                             <tr key={org.org_id}>
                               <td>{org.org_name} ({org.org_slug})</td>
-                              <td>{org.org_status}</td>
+                              <td><Badge status={org.org_status} /></td>
                               <td>{planLabel(org.plan, org.billing_interval)}</td>
                               <td>{org.seats ?? "—"}</td>
-                              <td>{org.subscription_status ?? "—"}</td>
+                              <td>{org.subscription_status ? <Badge status={org.subscription_status} /> : <span className={styles.status}>—</span>}</td>
                               <td>{money(org.total_charged_cents / 100)}</td>
                               <td>{money(org.total_refunded_cents / 100)}</td>
                               <td>{money(org.net_revenue_cents / 100)}</td>
-                              <td>{org.charge_count}</td>
+                              <td>{num(org.charge_count)}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </>
                   ) : null}
 
                   <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Open invoices ({payments.open_invoices.length})</h2>
                   {payments.open_invoices.length === 0 ? (
-                    <p className={styles.sectionLead}>No unpaid invoices.</p>
+                    <div className={styles.empty}><strong>No unpaid invoices.</strong></div>
                   ) : (
+                    <div className={styles.tableScroll}>
                     <table className={styles.table}>
                       <thead>
                         <tr><th>customer</th><th>amount</th><th>attempts</th><th>link</th></tr>
@@ -918,9 +1158,14 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                         ))}
                       </tbody>
                     </table>
+                    </div>
                   )}
 
                   <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Recent charges</h2>
+                  {payments.recent_charges.length === 0 ? (
+                    <div className={styles.empty}><strong>No recent charges.</strong></div>
+                  ) : (
+                  <div className={styles.tableScroll}>
                   <table className={styles.table}>
                     <thead>
                       <tr><th>date</th><th>customer</th><th>amount</th><th>status</th><th>action</th></tr>
@@ -931,16 +1176,18 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                           <td>{shortDay(c.created)}</td>
                           <td>{chargeCustomerLabel(c)}</td>
                           <td>{money(c.amount / 100)} {c.currency.toUpperCase()}</td>
-                          <td>{c.refunded ? "refunded" : c.status}</td>
+                          <td>{c.refunded ? <Badge tone="danger" label="refunded" /> : <Badge status={c.status} />}</td>
                           <td>
                             {c.status === "succeeded" && !c.refunded ? (
-                              <button type="button" className={styles.button} disabled={busy} onClick={() => refundCharge(c.id)}>refund</button>
+                              <button type="button" className={styles.buttonDanger} disabled={busy} onClick={() => refundCharge(c.id)}>refund</button>
                             ) : "—"}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  </div>
+                  )}
                 </>
               )}
             </div>
@@ -950,8 +1197,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>Admin audit log ({audit.length})</h2>
               {audit.length === 0 ? (
-                <p className={styles.sectionLead}>No admin actions recorded yet.</p>
+                <div className={styles.empty}><strong>No admin actions recorded yet.</strong></div>
               ) : (
+                <div className={styles.tableScroll}>
                 <table className={styles.table}>
                   <thead>
                     <tr><th>when</th><th>actor</th><th>action</th><th>target</th></tr>
@@ -967,6 +1215,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           ) : null}

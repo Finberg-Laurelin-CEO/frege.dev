@@ -1,4 +1,8 @@
 .shell {
+  /* Local fallbacks for tokens not declared in the global stylesheet, so
+     borders render as subtle rules instead of falling back to currentColor. */
+  --line: #d9e0db;
+  --strong-line: #b7c6bf;
   max-width: 1480px;
   margin: 0 auto;
   padding: 24px var(--pad) 64px;
@@ -49,6 +53,10 @@
 }
 
 .tab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -58,12 +66,46 @@
   text-align: left;
   padding: 10px 12px;
   cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.tab:hover {
+  border-color: var(--accent-dark);
+  color: var(--accent-dark);
 }
 
 .tabActive,
-.tab:hover {
+.tab[aria-current="true"] {
   border-color: var(--accent-dark);
   background: var(--accent-dark);
+  color: #fff;
+}
+
+.tabCount {
+  flex: none;
+  min-width: 20px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 12px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.tab[aria-current="true"] .tabCount {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* Severity-tinted count for tabs that surface items needing attention. */
+.tabCountAlert {
+  background: #fbe4dd;
+  color: #8a2e16;
+}
+
+.tab[aria-current="true"] .tabCountAlert {
+  background: rgba(255, 255, 255, 0.28);
   color: #fff;
 }
 
@@ -351,9 +393,176 @@
   justify-content: space-between;
   align-items: baseline;
   gap: 12px;
+  position: sticky;
+  top: calc(var(--bar-h) + 8px);
+  z-index: 1;
+  margin: -16px -16px 0;
+  padding: 14px 16px;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--strong-line);
+  border-radius: 10px 10px 0 0;
+}
+
+.detailSection {
+  display: grid;
+  gap: 8px;
+}
+
+/* --- Operator summary header --- */
+.summaryBar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.summaryCard {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #fff;
+}
+
+.summaryCard.summaryAlert {
+  border-color: #e7b9aa;
+  background: #fcf1ee;
+}
+
+.summaryValue {
+  font-size: 24px;
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.summaryAlert .summaryValue {
+  color: #8a2e16;
+}
+
+.summaryLabel {
+  color: var(--fg-2);
+  font-size: 12px;
+}
+
+.summaryHint {
+  color: var(--fg-3);
+  font-size: 11px;
+}
+
+/* --- Status badges --- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f3f5f3;
+  color: var(--fg-2);
+  font-size: 11px;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.badgeOk {
+  border-color: #b6dcc9;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.badgeWarn {
+  border-color: #e6cf9c;
+  background: #fbf3df;
+  color: #7a5810;
+}
+
+.badgeDanger {
+  border-color: #e7b9aa;
+  background: #fbe4dd;
+  color: #8a2e16;
+}
+
+.badgeMuted {
+  border-color: var(--line);
+  background: #f0f2f0;
+  color: var(--fg-3);
+}
+
+/* --- Responsive table scroll wrapper --- */
+.tableScroll {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tableScroll .table {
+  min-width: 560px;
+}
+
+/* --- Empty state --- */
+.empty {
+  display: grid;
+  gap: 4px;
+  padding: 22px 16px;
+  border: 1px dashed var(--strong-line);
+  border-radius: 8px;
+  background: #fafbfa;
+  color: var(--fg-2);
+  text-align: center;
+}
+
+.empty strong {
+  color: var(--fg);
+  font-weight: 650;
+}
+
+/* --- Destructive action --- */
+.buttonDanger {
+  border-color: #b23a1c;
+  background: #fff;
+  color: #b23a1c;
+}
+
+.buttonDanger:hover {
+  border-color: #8a2e16;
+  background: #8a2e16;
+  color: #fff;
+}
+
+/* Group row actions so they wrap cleanly on narrow tables. */
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rowActions .button,
+.rowActions .buttonSecondary,
+.rowActions .buttonDanger {
+  min-height: 30px;
+  padding: 0 9px;
+  font-size: 12px;
+}
+
+@media (max-width: 1180px) {
+  .summaryBar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 920px) {
+  .summaryBar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detailHeader {
+    position: static;
+    margin: -16px -16px 0;
+  }
+
   .header,
   .grid,
   .form,
