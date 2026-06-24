@@ -42,5 +42,9 @@ export function routeError(label: string, err: unknown): Response {
   console.error(label, {
     message: (err as Error)?.message,
   });
-  return Response.json({ error: "internal" }, { status: 500 });
+  const debug =
+    process.env.FREGE_DEBUG_ERRORS === "true"
+      ? { error: "internal", debug: (err as Error)?.message ?? String(err) }
+      : { error: "internal" };
+  return Response.json(debug, { status: 500 });
 }
