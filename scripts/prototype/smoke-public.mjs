@@ -57,7 +57,7 @@ async function main() {
     { path: "/pricing", needles: ["$20", "$15", "Enterprise"] },
     { path: "/contact", needles: ["hello@frege.dev", "Contact"] },
     { path: "/privacy", needles: ["privacy policy", "org size"] },
-    { path: "/login", needles: ["login", "frege internal control plane"] },
+    { path: "/login", needles: ["login", "Frege customer workspace"] },
   ];
 
   console.log(`Frege public smoke -> ${baseUrl}`);
