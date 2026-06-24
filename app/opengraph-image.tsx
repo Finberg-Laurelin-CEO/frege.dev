@@ -5,7 +5,7 @@ import { join } from "node:path";
 export const runtime = "nodejs";
 export const contentType = "image/png";
 export const size = { width: 1200, height: 630 };
-export const alt = "Frege — the company brain for AI agents";
+export const alt = "Frege — your agents share a company; they should share a brain";
 
 // Departure Mono — site font. Satori reads OTF (not woff2), so we ship the OTF
 // alongside the woff2 used by the live site.
@@ -55,26 +55,28 @@ export default async function OpenGraphImage() {
         {/* hero */}
         <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
           <div style={{ fontSize: 33, color: "#6b6b6b", display: "flex" }}>
-            agent@frege:~$ whoami
+            agent@frege:~$ get_context
           </div>
           <div
             style={{
-              fontSize: 132,
-              lineHeight: 1,
-              display: "flex",
-            }}
-          >
-            frege
-          </div>
-          <div
-            style={{
-              fontSize: 44,
-              lineHeight: 1.2,
+              fontSize: 56,
+              lineHeight: 1.15,
               display: "flex",
               maxWidth: 1050,
             }}
           >
-            the company brain for your AI agents.
+            Your agents share a company.
+          </div>
+          <div
+            style={{
+              fontSize: 56,
+              lineHeight: 1.15,
+              display: "flex",
+              maxWidth: 1050,
+              color: "#6b6b6b",
+            }}
+          >
+            They should share a brain.
           </div>
           <div
             style={{
@@ -85,9 +87,9 @@ export default async function OpenGraphImage() {
               maxWidth: 1050,
             }}
           >
-            institutional knowledge, made executable — versioned, audited,
-            permission-aware. one source of truth for Codex, Claude Code, and
-            everything next.
+            one governed memory layer for teams running multiple agents — scoped,
+            cited context with access control, audit, and reviewable writes.
+            MCP-native.
           </div>
         </div>
 

@@ -11,23 +11,23 @@ export const metadata: Metadata = {
 };
 
 const soloFeatures = [
-  "One user, one workspace",
-  "Hosted brain with versioned pages",
-  "MCP-native agent access",
-  "Context packets with citations and trust zones",
-  "Reviewable memory proposals",
+  "Stop re-pasting context into every session",
+  "Your knowledge stays versioned, not scattered across files",
+  "Connect Claude Code, Codex, or your own agent over MCP",
+  "Every answer comes back cited, so you can trust it",
+  "Memory updates you approve before they stick",
 ];
 
 const teamFeatures = [
-  "Create teams and add members",
-  "Per-user roles and trust-zone access",
-  "Shared, governed company brain",
-  "Audit, telemetry, and usage by org",
-  "Monthly or annual billing",
+  "Everyone's agents share one brain that can't drift",
+  "Not everyone sees everything — role and trust-zone gates",
+  "Know what each agent read, was denied, and cost",
+  "Agent writes are reviewed before they become canonical",
+  "Monthly, or save with annual billing",
 ];
 
 const enterpriseFeatures = [
-  "Org-wide deployment and onboarding",
+  "We onboard your org and connect your sources",
   "Advanced access control and review workflows",
   "Security review and custom terms",
   "Priority support",
@@ -41,8 +41,10 @@ export default function PricingPage() {
         <p className="eyebrow">Pricing</p>
         <h1>Governed agent memory, priced per user.</h1>
         <p>
-          Start solo, grow into a team, or talk to us for enterprise. Every plan includes
-          the hosted brain, MCP access, trust zones, and reviewable memory.
+          You&apos;re replacing the patchwork: copies of <code>CLAUDE.md</code> that drift, context
+          pasted into every session, and no record of what agents read. Start solo, grow into a
+          team, or talk to us for enterprise. Every plan includes the hosted brain, MCP access,
+          trust zones, and reviewable memory.
         </p>
       </header>
 

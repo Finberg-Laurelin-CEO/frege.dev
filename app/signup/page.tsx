@@ -170,6 +170,17 @@ export default function Signup() {
           Short form. We use this to confirm fit and provision a pilot org.
         </p>
 
+        <div className="pilot-get" aria-label="What you get in the pilot">
+          <p className="pilot-get__head"># what you get in the pilot</p>
+          <ul className="pilot-get__list">
+            <li>A hosted brain provisioned for your org</li>
+            <li>Your first per-user MCP keys</li>
+            <li>Trust-zone setup, done with you</li>
+            <li>Hands-on onboarding to connect your first sources</li>
+            <li>A reply within two business days</li>
+          </ul>
+        </div>
+
         {showSummary && visibleErrors.length > 0 && (
           <div className="summary" role="alert" aria-live="assertive">
             <p>Please fix the following before submitting:</p>
