@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { resolveAdminSsoStaff } from "@/lib/prototype/admin-sso";
+import { resolveAuth0Staff } from "@/lib/prototype/auth0-staff";
 import { authenticatePlatformStaffKey } from "@/lib/prototype/platform-staff-keys";
 import { authenticateUserRequest, type UserSessionContext } from "@/lib/prototype/session";
 
@@ -26,6 +27,14 @@ export async function authenticatePlatformStaff(req: Request): Promise<PlatformA
   const keyStaff = await authenticatePlatformStaffKey(req);
   if (keyStaff) {
     return { ok: true, auth: { user: keyStaff.user, session: keyStaff.session } };
+  }
+
+  // Admin deploy: Auth0 is the human sign-in. An authenticated Auth0 user is
+  // adopted as staff only if their verified email maps to an is_platform_staff
+  // user (Option A).
+  const auth0Staff = await resolveAuth0Staff();
+  if (auth0Staff) {
+    return { ok: true, auth: { user: auth0Staff.user, session: auth0Staff.session } };
   }
 
   const session = await authenticateUserRequest(req);

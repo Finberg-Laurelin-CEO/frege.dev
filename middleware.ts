@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { auth0, isAuth0AdminMode } from "@/lib/prototype/auth0";
 
 // When deployed as the dedicated admin project (frege-admin), this instance is an
 // operations console only — not the public marketing site. We set FREGE_ADMIN_ONLY=true
@@ -10,6 +11,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const ADMIN_ALLOWED_PREFIXES = [
   "/platform",
   "/api",
+  "/auth",
   "/login",
   "/admin",
   "/setup",
@@ -27,9 +29,27 @@ function isAllowedOnAdmin(pathname: string): boolean {
   );
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   if (!isAdminOnly()) {
     return NextResponse.next();
+  }
+
+  // Auth0 mounts and maintains /auth/* (login, logout, callback) and refreshes
+  // the session. Let it handle its own routes; for other paths it returns a
+  // pass-through response we continue from.
+  if (isAuth0AdminMode() && auth0) {
+    const { pathname } = req.nextUrl;
+    if (pathname.startsWith("/auth")) {
+      return auth0.middleware(req);
+    }
+    const authRes = await auth0.middleware(req);
+    if (isAllowedOnAdmin(pathname)) {
+      return authRes;
+    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/platform";
+    url.search = "";
+    return NextResponse.redirect(url);
   }
 
   const { pathname } = req.nextUrl;

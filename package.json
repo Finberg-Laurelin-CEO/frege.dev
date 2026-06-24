@@ -28,6 +28,7 @@
     "smoke:admin": "node scripts/prototype/smoke-admin.mjs"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "^4.23.0",
     "@neondatabase/serverless": "^0.10.4",
     "@vercel/analytics": "^2.0.1",
     "next": "15.5.19",
