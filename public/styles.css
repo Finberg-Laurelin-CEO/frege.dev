@@ -526,6 +526,166 @@ a {
   font-size: 16px;
 }
 
+/* inline code token (hero, copy) */
+.inlineCode {
+  color: var(--accent-dark);
+  background: var(--bg-deep);
+  padding: 1px 6px;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+/* ───────── terminal transcript (see it work) ───────── */
+
+.term {
+  max-width: 860px;
+  border: 1px solid var(--rule);
+  background: var(--bg-deep);
+  overflow: hidden;
+}
+
+.term__bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--bg-deep) 60%, var(--bg));
+}
+
+.term__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--rule);
+}
+
+.term__title {
+  margin-left: 10px;
+  color: var(--faint);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.term__body {
+  margin: 0;
+  padding: clamp(16px, 2.5vw, 26px);
+  color: var(--ink);
+  font-size: clamp(11px, 1.25vw, 14px);
+  line-height: 1.65;
+  white-space: pre;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tl {
+  display: inline;
+}
+
+.tl--prompt {
+  color: var(--accent-dark);
+}
+
+.tl--out {
+  color: var(--muted);
+}
+
+.tl--ok {
+  color: var(--accent);
+}
+
+.tl--no {
+  color: var(--faint);
+}
+
+.tl--note {
+  color: var(--ink);
+}
+
+.term__caption {
+  max-width: 860px;
+  margin: 14px 0 0;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+/* ───────── comparison (why not CLAUDE.md) ───────── */
+
+.cmp {
+  display: grid;
+  max-width: 980px;
+}
+
+.cmp__head,
+.cmp__row {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(12px, 2.5vw, 32px);
+  align-items: baseline;
+  padding: clamp(14px, 2vw, 18px) 0;
+}
+
+.cmp__row + .cmp__row,
+.cmp__row {
+  border-top: 1px solid var(--rule);
+}
+
+.cmp__head {
+  border-bottom: 1px solid var(--rule);
+  padding-top: 0;
+}
+
+.cmp__col {
+  color: var(--faint);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cmp__col--us {
+  color: var(--accent-dark);
+}
+
+.cmp__dim {
+  color: var(--accent-dark);
+  font-size: 16px;
+}
+
+.cmp__dim::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+
+.cmp__cell {
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.cmp__cell--us {
+  color: var(--ink);
+}
+
+@media (max-width: 720px) {
+  .cmp__head {
+    display: none;
+  }
+  .cmp__row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .cmp__cell::before {
+    color: var(--faint);
+    font-size: 12px;
+  }
+  .cmp__cell:not(.cmp__cell--us)::before {
+    content: "CLAUDE.md — ";
+  }
+  .cmp__cell--us::before {
+    content: "Frege — ";
+    color: var(--accent);
+  }
+}
+
 /* ───────── closing CTA ───────── */
 
 .cta {
