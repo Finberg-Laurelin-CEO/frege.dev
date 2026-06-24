@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { resolveAdminSsoStaff } from "@/lib/prototype/admin-sso";
+import { authenticatePlatformStaffKey } from "@/lib/prototype/platform-staff-keys";
 import { authenticateUserRequest, type UserSessionContext } from "@/lib/prototype/session";
 
 export type PlatformStaffContext = {
@@ -18,6 +19,13 @@ export async function authenticatePlatformStaff(req: Request): Promise<PlatformA
   const ssoStaff = await resolveAdminSsoStaff();
   if (ssoStaff) {
     return { ok: true, auth: { user: ssoStaff.user, session: ssoStaff.session } };
+  }
+
+  // Agentic admin access: a platform-staff API key bearer token authorizes its
+  // owner directly, without a browser session.
+  const keyStaff = await authenticatePlatformStaffKey(req);
+  if (keyStaff) {
+    return { ok: true, auth: { user: keyStaff.user, session: keyStaff.session } };
   }
 
   const session = await authenticateUserRequest(req);

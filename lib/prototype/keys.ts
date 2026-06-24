@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 const RAW_KEY_PATTERN = /^frg_live_([a-f0-9]{12})_(.+)$/;
+const STAFF_KEY_PATTERN = /^frg_admin_([a-f0-9]{12})_(.+)$/;
 
 export type GeneratedApiKey = {
   rawKey: string;
@@ -47,6 +48,28 @@ export function generateApiKey(salt = getApiKeySalt()): GeneratedApiKey {
   const keyPrefix = randomBytes(6).toString("hex");
   const secret = randomBytes(32).toString("base64url");
   const rawKey = `frg_live_${keyPrefix}_${secret}`;
+
+  return {
+    rawKey,
+    keyPrefix,
+    keyHash: hashApiKey(rawKey, salt),
+  };
+}
+
+export function parseStaffApiKey(rawKey: string): ParsedApiKey | null {
+  const match = STAFF_KEY_PATTERN.exec(rawKey);
+  if (!match) return null;
+
+  return {
+    rawKey,
+    keyPrefix: match[1]!,
+  };
+}
+
+export function generateStaffApiKey(salt = getApiKeySalt()): GeneratedApiKey {
+  const keyPrefix = randomBytes(6).toString("hex");
+  const secret = randomBytes(32).toString("base64url");
+  const rawKey = `frg_admin_${keyPrefix}_${secret}`;
 
   return {
     rawKey,
