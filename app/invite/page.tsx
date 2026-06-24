@@ -3,6 +3,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import styles from "../admin/admin.module.css";
 
+const inviteStatusText: Record<string, string> = {
+  invalid_invite: "This invite is invalid, expired, or already used.",
+  validation: "Enter your invite token, name, and a password of at least 12 characters.",
+  rate_limited: "Too many invite attempts. Try again shortly.",
+  invite_failed: "Could not accept invite. Try again.",
+};
+
 export default function InvitePage() {
   const [token, setToken] = useState("");
   const [name, setName] = useState("");
@@ -27,12 +34,15 @@ export default function InvitePage() {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: "invite_failed" }));
-      setStatus(error.error ?? "invite_failed");
+      const code = typeof error.error === "string" ? error.error : "invite_failed";
+      setStatus(inviteStatusText[code] ?? inviteStatusText.invite_failed);
       setPending(false);
       return;
     }
 
-    window.location.href = "/admin";
+    const json = await response.json().catch(() => ({ next_path: "/admin" }));
+    setStatus("Invite accepted. Redirecting...");
+    window.location.href = typeof json.next_path === "string" ? json.next_path : "/admin";
   }
 
   return (
@@ -52,7 +62,13 @@ export default function InvitePage() {
         </label>
         <label className={styles.field}>
           <span className={styles.label}>name</span>
-          <input className={styles.input} required value={name} onChange={(event) => setName(event.target.value)} />
+          <input
+            className={styles.input}
+            required
+            autoComplete="name"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
         </label>
         <label className={styles.field}>
           <span className={styles.label}>password</span>
@@ -60,6 +76,7 @@ export default function InvitePage() {
             className={styles.input}
             type="password"
             required
+            autoComplete="new-password"
             minLength={12}
             value={password}
             onChange={(event) => setPassword(event.target.value)}

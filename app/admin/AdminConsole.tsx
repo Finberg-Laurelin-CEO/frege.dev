@@ -227,6 +227,7 @@ export default function AdminConsole() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
   const [rawKey, setRawKey] = useState("");
+  const [browserOrigin, setBrowserOrigin] = useState("");
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
   const [telemetrySummary, setTelemetrySummary] = useState<TelemetrySummary>({});
   const [telemetryEvents, setTelemetryEvents] = useState<Record<string, unknown>[]>([]);
@@ -287,6 +288,7 @@ export default function AdminConsole() {
   }
 
   useEffect(() => {
+    setBrowserOrigin(window.location.origin);
     fetch("/api/v1/auth/me")
       .then(async (response) => {
         if (response.status === 401) {
@@ -397,6 +399,13 @@ export default function AdminConsole() {
   async function createApiKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const expiresAtValue = String(form.get("expires_at") ?? "").trim();
+    const expiresAt = expiresAtValue ? new Date(expiresAtValue) : null;
+    if (expiresAt && !Number.isFinite(expiresAt.getTime())) {
+      setStatus("invalid expiration");
+      return;
+    }
+
     setStatus("creating key");
     try {
       const json = await fetch("/api/v1/admin/api-keys", {
@@ -407,6 +416,7 @@ export default function AdminConsole() {
           name: form.get("name"),
           role_slug: form.get("role_slug"),
           owner_user_id: form.get("owner_user_id") || undefined,
+          expires_at: expiresAt ? expiresAt.toISOString() : undefined,
         }),
       }).then(readJson);
       const nextRawKey = json.raw_key ?? "";
@@ -415,6 +425,15 @@ export default function AdminConsole() {
       await refreshAdminData();
     } catch (error) {
       setStatus((error as Error).message);
+    }
+  }
+
+  async function copyText(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setStatus(`${label} copied`);
+    } catch {
+      setStatus(`could not copy ${label}`);
     }
   }
 
@@ -907,6 +926,10 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                     ))}
                   </select>
                 </label>
+                <label className={styles.field}>
+                  <span className={styles.label}>expires</span>
+                  <input className={styles.input} name="expires_at" type="datetime-local" />
+                </label>
                 <div className={styles.buttonRow}>
                   <button className={styles.button} type="submit">create key</button>
                 </div>
@@ -916,19 +939,49 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                   <span className={styles.label}>raw key shown once</span>
                   <code className={styles.code}>{rawKey}</code>
                   <span className={styles.status}>
-                    Store this now. Frege stores only the key hash, and MCP setup should use `frege connect`.
+                    Store this now. Frege stores only the key hash, so this value cannot be shown again.
                   </span>
+                  <div className={styles.buttonRow}>
+                    <button className={styles.button} type="button" onClick={() => copyText(rawKey, "raw key")}>
+                      copy key
+                    </button>
+                    <button
+                      className={`${styles.button} ${styles.buttonSecondary}`}
+                      type="button"
+                      onClick={() => copyText(`Authorization: Bearer ${rawKey}`, "Bearer header")}
+                    >
+                      copy Bearer header
+                    </button>
+                  </div>
+                  <pre className={styles.codeBlock}>{`Authorization: Bearer ${rawKey}
+
+curl -s ${browserOrigin || "https://frege.dev"}/api/v1/brain/status \\
+  -H "Authorization: Bearer ${rawKey}"
+
+curl -s ${browserOrigin || "https://frege.dev"}/api/v1/context/build \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ${rawKey}" \\
+  -d '{"query":"refund policy","limit":3}'`}</pre>
                 </div>
               )}
               <table className={styles.table}>
                 <thead>
-                  <tr><th>prefix</th><th>name</th><th>owner</th><th>role</th><th>status</th><th>last used</th><th></th></tr>
+                  <tr><th>prefix</th><th>name</th><th>owner</th><th>role</th><th>status</th><th>expires</th><th>last used</th><th></th></tr>
                 </thead>
                 <tbody>
                   {apiKeys.map((key) => (
                     <tr key={key.id}>
-                      <td>{key.key_prefix}</td><td>{key.name}</td><td>{key.owner_user_email ?? "-"}</td><td>{key.role_slug}</td><td>{key.status}</td><td>{formatDate(key.last_used_at)}</td>
-                      <td><button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => revokeApiKey(key.id)}>revoke</button></td>
+                      <td>{key.key_prefix}</td><td>{key.name}</td><td>{key.owner_user_email ?? "-"}</td><td>{key.role_slug}</td><td>{key.status}</td><td>{formatDate(key.expires_at)}</td><td>{formatDate(key.last_used_at)}</td>
+                      <td>
+                        <button
+                          className={`${styles.button} ${styles.buttonSecondary}`}
+                          type="button"
+                          disabled={key.status !== "active"}
+                          onClick={() => revokeApiKey(key.id)}
+                        >
+                          revoke
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

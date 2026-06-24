@@ -68,7 +68,16 @@ export function sessionCookie(rawToken: string): string {
 }
 
 export function clearSessionCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return [
+    `${SESSION_COOKIE}=`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    "Max-Age=0",
+    process.env.NODE_ENV === "production" ? "Secure" : "",
+  ]
+    .filter(Boolean)
+    .join("; ");
 }
 
 export function readSessionToken(req: Request): string | null {
