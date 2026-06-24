@@ -18,8 +18,14 @@ const ADMIN_ALLOWED_PREFIXES = [
   "/invite",
 ];
 
-function isAdminOnly(): boolean {
-  return process.env.FREGE_ADMIN_ONLY === "true";
+// Admin mode is on when the deploy is flagged admin-only (the frege-admin Vercel
+// project sets FREGE_ADMIN_ONLY=true) OR the request arrives on the admin
+// subdomain (admin.frege.dev). The hostname check lets a single deploy behave as
+// the operations console for admin.* traffic even before the env flag is set.
+function isAdminOnly(req: NextRequest): boolean {
+  if (process.env.FREGE_ADMIN_ONLY === "true") return true;
+  const host = req.headers.get("host") ?? req.nextUrl.host;
+  return host.startsWith("admin.");
 }
 
 function isAllowedOnAdmin(pathname: string): boolean {
@@ -30,7 +36,7 @@ function isAllowedOnAdmin(pathname: string): boolean {
 }
 
 export async function middleware(req: NextRequest) {
-  if (!isAdminOnly()) {
+  if (!isAdminOnly(req)) {
     return NextResponse.next();
   }
 
