@@ -128,7 +128,7 @@ export async function POST(req: Request) {
       where id = ${invite.id}
     `;
 
-    const session = await createUserSession(user.id);
+    const session = await createUserSession(user.id, req.headers.get("host"));
     const canManageBilling = invite.role === "owner" || invite.role === "admin";
     const nextPath = invite.org_status === "active" || !canManageBilling ? "/admin" : "/billing";
     await logTelemetryEvent({

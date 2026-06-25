@@ -17,15 +17,26 @@ export default function LoginPanel() {
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);
 
+  // The app lives on brain.frege.dev; the marketing site (frege.dev) only hosts
+  // the login form. After a successful login we send the user into the app on
+  // the brain.* host. On preview/localhost (no brain subdomain) we stay on the
+  // current origin.
+  function appOrigin(): string {
+    const { hostname, origin } = window.location;
+    if (hostname === "frege.dev") return "https://brain.frege.dev";
+    return origin;
+  }
+
   function safeNextPath(value: string | null): string {
-    if (!value || !value.startsWith("/") || value.startsWith("//")) return "/admin";
+    const fallback = "/console";
+    if (!value || !value.startsWith("/") || value.startsWith("//")) return fallback;
 
     try {
       const nextUrl = new URL(value, window.location.origin);
-      if (nextUrl.origin !== window.location.origin || nextUrl.pathname === "/login") return "/admin";
+      if (nextUrl.origin !== window.location.origin || nextUrl.pathname === "/login") return fallback;
       return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
     } catch {
-      return "/admin";
+      return fallback;
     }
   }
 
@@ -49,7 +60,7 @@ export default function LoginPanel() {
     }
 
     setStatus("Signed in. Redirecting...");
-    window.location.href = safeNextPath(new URLSearchParams(window.location.search).get("next"));
+    window.location.href = `${appOrigin()}${safeNextPath(new URLSearchParams(window.location.search).get("next"))}`;
   }
 
   return (

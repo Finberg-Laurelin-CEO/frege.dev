@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     `;
     await ensureDefaultAgentRoles(org.id);
 
-    const session = await createUserSession(user.id);
+    const session = await createUserSession(user.id, req.headers.get("host"));
     await logTelemetryEvent({
       actor: { type: "system", orgId: org.id },
       req,

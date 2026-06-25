@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       outcome: "success",
     });
 
-    return Response.json({ ok: true }, { status: 200, headers: { "Set-Cookie": clearSessionCookie() } });
+    return Response.json({ ok: true }, { status: 200, headers: { "Set-Cookie": clearSessionCookie(req.headers.get("host")) } });
   } catch (err) {
     return routeError("logout failed", err);
   }

@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     }
 
     await sql`update users set last_login_at = now() where id = ${row.id}`;
-    const session = await createUserSession(row.id);
+    const session = await createUserSession(row.id, req.headers.get("host"));
 
     await logTelemetryEvent({
       actor: { type: "system" },

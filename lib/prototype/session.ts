@@ -4,6 +4,22 @@ import { getSql } from "@/lib/db";
 export const SESSION_COOKIE = "frege_session";
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
 
+// The session is shared across the marketing site (frege.dev) and the app
+// subdomain (brain.frege.dev), so the cookie must be scoped to the parent
+// domain. We only widen scope for *.frege.dev hosts; localhost and preview
+// *.vercel.app deploys keep a host-only cookie (a .vercel.app domain cookie
+// would leak across every Vercel project and is rejected by browsers anyway).
+const APP_PARENT_DOMAIN = "frege.dev";
+
+function cookieDomainForHost(host: string | null): string | null {
+  if (!host) return null;
+  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
+  if (hostname === APP_PARENT_DOMAIN || hostname.endsWith(`.${APP_PARENT_DOMAIN}`)) {
+    return `.${APP_PARENT_DOMAIN}`;
+  }
+  return null;
+}
+
 export type UserSessionMembership = {
   org_id: string;
   org_slug: string;
@@ -54,10 +70,12 @@ function parseCookies(header: string | null): Map<string, string> {
   return cookies;
 }
 
-export function sessionCookie(rawToken: string): string {
+export function sessionCookie(rawToken: string, host?: string | null): string {
+  const domain = cookieDomainForHost(host ?? null);
   return [
     `${SESSION_COOKIE}=${encodeURIComponent(rawToken)}`,
     "Path=/",
+    domain ? `Domain=${domain}` : "",
     "HttpOnly",
     "SameSite=Lax",
     `Max-Age=${SESSION_MAX_AGE_SECONDS}`,
@@ -67,10 +85,12 @@ export function sessionCookie(rawToken: string): string {
     .join("; ");
 }
 
-export function clearSessionCookie(): string {
+export function clearSessionCookie(host?: string | null): string {
+  const domain = cookieDomainForHost(host ?? null);
   return [
     `${SESSION_COOKIE}=`,
     "Path=/",
+    domain ? `Domain=${domain}` : "",
     "HttpOnly",
     "SameSite=Lax",
     "Max-Age=0",
@@ -84,7 +104,10 @@ export function readSessionToken(req: Request): string | null {
   return parseCookies(req.headers.get("cookie")).get(SESSION_COOKIE) ?? null;
 }
 
-export async function createUserSession(userId: string): Promise<{ rawToken: string; cookie: string; expiresAt: Date }> {
+export async function createUserSession(
+  userId: string,
+  host?: string | null,
+): Promise<{ rawToken: string; cookie: string; expiresAt: Date }> {
   const sql = getSql();
   const rawToken = randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
@@ -96,7 +119,7 @@ export async function createUserSession(userId: string): Promise<{ rawToken: str
 
   return {
     rawToken,
-    cookie: sessionCookie(rawToken),
+    cookie: sessionCookie(rawToken, host),
     expiresAt,
   };
 }
