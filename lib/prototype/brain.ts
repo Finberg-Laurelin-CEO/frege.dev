@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import type { FregeActorContext } from "@/lib/prototype/actor-auth";
+import { parseBrainLinks, slugifyBrain } from "@/lib/prototype/brain-links";
 import type { HumanOrgContext } from "@/lib/prototype/org-guard";
 import type {
   BrainSessionEventType,
@@ -177,16 +178,7 @@ function assertCanProposeMemory(actor: FregeActorContext): void {
   if (!capability(actor, "canProposeMemory")) throw new Error("memory_proposal_forbidden");
 }
 
-export function slugifyBrain(value: string): string {
-  return (
-    value
-      .trim()
-      .toLowerCase()
-      .replace(/\.md$/i, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "page"
-  );
-}
+export { slugifyBrain };
 
 export function redactSecrets(value: string): string {
   let output = value.slice(0, MAX_LEDGER_BODY_CHARS);
@@ -229,25 +221,6 @@ function estimateTokens(value: string): number {
   return Math.max(1, Math.ceil(value.length / 4));
 }
 
-function markdownLinks(body: string): Array<{ slug: string; evidence: string }> {
-  const links = new Map<string, string>();
-  const wikiPattern = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g;
-  const markdownPattern = /\[[^\]]+\]\((?:frege:\/\/page\/)?([a-zA-Z0-9][a-zA-Z0-9/_ .-]*)\)/g;
-
-  for (const match of body.matchAll(wikiPattern)) {
-    const slug = slugifyBrain(match[1] ?? "");
-    if (slug) links.set(slug, match[0]);
-  }
-
-  for (const match of body.matchAll(markdownPattern)) {
-    const raw = String(match[1] ?? "").replace(/\.md$/i, "");
-    const slug = slugifyBrain(raw.split("/").filter(Boolean).at(-1) ?? raw);
-    if (slug) links.set(slug, match[0]);
-  }
-
-  return [...links.entries()].map(([slug, evidence]) => ({ slug, evidence }));
-}
-
 async function refreshBrainPageLinks(input: {
   orgId: string;
   pageId: string;
@@ -256,7 +229,7 @@ async function refreshBrainPageLinks(input: {
   keyId: string | null;
 }): Promise<void> {
   const sql = getSql();
-  const links = markdownLinks(input.bodyMd);
+  const links = parseBrainLinks(input.bodyMd);
   await sql`
     delete from brain_links
     where org_id = ${input.orgId}

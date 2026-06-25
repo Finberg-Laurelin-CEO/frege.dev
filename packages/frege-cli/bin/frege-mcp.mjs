@@ -52,6 +52,52 @@ const tools = [
     },
   },
   {
+    name: "frege_list_vault",
+    description:
+      "List hosted brain pages visible to this actor as a flat vault, each with outgoing/backlink counts. Use to get an overview of what knowledge exists before traversing.",
+    inputSchema: {
+      type: "object",
+      properties: { limit: { type: "number", minimum: 1, maximum: 500 } },
+    },
+  },
+  {
+    name: "frege_page_links",
+    description:
+      "Get the outgoing links, incoming backlinks, and unresolved (dangling) links for one brain page. Use to see how a specific page relates to the rest of the vault.",
+    inputSchema: {
+      type: "object",
+      properties: { slug: { type: "string" } },
+      required: ["slug"],
+    },
+  },
+  {
+    name: "frege_traverse",
+    description:
+      "Traverse the brain graph. With a slug, returns the neighborhood subgraph (nodes + edges) up to `depth` hops from that page. Without a slug, returns the whole vault graph. Use to understand clusters and how concepts connect.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        slug: { type: "string" },
+        depth: { type: "number", minimum: 1, maximum: 3 },
+        limit: { type: "number", minimum: 1, maximum: 1000 },
+      },
+    },
+  },
+  {
+    name: "frege_find_connections",
+    description:
+      "Find the shortest path of links between two brain pages (undirected). Answers 'how is X related to Y' — something vector search cannot. Returns the path of pages and the hop count, or connected:false if none within max_hops.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from: { type: "string" },
+        to: { type: "string" },
+        max_hops: { type: "number", minimum: 1, maximum: 6 },
+      },
+      required: ["from", "to"],
+    },
+  },
+  {
     name: "frege_add_source_proposal",
     description: "Propose a new hosted brain source. Proposals require admin acceptance before becoming canonical.",
     inputSchema: {
@@ -350,25 +396,61 @@ async function runtimeConfig() {
   };
 }
 
+function isTransientNetworkError(err) {
+  const code = err?.cause?.code ?? err?.code ?? "";
+  return (
+    err?.name === "AbortError" ||
+    ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "EPIPE", "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT"].includes(code)
+  );
+}
+
 async function frege(pathname, options = {}) {
   const { baseUrl, apiKey } = await runtimeConfig();
   if (!apiKey) {
     throw new Error(`FREGE_API_KEY is not set and ${CONFIG_PATH} has no apiKey. Run frege connect first.`);
   }
 
-  const response = await fetch(`${baseUrl}${pathname}`, {
-    method: options.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
-  });
-  const json = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(JSON.stringify({ status: response.status, error: json.error ?? "request_failed" }));
+  const url = `${baseUrl}${pathname}`;
+  const maxAttempts = 3;
+  let lastErr;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch(url, {
+        method: options.method ?? "GET",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: options.body ? JSON.stringify(options.body) : undefined,
+        signal: controller.signal,
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(JSON.stringify({ status: response.status, error: json.error ?? "request_failed" }));
+      }
+      return json;
+    } catch (err) {
+      lastErr = err;
+      // Only retry transient connection failures (e.g. dev server recompiling,
+      // stale keep-alive socket). HTTP error responses are not retried.
+      if (attempt < maxAttempts && isTransientNetworkError(err)) {
+        await new Promise((resolve) => setTimeout(resolve, 250 * attempt));
+        continue;
+      }
+      if (isTransientNetworkError(err)) {
+        const code = err?.cause?.code ?? err?.code ?? err?.name ?? "network_error";
+        throw new Error(`Cannot connect to Frege API at ${baseUrl} (${code}) after ${maxAttempts} attempts. Is the server running?`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
-  return json;
+
+  throw lastErr;
 }
 
 function queryString(params) {
@@ -388,6 +470,16 @@ async function callTool(name, input = {}) {
     return frege(`/api/v1/brain/pages/search${queryString({ q: input.query, limit: input.limit })}`);
   }
   if (name === "frege_get_page") return frege(`/api/v1/brain/pages/${encodeURIComponent(input.slug)}`);
+  if (name === "frege_list_vault") return frege(`/api/v1/brain/vault${queryString({ limit: input.limit })}`);
+  if (name === "frege_page_links") {
+    return frege(`/api/v1/brain/pages/${encodeURIComponent(input.slug)}/links`);
+  }
+  if (name === "frege_traverse") {
+    return frege(`/api/v1/brain/graph${queryString({ slug: input.slug, depth: input.depth, limit: input.limit })}`);
+  }
+  if (name === "frege_find_connections") {
+    return frege(`/api/v1/brain/connections${queryString({ from: input.from, to: input.to, max_hops: input.max_hops })}`);
+  }
   if (name === "frege_add_source_proposal") {
     return frege("/api/v1/brain/sources", {
       method: "POST",

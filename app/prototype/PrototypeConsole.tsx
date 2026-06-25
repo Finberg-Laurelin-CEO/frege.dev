@@ -14,8 +14,9 @@ import {
 } from "@/lib/prototype/demo-data";
 import type { SensitivityLabel } from "@/lib/prototype/types";
 import styles from "./page.module.css";
+import VaultGraphTab from "./VaultGraphTab";
 
-type ConsoleTab = "documents" | "map" | "write" | "audit";
+type ConsoleTab = "documents" | "map" | "write" | "audit" | "vault";
 
 type DemoProposal = {
   id: string;
@@ -278,7 +279,7 @@ export default function PrototypeConsole() {
       </section>
 
       <nav className={styles.tabs} aria-label="Knowledge console views">
-        {(["documents", "map", "write", "audit"] as ConsoleTab[]).map((tab) => (
+        {(["documents", "map", "write", "audit", "vault"] as ConsoleTab[]).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -487,6 +488,8 @@ export default function PrototypeConsole() {
               )}
             </section>
           ) : null}
+
+          {activeTab === "vault" ? <VaultGraphTab /> : null}
         </div>
       </section>
     </main>

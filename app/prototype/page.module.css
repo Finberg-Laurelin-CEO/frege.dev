@@ -472,3 +472,159 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Live vault graph tab */
+.vaultView {
+  padding: 0;
+}
+
+.vaultGrid {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+  gap: 0;
+  border-top: 1px solid #d8dddd;
+}
+
+.vaultList {
+  border-right: 1px solid #d8dddd;
+  min-width: 0;
+}
+
+.vaultCounts {
+  grid-column: 1 / -1;
+  color: #66706c;
+  font-size: 12px;
+}
+
+.vaultDetail {
+  min-width: 0;
+}
+
+.graphCanvas {
+  padding: 14px;
+  border-bottom: 1px solid #d8dddd;
+  display: flex;
+  justify-content: center;
+}
+
+.graphCanvas svg {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+}
+
+.graphEdge {
+  stroke: #b5bdbd;
+  stroke-width: 1.2;
+}
+
+.graphNode {
+  fill: #5b6f66;
+}
+
+.graphNodeCenter {
+  fill: #111111;
+}
+
+.graphNodeGroup {
+  cursor: pointer;
+}
+
+.graphNodeGroup:hover .graphNode {
+  fill: #111111;
+}
+
+.graphLabel {
+  fill: #343a38;
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.linkColumns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  border-bottom: 1px solid #d8dddd;
+}
+
+.linkColumns section {
+  padding: 14px;
+  border-right: 1px solid #e0e5e5;
+}
+
+.linkColumns section:last-child {
+  border-right: 0;
+}
+
+.linkColumns h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: #52605a;
+}
+
+.linkColumns .linkRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #eceff1;
+  padding: 8px 0;
+  background: transparent;
+  color: #111111;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.linkColumns .linkRow em {
+  color: #66706c;
+  font-style: normal;
+  font-size: 12px;
+}
+
+.connectionPanel {
+  padding: 14px;
+}
+
+.connectionPanel h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: #52605a;
+}
+
+.connectionControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.connectionControls select,
+.connectionControls button {
+  padding: 8px 10px;
+  border: 1px solid #c8cfce;
+  background: #ffffff;
+  color: #111111;
+  font: inherit;
+  cursor: pointer;
+}
+
+.connectionPath {
+  margin: 12px 0 0;
+  color: #111111;
+  line-height: 1.8;
+}
+
+.pathHop {
+  border: 0;
+  background: transparent;
+  color: #111111;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
