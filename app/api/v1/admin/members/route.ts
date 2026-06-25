@@ -2,7 +2,9 @@ import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
+import { sendInviteEmail } from "@/lib/prototype/email";
 import { normalizeEmail } from "@/lib/prototype/org-guard";
+import { customerBaseUrl } from "@/lib/prototype/public-url";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -79,6 +81,14 @@ export async function POST(req: Request) {
       returning id, email, role, status, expires_at, created_at
     `;
 
+    // Build the link against the customer site (never the admin origin) and email it.
+    const inviteLink = `${customerBaseUrl()}/invite?token=${rawToken}`;
+    const emailResult = await sendInviteEmail({
+      to: invite.email,
+      inviteUrl: inviteLink,
+      orgName: auth.organization.name,
+    });
+
     await logTelemetryEvent({
       actor: { type: "user", auth },
       req,
@@ -87,10 +97,13 @@ export async function POST(req: Request) {
       resourceId: invite.id,
       outcome: "success",
       latencyMs: Date.now() - startedAt,
-      metadata: { email: invite.email, role: invite.role },
+      metadata: { email: invite.email, role: invite.role, email_sent: emailResult.sent },
     });
 
-    return Response.json({ invite, invite_token: rawToken }, { status: 201 });
+    return Response.json(
+      { invite, invite_token: rawToken, invite_link: inviteLink, email_sent: emailResult.sent },
+      { status: 201 },
+    );
   } catch (err) {
     return routeError("admin invite create failed", err);
   }

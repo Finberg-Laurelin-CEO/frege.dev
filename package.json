@@ -19,6 +19,8 @@
     "user:disable": "node scripts/prototype/disable-user.mjs",
     "user:password": "node scripts/prototype/change-user-password.mjs",
     "user:staff": "node scripts/prototype/set-platform-staff.mjs",
+    "auth0:sync": "node scripts/prototype/auth0-sync-app.mjs",
+    "auth0:sync:dry": "node scripts/prototype/auth0-sync-app.mjs --dry-run",
     "usage:rollup": "node scripts/prototype/rollup-usage.mjs",
     "agent:worker": "node scripts/prototype/frege-agent-worker.mjs",
     "agent:worker:once": "node scripts/prototype/frege-agent-worker.mjs --once --verbose",
@@ -34,6 +36,7 @@
     "next": "15.5.19",
     "react": "19.0.0",
     "react-dom": "19.0.0",
+    "resend": "^6.14.0",
     "stripe": "^22.2.3",
     "zod": "^3.24.1"
   },

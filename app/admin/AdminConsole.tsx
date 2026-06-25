@@ -343,9 +343,14 @@ export default function AdminConsole() {
           role: form.get("role"),
         }),
       }).then(readJson);
-      const inviteLink = `${window.location.origin}/invite?token=${encodeURIComponent(json.invite_token)}`;
+      // Use the server-built link (customer site), never window.location (admin host).
+      const inviteLink = json.invite_link as string;
       setLastInviteLink(inviteLink);
-      setContextOutput(`invite_link:\n${inviteLink}`);
+      setContextOutput(
+        json.email_sent
+          ? `Invite emailed to ${json.invite?.email ?? "member"}.\ninvite_link:\n${inviteLink}`
+          : `Email not sent (provider not configured). Share manually:\ninvite_link:\n${inviteLink}`,
+      );
       await refreshAdminData();
     } catch (error) {
       setStatus((error as Error).message);
