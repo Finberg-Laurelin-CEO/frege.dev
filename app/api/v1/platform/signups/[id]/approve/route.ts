@@ -1,8 +1,10 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
+import { sendInviteEmail } from "@/lib/prototype/email";
 import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
 import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
+import { customerBaseUrl } from "@/lib/prototype/public-url";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -95,6 +97,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       where id = ${signup.id}
     `;
 
+    // Build the invite link against the customer-facing site (never the admin
+    // origin this request arrives on) and email it to the prospect.
+    const inviteLink = `${customerBaseUrl()}/invite?token=${rawToken}`;
+    const emailResult = await sendInviteEmail({
+      to: invite.email,
+      inviteUrl: inviteLink,
+      orgName: org.name,
+    });
+
     await logTelemetryEvent({
       actor: { type: "system", orgId: org.id },
       req,
@@ -103,16 +114,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       resourceId: invite.id,
       outcome: "success",
       latencyMs: Date.now() - startedAt,
-      metadata: { signup_id: signup.id, org_slug: org.slug, by_user: staff.auth.user.email },
+      metadata: {
+        signup_id: signup.id,
+        org_slug: org.slug,
+        by_user: staff.auth.user.email,
+        email_sent: emailResult.sent,
+      },
     });
 
-    const origin = new URL(req.url).origin;
     return Response.json(
       {
         organization: org,
         invite,
+        email_sent: emailResult.sent,
+        // Kept as a staff fallback (e.g. email not configured / bounced) so the
+        // operator can hand off the link manually if needed.
         invite_token: rawToken,
-        invite_link: `${origin}/invite?token=${rawToken}`,
+        invite_link: inviteLink,
       },
       { status: 201 },
     );

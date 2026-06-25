@@ -277,6 +277,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
+  const [inviteEmailSent, setInviteEmailSent] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
@@ -477,6 +478,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
         setError(`Approve failed: ${json.error ?? res.status}`);
       } else {
         setInviteLinks((prev) => ({ ...prev, [id]: json.invite_link }));
+        setInviteEmailSent((prev) => ({ ...prev, [id]: Boolean(json.email_sent) }));
         await load();
       }
     } finally {
@@ -936,7 +938,13 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       <td>
                         {s.invite_id ? (
                           inviteLinks[s.id] ? (
-                            <code className={styles.code}>{inviteLinks[s.id]}</code>
+                            <>
+                              <Badge
+                                tone={inviteEmailSent[s.id] ? "ok" : "warn"}
+                                label={inviteEmailSent[s.id] ? "email sent" : "email not sent — share link"}
+                              />
+                              <code className={styles.code}>{inviteLinks[s.id]}</code>
+                            </>
                           ) : (
                             <Badge tone="ok" label="invited" />
                           )
