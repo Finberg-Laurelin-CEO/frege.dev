@@ -1,24 +1,13 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
+import {
+  SESSION_COOKIE,
+  SESSION_MAX_AGE_SECONDS,
+  clearSessionCookie,
+  sessionCookie,
+} from "@/lib/prototype/session-cookie";
 
-export const SESSION_COOKIE = "frege_session";
-const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
-
-// The session is shared across the marketing site (frege.dev) and the app
-// subdomain (brain.frege.dev), so the cookie must be scoped to the parent
-// domain. We only widen scope for *.frege.dev hosts; localhost and preview
-// *.vercel.app deploys keep a host-only cookie (a .vercel.app domain cookie
-// would leak across every Vercel project and is rejected by browsers anyway).
-const APP_PARENT_DOMAIN = "frege.dev";
-
-function cookieDomainForHost(host: string | null): string | null {
-  if (!host) return null;
-  const hostname = host.split(":")[0]?.toLowerCase() ?? "";
-  if (hostname === APP_PARENT_DOMAIN || hostname.endsWith(`.${APP_PARENT_DOMAIN}`)) {
-    return `.${APP_PARENT_DOMAIN}`;
-  }
-  return null;
-}
+export { SESSION_COOKIE, clearSessionCookie, sessionCookie };
 
 export type UserSessionMembership = {
   org_id: string;
@@ -68,36 +57,6 @@ function parseCookies(header: string | null): Map<string, string> {
   }
 
   return cookies;
-}
-
-export function sessionCookie(rawToken: string, host?: string | null): string {
-  const domain = cookieDomainForHost(host ?? null);
-  return [
-    `${SESSION_COOKIE}=${encodeURIComponent(rawToken)}`,
-    "Path=/",
-    domain ? `Domain=${domain}` : "",
-    "HttpOnly",
-    "SameSite=Lax",
-    `Max-Age=${SESSION_MAX_AGE_SECONDS}`,
-    process.env.NODE_ENV === "production" ? "Secure" : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
-}
-
-export function clearSessionCookie(host?: string | null): string {
-  const domain = cookieDomainForHost(host ?? null);
-  return [
-    `${SESSION_COOKIE}=`,
-    "Path=/",
-    domain ? `Domain=${domain}` : "",
-    "HttpOnly",
-    "SameSite=Lax",
-    "Max-Age=0",
-    process.env.NODE_ENV === "production" ? "Secure" : "",
-  ]
-    .filter(Boolean)
-    .join("; ");
 }
 
 export function readSessionToken(req: Request): string | null {

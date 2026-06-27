@@ -4,6 +4,31 @@
 // --include-api-key-lifecycle to create a temporary key, use it, revoke it, and
 // verify revoked-key rejection.
 
+function printHelp() {
+  console.log(`Frege admin smoke
+
+Usage:
+  pnpm smoke:admin -- --base-url http://localhost:3000
+  FREGE_BASE_URL=https://brain.frege.dev FREGE_TEST_EMAIL=user@example.com FREGE_TEST_PASSWORD=... pnpm smoke:admin:live
+
+Required credentials:
+  FREGE_TEST_EMAIL and FREGE_TEST_PASSWORD are required for all admin smoke runs.
+  Live non-local runs require --live and must receive credentials from environment variables.
+
+Options:
+  --base-url <url>                 Target base URL. Defaults to FREGE_BASE_URL or http://localhost:3000.
+  --email <email>                  Local-only test user email. Prefer FREGE_TEST_EMAIL.
+  --password <password>            Local-only test user password. Prefer FREGE_TEST_PASSWORD.
+  --live                           Allow a non-local target such as https://brain.frege.dev.
+  --include-api-key-lifecycle      Mutates only a temporary API key: create, use, revoke, verify rejection.
+  --help                           Show this help.
+
+Live API-key lifecycle:
+  FREGE_BASE_URL=https://brain.frege.dev FREGE_TEST_EMAIL=user@example.com FREGE_TEST_PASSWORD=... \\
+    FREGE_SMOKE_API_KEY_LIFECYCLE=true pnpm smoke:admin:live
+`);
+}
+
 function parseArgs(argv) {
   const parsed = {};
   for (let index = 0; index < argv.length; index += 1) {
@@ -19,6 +44,15 @@ function parseArgs(argv) {
 
 function normalizeBaseUrl(value) {
   return (value || "http://localhost:3000").replace(/\/+$/, "");
+}
+
+function isLocalBaseUrl(baseUrl) {
+  try {
+    const url = new URL(baseUrl);
+    return ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function assert(condition, message) {
@@ -82,15 +116,29 @@ async function step(name, fn) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help) {
+    printHelp();
+    return;
+  }
+
   const baseUrl = normalizeBaseUrl(args["base-url"] || process.env.FREGE_BASE_URL);
-  const email = args.email || process.env.FREGE_TEST_EMAIL;
-  const password = args.password || process.env.FREGE_TEST_PASSWORD;
+  const live = Boolean(args.live || process.env.FREGE_LIVE_SMOKE === "true");
+  const envEmail = process.env.FREGE_TEST_EMAIL;
+  const envPassword = process.env.FREGE_TEST_PASSWORD;
+  const email = args.email || envEmail;
+  const password = args.password || envPassword;
   const includeApiKeyLifecycle = Boolean(
     args["include-api-key-lifecycle"] || process.env.FREGE_SMOKE_API_KEY_LIFECYCLE === "true",
   );
 
+  if (!isLocalBaseUrl(baseUrl) && !live) {
+    throw new Error("Refusing to run admin smoke against a non-local base URL without --live.");
+  }
+  if (live && (!envEmail || !envPassword)) {
+    throw new Error("Live admin smoke requires FREGE_TEST_EMAIL and FREGE_TEST_PASSWORD environment variables.");
+  }
   if (!email || !password) {
-    throw new Error("Set FREGE_TEST_EMAIL and FREGE_TEST_PASSWORD for the admin smoke test.");
+    throw new Error("Set FREGE_TEST_EMAIL and FREGE_TEST_PASSWORD for the admin smoke test. Run with --help for examples.");
   }
 
   console.log(`Frege admin smoke -> ${baseUrl}`);
