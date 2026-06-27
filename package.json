@@ -26,6 +26,7 @@
     "agent:worker:once": "node scripts/prototype/frege-agent-worker.mjs --once --verbose",
     "smoke:backend": "node scripts/prototype/smoke-backend.mjs",
     "smoke:backend:agent": "node scripts/prototype/smoke-backend.mjs --include-agent-run",
+    "smoke:signup-recovery": "node scripts/prototype/smoke-signup-recovery.mjs",
     "smoke:public": "node scripts/prototype/smoke-public.mjs",
     "smoke:admin": "node scripts/prototype/smoke-admin.mjs"
   },

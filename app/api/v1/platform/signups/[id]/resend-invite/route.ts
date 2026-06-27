@@ -1,17 +1,11 @@
-import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
-import { sendInviteEmail } from "@/lib/prototype/email";
+import { reissueInviteAndSendEmail } from "@/lib/prototype/invites";
 import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { customerBaseUrl } from "@/lib/prototype/public-url";
 import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function hashInviteToken(rawToken: string): string {
-  return createHash("sha256").update(rawToken).digest("hex");
-}
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const originError = assertSafeBrowserMutation(req);
@@ -44,21 +38,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return Response.json({ error: "already_accepted" }, { status: 409 });
     }
 
-    // Re-issue a fresh token + expiry on the existing invite.
-    const rawToken = randomBytes(24).toString("base64url");
-    await sql`
-      update organization_invites
-      set
-        invite_token_hash = ${hashInviteToken(rawToken)},
-        status = 'pending',
-        expires_at = ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString()}
-      where id = ${row.invite_id}
-    `;
-
-    const inviteLink = `${customerBaseUrl()}/invite?token=${rawToken}`;
-    const emailResult = await sendInviteEmail({
-      to: row.email,
-      inviteUrl: inviteLink,
+    const { rawToken, inviteLink, emailResult } = await reissueInviteAndSendEmail(sql, {
+      inviteId: row.invite_id,
+      email: row.email,
       orgName: row.org_name,
     });
 
