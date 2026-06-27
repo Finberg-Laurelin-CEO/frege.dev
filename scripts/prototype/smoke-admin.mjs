@@ -145,11 +145,6 @@ async function main() {
     assert(Array.isArray(json.api_keys), "api keys response missing api_keys");
   });
 
-  await step("admin signup lead queue", async () => {
-    const { json } = await request(baseUrl, `/api/v1/admin/signups?${query}`, { cookie });
-    assert(Array.isArray(json.signups), "signups response missing signups");
-  });
-
   await step("admin brain snapshot", async () => {
     const { json } = await request(baseUrl, `/api/v1/admin/brain?${query}`, { cookie });
     assert(Array.isArray(json.sources), "brain response missing sources");

@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
+import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
+import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ const updateSignupSchema = z.object({
 
 export async function GET(req: Request) {
   try {
-    const authResult = await authenticateAdminRequest(req);
+    const authResult = await authenticatePlatformStaff(req);
     if (!authResult.ok) return authResult.response;
 
     const sql = getSql();
@@ -58,7 +58,6 @@ export async function PATCH(req: Request) {
   const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
 
-  const startedAt = Date.now();
   try {
     const json = await readJson(req);
     if (!json.ok) return json.response;
@@ -67,7 +66,7 @@ export async function PATCH(req: Request) {
       return Response.json({ error: "validation", fieldErrors: parsed.error.flatten().fieldErrors }, { status: 400 });
     }
 
-    const authResult = await authenticateAdminRequest(req);
+    const authResult = await authenticatePlatformStaff(req);
     if (!authResult.ok) return authResult.response;
     const auth = authResult.auth;
 
@@ -86,14 +85,10 @@ export async function PATCH(req: Request) {
 
     if (!signup) return Response.json({ error: "not_found" }, { status: 404 });
 
-    await logTelemetryEvent({
-      actor: { type: "user", auth },
-      req,
+    await recordPlatformAudit(auth, {
       action: "admin.signups.update",
-      resourceType: "signup",
-      resourceId: signup.id,
-      outcome: "success",
-      latencyMs: Date.now() - startedAt,
+      targetType: "signup",
+      targetId: signup.id,
       metadata: { status: signup.status, company: signup.company },
     });
 

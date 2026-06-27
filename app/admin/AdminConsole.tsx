@@ -3,14 +3,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./admin.module.css";
 
-type Tab = "setup" | "overview" | "signups" | "keys" | "models" | "context" | "brain" | "agents" | "telemetry" | "audit";
+type Tab = "setup" | "overview" | "keys" | "models" | "context" | "brain" | "agents" | "telemetry" | "audit";
 
 const GITHUB_URL = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
 
 const adminTabs: { id: Tab; label: string }[] = [
   { id: "setup", label: "setup docs" },
   { id: "overview", label: "orgs & roles" },
-  { id: "signups", label: "signups" },
   { id: "keys", label: "api keys" },
   { id: "brain", label: "brain" },
   { id: "agents", label: "agents" },
@@ -88,25 +87,6 @@ type InviteRow = {
   role: string;
   status: string;
   expires_at: string;
-};
-
-type SignupRow = {
-  id: string;
-  created_at: string;
-  name: string;
-  work_email: string;
-  company: string;
-  role: string;
-  company_size: string;
-  expected_users: number;
-  main_pain_point: string;
-  other_comments: string;
-  status: "new" | "contacted" | "qualified" | "disqualified";
-  contacted_at: string | null;
-  qualified_at: string | null;
-  notes: string;
-  disqualified_reason: string;
-  owner_user_email: string | null;
 };
 
 type TelemetrySummary = {
@@ -222,7 +202,6 @@ export default function AdminConsole() {
   const [status, setStatus] = useState("loading");
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [invites, setInvites] = useState<InviteRow[]>([]);
-  const [signups, setSignups] = useState<SignupRow[]>([]);
   const [lastInviteLink, setLastInviteLink] = useState("");
   const [roles, setRoles] = useState<Role[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
@@ -252,10 +231,9 @@ export default function AdminConsole() {
     setStatus("refreshing");
     try {
       const query = `org_slug=${encodeURIComponent(orgSlug)}`;
-      const [memberJson, signupJson, roleJson, keyJson, modelJson, telemetryJson, auditJson, brainJson, agentJson, runJson] =
+      const [memberJson, roleJson, keyJson, modelJson, telemetryJson, auditJson, brainJson, agentJson, runJson] =
         await Promise.all([
         fetch(`/api/v1/admin/members?${query}`).then(readJson),
-        fetch(`/api/v1/admin/signups?${query}`).then(readJson),
         fetch(`/api/v1/admin/roles?${query}`).then(readJson),
         fetch(`/api/v1/admin/api-keys?${query}`).then(readJson),
         fetch(`/api/v1/admin/model-configs?${query}`).then(readJson),
@@ -268,7 +246,6 @@ export default function AdminConsole() {
 
       setMembers(memberJson.members ?? []);
       setInvites(memberJson.invites ?? []);
-      setSignups(signupJson.signups ?? []);
       setRoles(roleJson.roles ?? []);
       setApiKeys(keyJson.api_keys ?? []);
       setModelConfigs(modelJson.model_configs ?? []);
@@ -351,20 +328,6 @@ export default function AdminConsole() {
           ? `Invite emailed to ${json.invite?.email ?? "member"}.\ninvite_link:\n${inviteLink}`
           : `Email not sent (provider not configured). Share manually:\ninvite_link:\n${inviteLink}`,
       );
-      await refreshAdminData();
-    } catch (error) {
-      setStatus((error as Error).message);
-    }
-  }
-
-  async function updateSignupStatus(id: string, status: SignupRow["status"]) {
-    setStatus(`marking signup ${status}`);
-    try {
-      await fetch("/api/v1/admin/signups", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, status }),
-      }).then(readJson);
       await refreshAdminData();
     } catch (error) {
       setStatus((error as Error).message);
@@ -869,42 +832,6 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                 </p>
               </div>
             </>
-          )}
-
-          {tab === "signups" && (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>pilot signups</h2>
-              <p className={styles.sectionLead}>Latest pilot requests from the public signup form.</p>
-              <table className={styles.table}>
-                <thead>
-                  <tr><th>time</th><th>status</th><th>person</th><th>company</th><th>org size</th><th>role</th><th>info</th><th>owner</th><th>actions</th></tr>
-                </thead>
-                <tbody>
-                  {signups.map((signup) => (
-                    <tr key={signup.id}>
-                      <td>{formatDate(signup.created_at)}</td>
-                      <td>{signup.status}</td>
-                      <td>{signup.name}<br /><span className={styles.meta}>{signup.work_email}</span></td>
-                      <td>{signup.company}</td>
-                      <td>{signup.company_size}</td>
-                      <td>{signup.role || "-"}</td>
-                      <td>{signup.main_pain_point || signup.other_comments || "-"}</td>
-                      <td>{signup.owner_user_email ?? "-"}</td>
-                      <td>
-                        <span className={styles.buttonRow}>
-                          <button className={styles.button} type="button" onClick={() => updateSignupStatus(signup.id, "contacted")}>contacted</button>
-                          <button className={styles.button} type="button" onClick={() => updateSignupStatus(signup.id, "qualified")}>qualified</button>
-                          <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => updateSignupStatus(signup.id, "disqualified")}>disqualify</button>
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                  {signups.length === 0 && (
-                    <tr><td colSpan={9}>No pilot signups yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
           )}
 
           {tab === "keys" && (
