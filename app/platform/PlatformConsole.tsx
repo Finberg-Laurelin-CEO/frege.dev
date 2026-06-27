@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import styles from "../admin/admin.module.css";
 
-type Tab = "queue" | "orgs" | "users" | "signups" | "usage" | "payments" | "audit";
+type Tab = "queue" | "orgs" | "users" | "signups" | "free-codes" | "usage" | "payments" | "audit";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "queue", label: "Queue" },
   { id: "orgs", label: "Organizations" },
   { id: "users", label: "Users" },
   { id: "signups", label: "Approvals" },
+  { id: "free-codes", label: "Free codes" },
   { id: "usage", label: "Usage" },
   { id: "payments", label: "Payments" },
   { id: "audit", label: "Audit" },
@@ -93,6 +94,25 @@ type AuditEvent = {
   target_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
+};
+
+type FreeCodeRow = {
+  id: string;
+  label: string | null;
+  status: string;
+  plan: string;
+  billing_interval: string;
+  seats: number;
+  metadata: Record<string, unknown>;
+  created_by_email: string | null;
+  created_at: string;
+  revoked_by_email: string | null;
+  revoked_at: string | null;
+  redeemed_by_email: string | null;
+  redeemed_at: string | null;
+  redeemed_org_id: string | null;
+  redeemed_org_slug: string | null;
+  redeemed_org_name: string | null;
 };
 
 type OrgRow = {
@@ -276,6 +296,11 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [payments, setPayments] = useState<PaymentsOverview | null>(null);
   const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
+  const [freeCodes, setFreeCodes] = useState<FreeCodeRow[]>([]);
+  const [newFreeCodeLabel, setNewFreeCodeLabel] = useState("");
+  const [newFreeCodePlan, setNewFreeCodePlan] = useState<"solo" | "team">("team");
+  const [newFreeCodeSeats, setNewFreeCodeSeats] = useState(1);
+  const [createdRawCode, setCreatedRawCode] = useState("");
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [inviteEmailSent, setInviteEmailSent] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
@@ -370,6 +395,15 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }, []);
 
+  const loadFreeCodes = useCallback(async () => {
+    try {
+      const r = await fetch(`/api/v1/platform/free-codes`).then((x) => x.json());
+      setFreeCodes(r.free_codes ?? []);
+    } catch {
+      setError("Failed to load free codes.");
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -385,8 +419,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   useEffect(() => {
     if (tab === "queue") void loadQueue();
     else if (tab === "payments") void loadPayments();
+    else if (tab === "free-codes") void loadFreeCodes();
     else if (tab === "audit") void loadAudit();
-  }, [tab, loadQueue, loadPayments, loadAudit]);
+  }, [tab, loadQueue, loadPayments, loadFreeCodes, loadAudit]);
 
   async function cancelSubscription(orgId: string, immediate: boolean) {
     setBusy(true);
@@ -437,6 +472,47 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
       } else {
         await load();
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function createFreeCode() {
+    setBusy(true);
+    setError("");
+    setCreatedRawCode("");
+    try {
+      const res = await fetch(`/api/v1/platform/free-codes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: newFreeCodeLabel.trim() || undefined,
+          plan: newFreeCodePlan,
+          billing_interval: "permanent",
+          seats: newFreeCodeSeats,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(`Create free code failed (${json.error ?? res.status}).`);
+        return;
+      }
+      setCreatedRawCode(json.raw_code ?? "");
+      setNewFreeCodeLabel("");
+      await loadFreeCodes();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeFreeCode(id: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/free-codes/${id}/revoke`, { method: "PATCH" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) setError(`Revoke free code failed (${json.error ?? res.status}).`);
+      else await loadFreeCodes();
     } finally {
       setBusy(false);
     }
@@ -556,6 +632,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
   // --- Derived summary / count values (from already-loaded data) ---
   const pendingApprovals = signups.filter((s) => !s.invite_id).length;
+  const activeFreeCodes = freeCodes.filter((c) => c.status === "active").length;
   const activeOrgs = orgs.filter((o) => o.status === "active").length;
   const highQueue = queue.filter((q) => q.severity === "high").length;
   const paymentIssues = payments
@@ -568,6 +645,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     orgs: orgs.length,
     users: users.length,
     signups: pendingApprovals,
+    "free-codes": activeFreeCodes,
     usage: null,
     payments: payments ? payments.past_due_subscriptions : null,
     audit: null,
@@ -959,6 +1037,96 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               </div>
               <p className={styles.sectionLead}>Approving creates an inactive org + owner invite. The org activates after payment.</p>
               </>
+              )}
+            </div>
+          ) : null}
+
+          {tab === "free-codes" ? (
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>Free activation codes ({freeCodes.length})</h2>
+
+              <div className={styles.detailSection}>
+                <h3 className={styles.sectionTitle}>Create free code</h3>
+                {createdRawCode ? (
+                  <p className={styles.status}>
+                    New code: <code className={styles.code}>{createdRawCode}</code>
+                  </p>
+                ) : null}
+                <label className={styles.label}>Label</label>
+                <input
+                  className={styles.input}
+                  value={newFreeCodeLabel}
+                  onChange={(e) => setNewFreeCodeLabel(e.target.value)}
+                  placeholder="Demo org, partner, Joe/team"
+                />
+                <label className={styles.label}>Plan</label>
+                <select className={styles.field} value={newFreeCodePlan} onChange={(e) => setNewFreeCodePlan(e.target.value as "solo" | "team")}>
+                  <option value="team">team</option>
+                  <option value="solo">solo</option>
+                </select>
+                <label className={styles.label}>Seats</label>
+                <input
+                  className={styles.field}
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={newFreeCodeSeats}
+                  onChange={(e) => setNewFreeCodeSeats(Math.max(1, Number(e.target.value) || 1))}
+                />
+                <div className={styles.buttonRow}>
+                  <button type="button" className={styles.button} disabled={busy} onClick={createFreeCode}>create code</button>
+                </div>
+              </div>
+
+              {freeCodes.length === 0 ? (
+                <div className={styles.empty}><strong>No free codes yet.</strong></div>
+              ) : (
+                <div className={styles.tableScroll}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr><th>label</th><th>status</th><th>entitlement</th><th>created</th><th>redeemed</th><th>action</th></tr>
+                  </thead>
+                  <tbody>
+                    {freeCodes.map((code) => (
+                      <tr key={code.id}>
+                        <td>{code.label ?? "—"}</td>
+                        <td><Badge status={code.status} /></td>
+                        <td>{code.plan}/{code.billing_interval} · {code.seats} seat(s)</td>
+                        <td>{shortDay(code.created_at)} · {code.created_by_email ?? "—"}</td>
+                        <td>
+                          {code.redeemed_at ? (
+                            <>
+                              {shortDay(code.redeemed_at)} · {code.redeemed_by_email ?? "—"}
+                              <br />
+                              <span className={styles.summaryHint}>{code.redeemed_org_slug ?? code.redeemed_org_id ?? "—"}</span>
+                            </>
+                          ) : code.revoked_at ? (
+                            <span className={styles.summaryHint}>revoked {shortDay(code.revoked_at)} · {code.revoked_by_email ?? "—"}</span>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td>
+                          {code.status === "active" ? (
+                            <button
+                              type="button"
+                              className={styles.buttonDanger}
+                              disabled={busy}
+                              onClick={() => {
+                                if (window.confirm(`Revoke unused free code${code.label ? ` "${code.label}"` : ""}?`)) {
+                                  void revokeFreeCode(code.id);
+                                }
+                              }}
+                            >
+                              revoke
+                            </button>
+                          ) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
               )}
             </div>
           ) : null}

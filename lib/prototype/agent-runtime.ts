@@ -226,6 +226,7 @@ function actorFromRun(row: AgentRunRow): FregeActorContext {
       org_id: organization.id,
       org_slug: organization.slug,
       org_name: organization.name,
+      org_status: organization.status as HumanOrgContext["membership"]["org_status"],
       role: "admin",
       status: "active",
     } satisfies HumanOrgContext["membership"]);

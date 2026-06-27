@@ -27,7 +27,8 @@
     "smoke:backend": "node scripts/prototype/smoke-backend.mjs",
     "smoke:backend:agent": "node scripts/prototype/smoke-backend.mjs --include-agent-run",
     "smoke:public": "node scripts/prototype/smoke-public.mjs",
-    "smoke:admin": "node scripts/prototype/smoke-admin.mjs"
+    "smoke:admin": "node scripts/prototype/smoke-admin.mjs",
+    "smoke:free-codes": "node scripts/prototype/smoke-free-codes.mjs"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.23.0",

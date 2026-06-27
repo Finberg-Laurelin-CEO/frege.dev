@@ -7,6 +7,7 @@ type Membership = {
   org_id: string;
   org_slug: string;
   org_name: string;
+  org_status: string;
   role: string;
   status: string;
 };
@@ -25,6 +26,8 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [freeCode, setFreeCode] = useState("");
+  const [compActivatedOrgs, setCompActivatedOrgs] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -34,6 +37,9 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
   }, []);
 
   const perSeat = plans.find((p) => p.key === plan)?.perSeat ?? false;
+  const selectedOrg = ownerOrgs.find((m) => m.org_slug === orgSlug);
+  const selectedOrgActive = selectedOrg?.org_status === "active" || compActivatedOrgs.has(orgSlug);
+  const canRedeemFreeCode = selectedOrg?.org_status === "inactive" && !compActivatedOrgs.has(orgSlug);
 
   async function startCheckout() {
     setBusy(true);
@@ -86,6 +92,37 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
       }
     } catch {
       setError("Could not open billing portal.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function redeemFreeCode() {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const res = await fetch("/api/v1/billing/free-code/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ org_slug: orgSlug, code: freeCode }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        const messages: Record<string, string> = {
+          invalid_code: "That activation code was not found.",
+          code_revoked: "That activation code has been revoked.",
+          code_redeemed: "That activation code has already been used.",
+          org_not_inactive: "This organization is already active or cannot be activated with a code.",
+        };
+        setError(messages[json.error as string] ?? `Could not redeem code (${json.error ?? res.status}).`);
+        return;
+      }
+      setCompActivatedOrgs((prev) => new Set(prev).add(orgSlug));
+      setFreeCode("");
+      setNotice("Activation code redeemed. Your organization is active.");
+    } catch {
+      setError("Could not redeem activation code.");
     } finally {
       setBusy(false);
     }
@@ -149,8 +186,29 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
                 Manage billing & seats
               </button>
             </div>
+            {canRedeemFreeCode ? (
+              <div className={styles.detailSection}>
+                <h2 className={styles.sectionTitle}>Redeem free code</h2>
+                <label className={styles.label}>Activation code</label>
+                <input
+                  className={styles.field}
+                  value={freeCode}
+                  onChange={(e) => setFreeCode(e.target.value)}
+                  placeholder="FRG-COMP-..."
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                />
+                <div className={styles.buttonRow}>
+                  <button type="button" className={styles.buttonSecondary} disabled={busy || !orgSlug || !freeCode.trim()} onClick={redeemFreeCode}>
+                    Redeem code
+                  </button>
+                </div>
+              </div>
+            ) : selectedOrgActive ? (
+              <p className={styles.status}>This organization is active.</p>
+            ) : null}
             <p className={styles.sectionLead}>
-              Agents stay blocked until payment completes. Need enterprise terms?{" "}
+              Agents stay blocked until payment completes or a staff-issued activation code is redeemed. Need enterprise terms?{" "}
               <a className={styles.code} href="/contact">Contact us</a>.
             </p>
           </div>
