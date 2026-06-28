@@ -13,6 +13,7 @@ export type UserSessionMembership = {
   org_id: string;
   org_slug: string;
   org_name: string;
+  org_status: "inactive" | "active" | "suspended";
   role: "owner" | "admin" | "member" | "viewer";
   status: "active" | "disabled";
 };
@@ -151,6 +152,7 @@ export async function authenticateSessionToken(rawToken: string | null): Promise
       organizations.id as org_id,
       organizations.slug as org_slug,
       organizations.name as org_name,
+      organizations.status as org_status,
       organization_memberships.role,
       organization_memberships.status
     from organization_memberships

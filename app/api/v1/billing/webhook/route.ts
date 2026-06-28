@@ -14,11 +14,21 @@ async function activateOrg(orgId: string, sub: {
 }) {
   const sql = getSql();
   await sql`
-    insert into org_billing (org_id, stripe_customer_id, stripe_subscription_id, subscription_status, current_period_end, seats, updated_at)
+    insert into org_billing (
+      org_id,
+      stripe_customer_id,
+      stripe_subscription_id,
+      subscription_status,
+      current_period_end,
+      seats,
+      entitlement_kind,
+      entitlement_status,
+      updated_at
+    )
     values (
       ${orgId}, ${sub.customerId ?? null}, ${sub.subscriptionId ?? null}, ${sub.status ?? null},
       ${sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd * 1000).toISOString() : null},
-      ${sub.seats ?? 1}, now()
+      ${sub.seats ?? 1}, 'stripe', 'active', now()
     )
     on conflict (org_id) do update set
       stripe_customer_id = coalesce(excluded.stripe_customer_id, org_billing.stripe_customer_id),
@@ -26,6 +36,8 @@ async function activateOrg(orgId: string, sub: {
       subscription_status = excluded.subscription_status,
       current_period_end = coalesce(excluded.current_period_end, org_billing.current_period_end),
       seats = coalesce(${sub.seats ?? null}, org_billing.seats),
+      entitlement_kind = excluded.entitlement_kind,
+      entitlement_status = excluded.entitlement_status,
       updated_at = now()
   `;
   await sql`

@@ -63,12 +63,14 @@ export async function POST(req: Request) {
     // Persist intended plan/seats so the webhook can reconcile.
     const sql = getSql();
     await sql`
-      insert into org_billing (org_id, plan, billing_interval, seats, updated_at)
-      values (${auth.organization.id}, ${plan.plan}, ${plan.interval}, ${seats}, now())
+      insert into org_billing (org_id, plan, billing_interval, seats, entitlement_kind, entitlement_status, updated_at)
+      values (${auth.organization.id}, ${plan.plan}, ${plan.interval}, ${seats}, 'stripe', 'active', now())
       on conflict (org_id) do update set
         plan = excluded.plan,
         billing_interval = excluded.billing_interval,
         seats = excluded.seats,
+        entitlement_kind = excluded.entitlement_kind,
+        entitlement_status = excluded.entitlement_status,
         updated_at = now()
     `;
 
