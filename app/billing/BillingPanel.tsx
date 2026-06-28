@@ -61,7 +61,7 @@ function statusBadgeClass(status: string | null | undefined): string {
   return styles.badgeMuted;
 }
 
-export default function BillingPanel({ memberships }: { memberships: Membership[] }) {
+export default function BillingPanel({ memberships, embedded = false }: { memberships: Membership[]; embedded?: boolean }) {
   const activeOrgs = memberships.filter((m) => m.status === "active");
   const [orgSlug, setOrgSlug] = useState(activeOrgs[0]?.org_slug ?? "");
   const [plan, setPlan] = useState("solo");
@@ -214,17 +214,21 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
     }
   }
 
+  const ShellTag = embedded ? "section" : "main";
+
   return (
-    <main id="main" className={styles.shell}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Billing</h1>
-          <p className={styles.meta}>Activate your organization by choosing a plan.</p>
-        </div>
-        <div className={styles.headerActions}>
-          <a className={styles.buttonSecondary} href="/admin">admin</a>
-        </div>
-      </header>
+    <ShellTag id={embedded ? undefined : "main"} className={`${styles.shell} ${embedded ? styles.embeddedShell : ""}`}>
+      {!embedded && (
+        <header className={styles.header}>
+          <div>
+            <h1 className={styles.title}>Billing</h1>
+            <p className={styles.meta}>Activate your organization by choosing a plan.</p>
+          </div>
+          <div className={styles.headerActions}>
+            <a className={styles.buttonSecondary} href="/console?view=agents">agent control</a>
+          </div>
+        </header>
+      )}
 
       <section className={styles.panel}>
         {notice ? <p className={styles.status}>{notice}</p> : null}
@@ -350,6 +354,6 @@ export default function BillingPanel({ memberships }: { memberships: Membership[
           </div>
         )}
       </section>
-    </main>
+    </ShellTag>
   );
 }

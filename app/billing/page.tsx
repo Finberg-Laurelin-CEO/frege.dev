@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { requireUserPageSession } from "@/lib/prototype/page-auth";
-import BillingPanel from "./BillingPanel";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Frege Billing",
@@ -13,6 +12,5 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function BillingPage() {
-  const session = await requireUserPageSession("/billing");
-  return <BillingPanel memberships={session.memberships} />;
+  redirect("/console?view=billing");
 }

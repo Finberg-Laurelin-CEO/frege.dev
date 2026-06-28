@@ -259,6 +259,10 @@
   background: #ffffff;
 }
 
+.controlWorkspace {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .documentList {
   min-width: 0;
   border-right: 1px solid #c4cccc;

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
+import { freeCodeSchemaResponse } from "@/lib/prototype/free-code-errors";
 import { generateFreeActivationCode, hashFreeActivationCode } from "@/lib/prototype/free-codes";
 import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
 import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
@@ -48,6 +49,8 @@ export async function GET(req: Request) {
 
     return Response.json({ free_codes: codes }, { status: 200 });
   } catch (err) {
+    const schemaError = freeCodeSchemaResponse("platform free codes list schema missing", err);
+    if (schemaError) return schemaError;
     return routeError("platform free codes list failed", err);
   }
 }
@@ -114,6 +117,8 @@ export async function POST(req: Request) {
 
     return Response.json({ free_code: code, raw_code: rawCode }, { status: 201 });
   } catch (err) {
+    const schemaError = freeCodeSchemaResponse("platform free code create schema missing", err);
+    if (schemaError) return schemaError;
     return routeError("platform free code create failed", err);
   }
 }

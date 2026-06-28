@@ -8,6 +8,21 @@
   padding: 24px var(--pad) 64px;
 }
 
+.embeddedShell {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.embeddedShell .grid {
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.embeddedShell .nav {
+  top: calc(var(--bar-h) + 14px);
+}
+
 .header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;

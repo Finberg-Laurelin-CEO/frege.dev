@@ -282,6 +282,19 @@ const severityTone: Record<string, BadgeTone> = {
   low: "neutral",
 };
 
+function platformErrorMessage(json: unknown, status: number, action: string): string {
+  const payload = json && typeof json === "object" ? (json as { error?: unknown; message?: unknown }) : {};
+  const error = typeof payload.error === "string" ? payload.error : "";
+  const message = typeof payload.message === "string" ? payload.message : "";
+
+  if (error === "free_codes_not_configured") {
+    return message || "Free activation code storage is not configured for this deployment. Apply db/015_free_activation_codes.sql.";
+  }
+
+  if (message) return `${action} failed: ${message}`;
+  return `${action} failed (${error || status}).`;
+}
+
 export default function PlatformConsole({ staffEmail }: { staffEmail: string }) {
   const [tab, setTab] = useState<Tab>("orgs");
   const [error, setError] = useState("");
@@ -397,10 +410,19 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
   const loadFreeCodes = useCallback(async () => {
     try {
-      const r = await fetch(`/api/v1/platform/free-codes`).then((x) => x.json());
-      setFreeCodes(r.free_codes ?? []);
+      const res = await fetch(`/api/v1/platform/free-codes`, { credentials: "same-origin" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFreeCodes([]);
+        setError(platformErrorMessage(json, res.status, "Load free codes"));
+        return;
+      }
+
+      const rows = (json as { free_codes?: FreeCodeRow[] }).free_codes;
+      setFreeCodes(Array.isArray(rows) ? rows : []);
     } catch {
       setError("Failed to load free codes.");
+      setFreeCodes([]);
     }
   }, []);
 
@@ -481,23 +503,27 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     setBusy(true);
     setError("");
     setCreatedRawCode("");
+    const seats = Math.min(500, Math.max(1, Number(newFreeCodeSeats) || 1));
+    setNewFreeCodeSeats(seats);
     try {
       const res = await fetch(`/api/v1/platform/free-codes`, {
         method: "POST",
+        credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           label: newFreeCodeLabel.trim() || undefined,
           plan: newFreeCodePlan,
           billing_interval: "permanent",
-          seats: newFreeCodeSeats,
+          seats,
         }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(`Create free code failed (${json.error ?? res.status}).`);
+        setError(platformErrorMessage(json, res.status, "Create free code"));
         return;
       }
-      setCreatedRawCode(json.raw_code ?? "");
+      const rawCode = (json as { raw_code?: string }).raw_code;
+      setCreatedRawCode(rawCode ?? "");
       setNewFreeCodeLabel("");
       await loadFreeCodes();
     } finally {
@@ -509,12 +535,26 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     setBusy(true);
     setError("");
     try {
-      const res = await fetch(`/api/v1/platform/free-codes/${id}/revoke`, { method: "PATCH" });
+      const res = await fetch(`/api/v1/platform/free-codes/${id}/revoke`, {
+        method: "PATCH",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) setError(`Revoke free code failed (${json.error ?? res.status}).`);
+      if (!res.ok) setError(platformErrorMessage(json, res.status, "Revoke free code"));
       else await loadFreeCodes();
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function copyCreatedFreeCode() {
+    if (!createdRawCode) return;
+    try {
+      await navigator.clipboard.writeText(createdRawCode);
+    } catch {
+      setError("Could not copy the new free code.");
     }
   }
 
@@ -1048,9 +1088,16 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               <div className={styles.detailSection}>
                 <h3 className={styles.sectionTitle}>Create free code</h3>
                 {createdRawCode ? (
-                  <p className={styles.status}>
-                    New code: <code className={styles.code}>{createdRawCode}</code>
-                  </p>
+                  <div className={styles.notice}>
+                    <strong>New free code created</strong>
+                    <span>Copy it now. Frege stores only the hash and cannot show this raw code again.</span>
+                    <code className={styles.code}>{createdRawCode}</code>
+                    <div className={styles.buttonRow}>
+                      <button type="button" className={`${styles.button} ${styles.buttonSecondary}`} onClick={copyCreatedFreeCode}>
+                        copy code
+                      </button>
+                    </div>
+                  </div>
                 ) : null}
                 <label className={styles.label}>Label</label>
                 <input
@@ -1071,7 +1118,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                   min={1}
                   max={500}
                   value={newFreeCodeSeats}
-                  onChange={(e) => setNewFreeCodeSeats(Math.max(1, Number(e.target.value) || 1))}
+                  onChange={(e) => setNewFreeCodeSeats(Math.min(500, Math.max(1, Number(e.target.value) || 1)))}
                 />
                 <div className={styles.buttonRow}>
                   <button type="button" className={styles.button} disabled={busy} onClick={createFreeCode}>create code</button>

@@ -1,4 +1,5 @@
 import { getSql } from "@/lib/db";
+import { freeCodeSchemaResponse } from "@/lib/prototype/free-code-errors";
 import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
 import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
 import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
@@ -52,6 +53,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     return Response.json({ free_code: code }, { status: 200 });
   } catch (err) {
+    const schemaError = freeCodeSchemaResponse("platform free code revoke schema missing", err);
+    if (schemaError) return schemaError;
     return routeError("platform free code revoke failed", err);
   }
 }

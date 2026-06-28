@@ -1,10 +1,9 @@
-import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { sendInviteEmail } from "@/lib/prototype/email";
+import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/prototype/invites";
 import { normalizeEmail } from "@/lib/prototype/org-guard";
-import { customerBaseUrl } from "@/lib/prototype/public-url";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -16,10 +15,6 @@ const inviteSchema = z.object({
   email: z.string().email().max(320),
   role: z.enum(["owner", "admin", "member", "viewer"]).default("member"),
 });
-
-function hashInviteToken(rawToken: string): string {
-  return createHash("sha256").update(rawToken).digest("hex");
-}
 
 export async function GET(req: Request) {
   try {
@@ -65,24 +60,47 @@ export async function POST(req: Request) {
     if (!authResult.ok) return authResult.response;
     const auth = authResult.auth;
 
-    const rawToken = randomBytes(24).toString("base64url");
+    const email = normalizeEmail(parsed.data.email);
+    const rawToken = generateInviteToken();
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString();
     const sql = getSql();
-    const [invite] = await sql`
-      insert into organization_invites (
-        org_id, email, role, invited_by_user_id, invite_token_hash, expires_at
-      ) values (
-        ${auth.organization.id},
-        ${normalizeEmail(parsed.data.email)},
-        ${parsed.data.role},
-        ${auth.user.id},
-        ${hashInviteToken(rawToken)},
-        ${new Date(Date.now() + 1000 * 60 * 60 * 24 * 14).toISOString()}
-      )
-      returning id, email, role, status, expires_at, created_at
+
+    const [existingPendingInvite] = await sql`
+      select id
+      from organization_invites
+      where org_id = ${auth.organization.id}
+        and email = ${email}
+        and status = 'pending'
+      order by created_at desc
+      limit 1
     `;
 
-    // Build the link against the customer site (never the admin origin) and email it.
-    const inviteLink = `${customerBaseUrl()}/invite?token=${rawToken}`;
+    const [invite] = existingPendingInvite
+      ? await sql`
+          update organization_invites
+          set
+            role = ${parsed.data.role},
+            invited_by_user_id = ${auth.user.id},
+            invite_token_hash = ${hashInviteToken(rawToken)},
+            expires_at = ${expiresAt}
+          where id = ${existingPendingInvite.id}
+          returning id, email, role, status, expires_at, created_at
+        `
+      : await sql`
+          insert into organization_invites (
+            org_id, email, role, invited_by_user_id, invite_token_hash, expires_at
+          ) values (
+            ${auth.organization.id},
+            ${email},
+            ${parsed.data.role},
+            ${auth.user.id},
+            ${hashInviteToken(rawToken)},
+            ${expiresAt}
+          )
+          returning id, email, role, status, expires_at, created_at
+        `;
+
+    const inviteLink = inviteLinkForToken(rawToken);
     const emailResult = await sendInviteEmail({
       to: invite.email,
       inviteUrl: inviteLink,
@@ -92,19 +110,28 @@ export async function POST(req: Request) {
     await logTelemetryEvent({
       actor: { type: "user", auth },
       req,
-      action: "admin.members.invite",
+      action: existingPendingInvite ? "admin.members.invite.resend" : "admin.members.invite",
       resourceType: "organization_invite",
       resourceId: invite.id,
       outcome: "success",
       latencyMs: Date.now() - startedAt,
-      metadata: { email: invite.email, role: invite.role, email_sent: emailResult.sent },
+      metadata: {
+        email: invite.email,
+        role: invite.role,
+        email_sent: emailResult.sent,
+        reissued: Boolean(existingPendingInvite),
+      },
     });
 
     return Response.json(
-      { invite, invite_token: rawToken, invite_link: inviteLink, email_sent: emailResult.sent },
-      { status: 201 },
+      { invite, invite_token: rawToken, invite_link: inviteLink, email_sent: emailResult.sent, reissued: Boolean(existingPendingInvite) },
+      { status: existingPendingInvite ? 200 : 201 },
     );
   } catch (err) {
+    const code = (err as { code?: string })?.code;
+    if (code === "23505") {
+      return Response.json({ error: "duplicate_invite" }, { status: 409 });
+    }
     return routeError("admin invite create failed", err);
   }
 }

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { requireUserPageSession } from "@/lib/prototype/page-auth";
-import AdminConsole from "./AdminConsole";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Frege Admin",
@@ -13,6 +12,5 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  await requireUserPageSession("/admin");
-  return <AdminConsole />;
+  redirect("/console?view=agents");
 }

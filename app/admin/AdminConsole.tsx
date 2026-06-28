@@ -222,7 +222,7 @@ async function readJson(response: Response) {
   return json;
 }
 
-export default function AdminConsole() {
+export default function AdminConsole({ embedded = false }: { embedded?: boolean } = {}) {
   const [session, setSession] = useState<Session | null>(null);
   const [selectedOrgSlug, setSelectedOrgSlug] = useState("");
   const [tab, setTab] = useState<Tab>("setup");
@@ -616,36 +616,43 @@ export default function AdminConsole() {
   }
 
   if (status === "not_authenticated") {
+    const ShellTag = embedded ? "section" : "main";
     return (
-      <main id="main" className={styles.shell}>
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Frege control plane</h1>
-            <p className={styles.meta}>not authenticated</p>
+      <ShellTag id={embedded ? undefined : "main"} className={`${styles.shell} ${embedded ? styles.embeddedShell : ""}`}>
+        {!embedded && (
+          <div className={styles.header}>
+            <div>
+              <h1 className={styles.title}>Frege control plane</h1>
+              <p className={styles.meta}>not authenticated</p>
+            </div>
+            <a className="lnk" href="/login?next=/console?view=agents">login</a>
           </div>
-          <a className="lnk" href="/login?next=/admin">login</a>
-        </div>
-      </main>
+        )}
+      </ShellTag>
     );
   }
 
+  const ShellTag = embedded ? "section" : "main";
+
   return (
-    <main id="main" className={styles.shell}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Frege control plane</h1>
-          <p className={styles.meta}>
-            {session ? `${session.user.email} / ${selectedOrg?.org_name ?? "no org"}` : "loading"}
-          </p>
+    <ShellTag id={embedded ? undefined : "main"} className={`${styles.shell} ${embedded ? styles.embeddedShell : ""}`}>
+      {!embedded && (
+        <div className={styles.header}>
+          <div>
+            <h1 className={styles.title}>Frege control plane</h1>
+            <p className={styles.meta}>
+              {session ? `${session.user.email} / ${selectedOrg?.org_name ?? "no org"}` : "loading"}
+            </p>
+          </div>
+          <div className={styles.headerActions}>
+            <a className={`${styles.button} ${styles.buttonSecondary}`} href="/docs">docs</a>
+            <a className={`${styles.button} ${styles.buttonSecondary}`} href="/console">console</a>
+            <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={logout}>
+              logout
+            </button>
+          </div>
         </div>
-        <div className={styles.headerActions}>
-          <a className={`${styles.button} ${styles.buttonSecondary}`} href="/docs">docs</a>
-          <a className={`${styles.button} ${styles.buttonSecondary}`} href="/console">knowledge console</a>
-          <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={logout}>
-            logout
-          </button>
-        </div>
-      </div>
+      )}
 
       <div className={styles.grid}>
         <aside className={styles.nav}>
@@ -1448,6 +1455,6 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
           )}
         </section>
       </div>
-    </main>
+    </ShellTag>
   );
 }

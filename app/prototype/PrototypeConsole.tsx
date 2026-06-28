@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import AdminConsole from "@/app/admin/AdminConsole";
+import BillingPanel from "@/app/billing/BillingPanel";
 import {
   DEMO_AUDIT_EVENTS,
   DEMO_CHUNKS,
@@ -16,15 +18,32 @@ import type { SensitivityLabel } from "@/lib/prototype/types";
 import styles from "./page.module.css";
 import VaultGraphTab from "./VaultGraphTab";
 
-type ConsoleTab = "documents" | "map" | "write" | "audit" | "vault";
+type ConsoleTab = "documents" | "map" | "write" | "audit" | "vault" | "agents" | "billing";
+
+type Membership = {
+  org_id: string;
+  org_slug: string;
+  org_name: string;
+  org_status: string;
+  role: string;
+  status: string;
+};
 
 const consoleTabs: Array<{ id: ConsoleTab; label: string }> = [
   { id: "documents", label: "Documents" },
   { id: "map", label: "Map" },
+  { id: "agents", label: "Agent Control" },
+  { id: "billing", label: "Billing" },
   { id: "write", label: "Write" },
   { id: "audit", label: "Audit" },
   { id: "vault", label: "Vault" },
 ];
+
+const knowledgeTabs = new Set<ConsoleTab>(["documents", "map", "write", "audit", "vault"]);
+
+function consoleTabFromValue(value: string | null | undefined): ConsoleTab | null {
+  return consoleTabs.some((tab) => tab.id === value) ? (value as ConsoleTab) : null;
+}
 
 type DemoProposal = {
   id: string;
@@ -89,9 +108,17 @@ function metadataText(metadata: DemoAuditEvent["metadata"]): string {
     .join(" ");
 }
 
-export default function PrototypeConsole({ userEmail }: { userEmail?: string }) {
+export default function PrototypeConsole({
+  userEmail,
+  memberships,
+  initialView,
+}: {
+  userEmail?: string;
+  memberships: Membership[];
+  initialView?: string;
+}) {
   const [roleSlug, setRoleSlug] = useState<DemoRole["slug"]>("reader");
-  const [activeTab, setActiveTab] = useState<ConsoleTab>("documents");
+  const [activeTab, setActiveTab] = useState<ConsoleTab>(consoleTabFromValue(initialView) ?? "documents");
   const [query, setQuery] = useState("refund");
   const [documents, setDocuments] = useState<DemoDocument[]>(DEMO_DOCUMENTS);
   const [selectedSlug, setSelectedSlug] = useState("customer-refunds");
@@ -107,6 +134,14 @@ export default function PrototypeConsole({ userEmail }: { userEmail?: string }) 
   );
 
   const activeRole = DEMO_ROLES.find((role) => role.slug === roleSlug) ?? DEMO_ROLES[0]!;
+  const isKnowledgeView = knowledgeTabs.has(activeTab);
+  const activeTabLabel = consoleTabs.find((tab) => tab.id === activeTab)?.label ?? "Knowledge";
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const view = consoleTabFromValue(url.searchParams.get("view"));
+    if (view) setActiveTab(view);
+  }, []);
 
   const visibleDocuments = useMemo(
     () => documents.filter((document) => canRead(activeRole, document)),
@@ -251,6 +286,8 @@ export default function PrototypeConsole({ userEmail }: { userEmail?: string }) 
     write: proposals.length > 0 ? String(proposals.length) : activeRole.capabilities.canCreateDocs ? "ready" : "locked",
     audit: activeRole.capabilities.canReadAudit ? String(auditEvents.length) : "locked",
     vault: "live",
+    agents: "keys",
+    billing: "status",
   };
 
   return (
@@ -262,9 +299,8 @@ export default function PrototypeConsole({ userEmail }: { userEmail?: string }) 
             <strong>Console</strong>
           </div>
           <nav className={styles.productNav} aria-label="Workspace links">
-            <a className={styles.productNavActive} href="/console">Knowledge</a>
-            <a href="/admin">Admin</a>
-            <a href="/billing">Billing</a>
+            <a href="/docs">Docs</a>
+            <a href="/contact">Support</a>
           </nav>
           <nav className={styles.viewNav} aria-label="Knowledge views">
             {consoleTabs.map((tab) => (
@@ -291,49 +327,61 @@ export default function PrototypeConsole({ userEmail }: { userEmail?: string }) 
         <section className={styles.content}>
           <header className={styles.topbar}>
             <div className={styles.pageTitle}>
-              <h1>Knowledge</h1>
-              <p>{selectedDocument ? selectedDocument.path : "No document selected"}</p>
+              <h1>{activeTabLabel}</h1>
+              <p>
+                {activeTab === "agents"
+                  ? "API keys, roles, models, telemetry, and agent runs"
+                  : activeTab === "billing"
+                    ? "Plan, activation, seats, and subscription status"
+                    : selectedDocument
+                      ? selectedDocument.path
+                      : "No document selected"}
+              </p>
             </div>
-            <div className={styles.controls} aria-label="Console controls">
-              <label className={styles.field}>
-                <span>role</span>
-                <select value={roleSlug} onChange={(event) => setRoleSlug(event.target.value as DemoRole["slug"])}>
-                  {DEMO_ROLES.map((role) => (
-                    <option key={role.slug} value={role.slug}>
-                      {role.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={styles.field}>
-                <span>search</span>
-                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="refund, incident, sales..." />
-              </label>
-            </div>
+            {isKnowledgeView ? (
+              <div className={styles.controls} aria-label="Console controls">
+                <label className={styles.field}>
+                  <span>role</span>
+                  <select value={roleSlug} onChange={(event) => setRoleSlug(event.target.value as DemoRole["slug"])}>
+                    {DEMO_ROLES.map((role) => (
+                      <option key={role.slug} value={role.slug}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={styles.field}>
+                  <span>search</span>
+                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="refund, incident, sales..." />
+                </label>
+              </div>
+            ) : null}
           </header>
 
-          <section className={styles.workspace} aria-label="Knowledge workspace">
-            <aside className={styles.documentList} aria-label="Visible documents">
-              <div className={styles.panelHead}>
-                <h2>Documents</h2>
-                <span>{filteredDocuments.length} visible</span>
-              </div>
-              <div className={styles.listScroll}>
-                {filteredDocuments.map((document) => (
-                  <button
-                    key={document.slug}
-                    type="button"
-                    className={document.slug === selectedDocument?.slug ? styles.selectedDocument : styles.documentButton}
-                    onClick={() => chooseDocument(document.slug)}
-                  >
-                    <span className={styles.documentTitle}>{document.title}</span>
-                    <span className={styles.documentPath}>{document.path}</span>
-                    <span className={`${styles.badge} ${sensitivityClass(document.sensitivity)}`}>{document.sensitivity}</span>
-                  </button>
-                ))}
-                {filteredDocuments.length === 0 ? <p className={styles.empty}>No visible documents match this query.</p> : null}
-              </div>
-            </aside>
+          <section className={`${styles.workspace} ${!isKnowledgeView ? styles.controlWorkspace : ""}`} aria-label="Console workspace">
+            {isKnowledgeView ? (
+              <aside className={styles.documentList} aria-label="Visible documents">
+                <div className={styles.panelHead}>
+                  <h2>Documents</h2>
+                  <span>{filteredDocuments.length} visible</span>
+                </div>
+                <div className={styles.listScroll}>
+                  {filteredDocuments.map((document) => (
+                    <button
+                      key={document.slug}
+                      type="button"
+                      className={document.slug === selectedDocument?.slug ? styles.selectedDocument : styles.documentButton}
+                      onClick={() => chooseDocument(document.slug)}
+                    >
+                      <span className={styles.documentTitle}>{document.title}</span>
+                      <span className={styles.documentPath}>{document.path}</span>
+                      <span className={`${styles.badge} ${sensitivityClass(document.sensitivity)}`}>{document.sensitivity}</span>
+                    </button>
+                  ))}
+                  {filteredDocuments.length === 0 ? <p className={styles.empty}>No visible documents match this query.</p> : null}
+                </div>
+              </aside>
+            ) : null}
 
             <div className={styles.detail} aria-live="polite">
           {selectedDocument && activeTab === "documents" ? (
@@ -511,6 +559,8 @@ export default function PrototypeConsole({ userEmail }: { userEmail?: string }) 
           ) : null}
 
           {activeTab === "vault" ? <VaultGraphTab /> : null}
+          {activeTab === "agents" ? <AdminConsole embedded /> : null}
+          {activeTab === "billing" ? <BillingPanel memberships={memberships} embedded /> : null}
             </div>
           </section>
         </section>
