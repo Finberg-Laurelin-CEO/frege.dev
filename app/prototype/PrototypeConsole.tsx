@@ -18,6 +18,14 @@ import VaultGraphTab from "./VaultGraphTab";
 
 type ConsoleTab = "documents" | "map" | "write" | "audit" | "vault";
 
+const consoleTabs: Array<{ id: ConsoleTab; label: string }> = [
+  { id: "documents", label: "Documents" },
+  { id: "map", label: "Map" },
+  { id: "write", label: "Write" },
+  { id: "audit", label: "Audit" },
+  { id: "vault", label: "Vault" },
+];
+
 type DemoProposal = {
   id: string;
   documentSlug: string;
@@ -81,7 +89,7 @@ function metadataText(metadata: DemoAuditEvent["metadata"]): string {
     .join(" ");
 }
 
-export default function PrototypeConsole() {
+export default function PrototypeConsole({ userEmail }: { userEmail?: string }) {
   const [roleSlug, setRoleSlug] = useState<DemoRole["slug"]>("reader");
   const [activeTab, setActiveTab] = useState<ConsoleTab>("documents");
   const [query, setQuery] = useState("refund");
@@ -232,89 +240,102 @@ export default function PrototypeConsole() {
   }));
   const auditEvents = [...proposalEvents, ...DEMO_AUDIT_EVENTS];
 
+  async function logout() {
+    await fetch("/api/v1/auth/logout", { method: "POST" }).catch(() => null);
+    window.location.href = "/login";
+  }
+
+  const tabCounts: Record<ConsoleTab, string> = {
+    documents: String(filteredDocuments.length),
+    map: selectedLinks.length > 0 ? String(selectedLinks.length) : hiddenLinkCount > 0 ? `${hiddenLinkCount} hidden` : "0",
+    write: proposals.length > 0 ? String(proposals.length) : activeRole.capabilities.canCreateDocs ? "ready" : "locked",
+    audit: activeRole.capabilities.canReadAudit ? String(auditEvents.length) : "locked",
+    vault: "live",
+  };
+
   return (
     <main id="main" className={styles.console}>
-      <section className={styles.header} aria-label="Knowledge console status">
-        <div>
-          <p className={styles.kicker}>Frege control plane</p>
-          <h1>Knowledge Console</h1>
-          <p className={styles.summary}>Password-protected workspace for role-scoped knowledge, semantic context, write proposals, and audit review.</p>
-        </div>
-        <div className={styles.statusGrid} aria-label="Console state">
-          <div>
-            <span>access</span>
-            <strong>password protected</strong>
+      <div className={styles.appShell}>
+        <aside className={styles.sidebar} aria-label="Console navigation">
+          <div className={styles.sidebarHeader}>
+            <span className={styles.kicker}>Frege</span>
+            <strong>Console</strong>
           </div>
-          <div>
-            <span>scope</span>
-            <strong>role gated</strong>
-          </div>
-          <div>
-            <span>writes</span>
-            <strong>reviewable</strong>
-          </div>
-        </div>
-      </section>
-
-      <section className={styles.controls} aria-label="Console controls">
-        <label className={styles.field}>
-          <span>role</span>
-          <select value={roleSlug} onChange={(event) => setRoleSlug(event.target.value as DemoRole["slug"])}>
-            {DEMO_ROLES.map((role) => (
-              <option key={role.slug} value={role.slug}>
-                {role.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={styles.field}>
-          <span>search</span>
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="refund, incident, sales..." />
-        </label>
-        <div className={styles.roleMeta}>
-          <span>{activeRole.keyPrefix}</span>
-          <span>{activeRole.allowedLabels.join(", ")}</span>
-          <span>{activeRole.capabilities.canCreateDocs ? "write enabled" : "read only"}</span>
-        </div>
-      </section>
-
-      <nav className={styles.tabs} aria-label="Knowledge console views">
-        {(["documents", "map", "write", "audit", "vault"] as ConsoleTab[]).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={activeTab === tab ? styles.activeTab : undefined}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </nav>
-
-      <section className={styles.workspace} aria-label="Prototype workspace">
-        <aside className={styles.documentList} aria-label="Visible documents">
-          <div className={styles.panelHead}>
-            <h2>Documents</h2>
-            <span>{filteredDocuments.length} visible</span>
-          </div>
-          <div className={styles.listScroll}>
-            {filteredDocuments.map((document) => (
+          <nav className={styles.productNav} aria-label="Workspace links">
+            <a className={styles.productNavActive} href="/console">Knowledge</a>
+            <a href="/admin">Admin</a>
+            <a href="/billing">Billing</a>
+          </nav>
+          <nav className={styles.viewNav} aria-label="Knowledge views">
+            {consoleTabs.map((tab) => (
               <button
-                key={document.slug}
+                key={tab.id}
                 type="button"
-                className={document.slug === selectedDocument?.slug ? styles.selectedDocument : styles.documentButton}
-                onClick={() => chooseDocument(document.slug)}
+                className={activeTab === tab.id ? styles.activeView : undefined}
+                onClick={() => setActiveTab(tab.id)}
               >
-                <span className={styles.documentTitle}>{document.title}</span>
-                <span className={styles.documentPath}>{document.path}</span>
-                <span className={`${styles.badge} ${sensitivityClass(document.sensitivity)}`}>{document.sensitivity}</span>
+                <span>{tab.label}</span>
+                <small>{tabCounts[tab.id]}</small>
               </button>
             ))}
-            {filteredDocuments.length === 0 ? <p className={styles.empty}>No visible documents match this query.</p> : null}
+          </nav>
+          <div className={styles.sidebarMeta}>
+            {userEmail ? <span>{userEmail}</span> : null}
+            <span>{activeRole.name}</span>
+            <code>{activeRole.keyPrefix}</code>
+            <small>{activeRole.allowedLabels.join(" / ")}</small>
           </div>
+          <button className={styles.logoutButton} type="button" onClick={logout}>Logout</button>
         </aside>
 
-        <div className={styles.detail} aria-live="polite">
+        <section className={styles.content}>
+          <header className={styles.topbar}>
+            <div className={styles.pageTitle}>
+              <h1>Knowledge</h1>
+              <p>{selectedDocument ? selectedDocument.path : "No document selected"}</p>
+            </div>
+            <div className={styles.controls} aria-label="Console controls">
+              <label className={styles.field}>
+                <span>role</span>
+                <select value={roleSlug} onChange={(event) => setRoleSlug(event.target.value as DemoRole["slug"])}>
+                  {DEMO_ROLES.map((role) => (
+                    <option key={role.slug} value={role.slug}>
+                      {role.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={styles.field}>
+                <span>search</span>
+                <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="refund, incident, sales..." />
+              </label>
+            </div>
+          </header>
+
+          <section className={styles.workspace} aria-label="Knowledge workspace">
+            <aside className={styles.documentList} aria-label="Visible documents">
+              <div className={styles.panelHead}>
+                <h2>Documents</h2>
+                <span>{filteredDocuments.length} visible</span>
+              </div>
+              <div className={styles.listScroll}>
+                {filteredDocuments.map((document) => (
+                  <button
+                    key={document.slug}
+                    type="button"
+                    className={document.slug === selectedDocument?.slug ? styles.selectedDocument : styles.documentButton}
+                    onClick={() => chooseDocument(document.slug)}
+                  >
+                    <span className={styles.documentTitle}>{document.title}</span>
+                    <span className={styles.documentPath}>{document.path}</span>
+                    <span className={`${styles.badge} ${sensitivityClass(document.sensitivity)}`}>{document.sensitivity}</span>
+                  </button>
+                ))}
+                {filteredDocuments.length === 0 ? <p className={styles.empty}>No visible documents match this query.</p> : null}
+              </div>
+            </aside>
+
+            <div className={styles.detail} aria-live="polite">
           {selectedDocument && activeTab === "documents" ? (
             <article className={styles.documentDetail}>
               <div className={styles.panelHead}>
@@ -490,8 +511,10 @@ export default function PrototypeConsole() {
           ) : null}
 
           {activeTab === "vault" ? <VaultGraphTab /> : null}
-        </div>
-      </section>
+            </div>
+          </section>
+        </section>
+      </div>
     </main>
   );
 }

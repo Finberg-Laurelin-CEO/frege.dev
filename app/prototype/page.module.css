@@ -1,59 +1,106 @@
 .console {
   min-height: calc(100vh - var(--bar-h));
-  padding: 24px var(--pad) 56px;
+  padding: 14px var(--pad) 28px;
   background: #f5f7f7;
   color: #111111;
 }
 
-.header {
+.appShell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 520px);
-  gap: 28px;
-  align-items: end;
-  margin-bottom: 20px;
-  padding-bottom: 18px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.sidebar {
+  position: sticky;
+  top: calc(var(--bar-h) + 14px);
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid #c4cccc;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.sidebarHeader {
+  display: grid;
+  gap: 2px;
+  padding-bottom: 10px;
   border-bottom: 1px solid #d8dddd;
 }
 
+.sidebarHeader strong {
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.content {
+  min-width: 0;
+}
+
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 620px);
+  gap: 14px;
+  align-items: end;
+  margin-bottom: 12px;
+  border: 1px solid #c4cccc;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.pageTitle {
+  min-width: 0;
+}
+
+.pageTitle h1 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.pageTitle p {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: #66706c;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .kicker {
-  margin: 0 0 6px;
+  margin: 0;
   color: #52605a;
   font-size: 13px;
   text-transform: uppercase;
 }
 
-.header h1 {
-  margin: 0;
-  font-size: clamp(32px, 5vw, 72px);
-  font-weight: 400;
-  line-height: 0.96;
-  letter-spacing: 0;
-}
-
-.summary {
-  max-width: 74ch;
-  margin: 14px 0 0;
-  color: #343a38;
-}
-
-.statusGrid {
+.productNav,
+.viewNav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid #c4cccc;
-  background: #ffffff;
+  gap: 6px;
 }
 
-.statusGrid div {
-  min-width: 0;
-  padding: 12px;
-  border-right: 1px solid #d8dddd;
+.productNav a,
+.viewNav button,
+.logoutButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  border: 1px solid #d8dddd;
+  border-radius: 0;
+  padding: 0 10px;
+  background: #fbfcfc;
+  color: #111111;
+  font: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
 }
 
-.statusGrid div:last-child {
-  border-right: 0;
-}
-
-.statusGrid span,
 .field span,
 .panelHead span,
 .documentPath,
@@ -70,21 +117,63 @@
   font-size: 12px;
 }
 
-.statusGrid strong {
-  display: block;
-  overflow: hidden;
-  margin-top: 3px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 400;
+.viewNav button small {
+  color: #66706c;
+  font-size: 11px;
+}
+
+.productNav a:hover,
+.productNav a:focus-visible,
+.productNavActive,
+.viewNav button:hover,
+.viewNav button:focus-visible,
+.activeView,
+.logoutButton:hover,
+.logoutButton:focus-visible {
+  border-color: #111111;
+  background: #111111;
+  color: #ffffff;
+}
+
+.productNav a:hover,
+.productNav a:focus-visible,
+.productNavActive,
+.viewNav button:hover small,
+.viewNav button:focus-visible small,
+.activeView small {
+  color: #ffffff;
+}
+
+.sidebarMeta {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid #d8dddd;
+  padding-top: 10px;
+  color: #343a38;
+  font-size: 12px;
+}
+
+.sidebarMeta span {
+  font-weight: 500;
+}
+
+.sidebarMeta code {
+  overflow-wrap: anywhere;
+  font-family: var(--mono);
+}
+
+.sidebarMeta small {
+  color: #66706c;
+}
+
+.logoutButton {
+  justify-content: center;
 }
 
 .controls {
   display: grid;
-  grid-template-columns: 240px minmax(220px, 1fr) auto;
+  grid-template-columns: 180px minmax(180px, 1fr);
   gap: 12px;
-  align-items: end;
-  margin-bottom: 12px;
 }
 
 .field {
@@ -138,14 +227,6 @@
   font-size: 12px;
 }
 
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.tabs button,
 .formPanel button {
   min-height: 36px;
   border: 1px solid #111111;
@@ -157,9 +238,6 @@
   cursor: pointer;
 }
 
-.tabs button:hover,
-.tabs button:focus-visible,
-.tabs .activeTab,
 .formPanel button:hover,
 .formPanel button:focus-visible {
   background: #111111;
@@ -176,7 +254,7 @@
 .workspace {
   display: grid;
   grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  min-height: 620px;
+  min-height: calc(100vh - var(--bar-h) - 54px);
   border: 1px solid #c4cccc;
   background: #ffffff;
 }
@@ -438,7 +516,8 @@
 }
 
 @media (max-width: 980px) {
-  .header,
+  .appShell,
+  .topbar,
   .controls,
   .workspace,
   .writeGrid,
@@ -446,11 +525,15 @@
     grid-template-columns: 1fr;
   }
 
-  .statusGrid {
-    grid-template-columns: 1fr;
+  .sidebar {
+    position: static;
   }
 
-  .statusGrid div,
+  .productNav,
+  .viewNav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .documentList,
   .mapGrid section {
     border-right: 0;
