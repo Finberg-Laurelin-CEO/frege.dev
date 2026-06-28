@@ -179,6 +179,15 @@ type AgentRunRow = {
   completed_at: string | null;
 };
 
+const apiKeyExpirationChoices = [
+  { value: "30d", label: "30 days", description: "short trial or contractor access" },
+  { value: "90d", label: "90 days", description: "default rotation window" },
+  { value: "180d", label: "180 days", description: "long-running local agent" },
+  { value: "1y", label: "1 year", description: "annual service rotation" },
+  { value: "none", label: "no expiration", description: "requires manual revocation" },
+  { value: "custom", label: "custom", description: "choose an exact date and time" },
+];
+
 function formatDate(value: string | null | undefined): string {
   if (!value) return "-";
   return new Intl.DateTimeFormat("en", {
@@ -187,6 +196,24 @@ function formatDate(value: string | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function addDays(days: number): Date {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+}
+
+function apiKeyStatus(key: ApiKeyRow): "active" | "revoked" | "expired" | "other" {
+  if (key.status === "revoked") return "revoked";
+  if (key.expires_at && new Date(key.expires_at).getTime() <= Date.now()) return "expired";
+  if (key.status === "active") return "active";
+  return "other";
+}
+
+function statusBadgeClass(status: ReturnType<typeof apiKeyStatus>): string {
+  if (status === "active") return styles.badgeOk;
+  if (status === "expired") return styles.badgeWarn;
+  if (status === "revoked") return styles.badgeDanger;
+  return styles.badgeMuted;
 }
 
 async function readJson(response: Response) {
@@ -206,6 +233,9 @@ export default function AdminConsole() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [apiKeys, setApiKeys] = useState<ApiKeyRow[]>([]);
   const [rawKey, setRawKey] = useState("");
+  const [apiKeyRoleSlug, setApiKeyRoleSlug] = useState("");
+  const [apiKeyOwnerId, setApiKeyOwnerId] = useState("");
+  const [apiKeyExpiration, setApiKeyExpiration] = useState("90d");
   const [browserOrigin, setBrowserOrigin] = useState("");
   const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
   const [telemetrySummary, setTelemetrySummary] = useState<TelemetrySummary>({});
@@ -225,6 +255,22 @@ export default function AdminConsole() {
     () => session?.memberships.find((membership) => membership.org_slug === selectedOrgSlug) ?? null,
     [selectedOrgSlug, session],
   );
+  const selectedApiKeyRole = useMemo(
+    () => roles.find((role) => role.slug === apiKeyRoleSlug) ?? roles[0] ?? null,
+    [apiKeyRoleSlug, roles],
+  );
+  const selectedApiKeyOwner = useMemo(
+    () => members.find((member) => member.id === apiKeyOwnerId) ?? members[0] ?? null,
+    [apiKeyOwnerId, members],
+  );
+  const apiBaseUrl = browserOrigin || "https://frege.dev";
+  const rawBearerHeader = rawKey ? `Authorization: Bearer ${rawKey}` : "";
+  const statusCurl = rawKey
+    ? `curl -s ${apiBaseUrl}/api/v1/brain/status \\\n  -H "Authorization: Bearer ${rawKey}"`
+    : "";
+  const contextCurl = rawKey
+    ? `curl -s ${apiBaseUrl}/api/v1/context/build \\\n  -H "Content-Type: application/json" \\\n  -H "Authorization: Bearer ${rawKey}" \\\n  -d '{"query":"refund policy","limit":3}'`
+    : "";
 
   async function refreshAdminData(orgSlug = selectedOrgSlug) {
     if (!orgSlug) return;
@@ -286,6 +332,18 @@ export default function AdminConsole() {
   useEffect(() => {
     if (selectedOrgSlug) void refreshAdminData(selectedOrgSlug);
   }, [selectedOrgSlug]);
+
+  useEffect(() => {
+    if (roles.length > 0 && !roles.some((role) => role.slug === apiKeyRoleSlug)) {
+      setApiKeyRoleSlug(roles[0].slug);
+    }
+  }, [apiKeyRoleSlug, roles]);
+
+  useEffect(() => {
+    if (members.length > 0 && !members.some((member) => member.id === apiKeyOwnerId)) {
+      setApiKeyOwnerId(members[0].id);
+    }
+  }, [apiKeyOwnerId, members]);
 
   async function createOrg(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -366,9 +424,28 @@ export default function AdminConsole() {
 
   async function createApiKey(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const formElement = event.currentTarget;
     const form = new FormData(event.currentTarget);
-    const expiresAtValue = String(form.get("expires_at") ?? "").trim();
-    const expiresAt = expiresAtValue ? new Date(expiresAtValue) : null;
+    const expirationMode = String(form.get("expiration") ?? "90d");
+    const customExpiresAtValue = String(form.get("custom_expires_at") ?? "").trim();
+    const expiresAt =
+      expirationMode === "none"
+        ? null
+        : expirationMode === "custom"
+          ? customExpiresAtValue
+            ? new Date(customExpiresAtValue)
+            : null
+          : expirationMode === "30d"
+            ? addDays(30)
+            : expirationMode === "180d"
+              ? addDays(180)
+              : expirationMode === "1y"
+                ? addDays(365)
+                : addDays(90);
+    if (expirationMode === "custom" && !customExpiresAtValue) {
+      setStatus("custom expiration required");
+      return;
+    }
     if (expiresAt && !Number.isFinite(expiresAt.getTime())) {
       setStatus("invalid expiration");
       return;
@@ -382,14 +459,16 @@ export default function AdminConsole() {
         body: JSON.stringify({
           org_slug: selectedOrgSlug,
           name: form.get("name"),
-          role_slug: form.get("role_slug"),
-          owner_user_id: form.get("owner_user_id") || undefined,
+          role_slug: apiKeyRoleSlug || form.get("role_slug"),
+          owner_user_id: apiKeyOwnerId || form.get("owner_user_id") || undefined,
           expires_at: expiresAt ? expiresAt.toISOString() : undefined,
         }),
       }).then(readJson);
       const nextRawKey = json.raw_key ?? "";
       setRawKey(nextRawKey);
       setTab("keys");
+      formElement.reset();
+      setApiKeyExpiration("90d");
       await refreshAdminData();
     } catch (error) {
       setStatus((error as Error).message);
@@ -835,90 +914,268 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
           )}
 
           {tab === "keys" && (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>api keys</h2>
-              <form className={styles.form} onSubmit={createApiKey}>
-                <label className={styles.field}>
-                  <span className={styles.label}>name</span>
-                  <input className={styles.input} name="name" defaultValue="local agent" />
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>role</span>
-                  <select className={styles.select} name="role_slug">
-                    {roles.map((role) => (
-                      <option key={role.id} value={role.slug}>{role.slug}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>owner user</span>
-                  <select className={styles.select} name="owner_user_id" defaultValue={members[0]?.id ?? ""}>
-                    {members.map((member) => (
-                      <option key={member.id} value={member.id}>{member.email}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  <span className={styles.label}>expires</span>
-                  <input className={styles.input} name="expires_at" type="datetime-local" />
-                </label>
-                <div className={styles.buttonRow}>
-                  <button className={styles.button} type="submit">create key</button>
+            <>
+              <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <span className={styles.kicker}>Org-scoped access</span>
+                    <h2 className={styles.sectionTitle}>api keys</h2>
+                    <p className={styles.sectionLead}>
+                      Issue keys for agents and service clients. Each key is bound to this org, a human owner,
+                      and a role; the raw secret is only shown immediately after creation.
+                    </p>
+                  </div>
+                  <div className={styles.keyStats}>
+                    <span><b>{apiKeys.filter((key) => apiKeyStatus(key) === "active").length}</b> active</span>
+                    <span><b>{apiKeys.filter((key) => apiKeyStatus(key) === "expired").length}</b> expired</span>
+                    <span><b>{apiKeys.filter((key) => apiKeyStatus(key) === "revoked").length}</b> revoked</span>
+                  </div>
                 </div>
-              </form>
+
+                <div className={styles.keyWorkflow}>
+                  <form className={styles.keyForm} onSubmit={createApiKey}>
+                    <div className={styles.formStep}>
+                      <span className={styles.stepNumber}>1</span>
+                      <div>
+                        <h3>Label the client</h3>
+                        <p>Use a name that explains where this secret will live.</p>
+                      </div>
+                    </div>
+                    <label className={styles.field}>
+                      <span className={styles.label}>key name</span>
+                      <input className={styles.input} name="name" defaultValue="local agent" required />
+                    </label>
+
+                    <div className={styles.formStep}>
+                      <span className={styles.stepNumber}>2</span>
+                      <div>
+                        <h3>Choose owner and role</h3>
+                        <p>Telemetry and audit records use this owner and permission set.</p>
+                      </div>
+                    </div>
+                    <div className={styles.formSplit}>
+                      <label className={styles.field}>
+                        <span className={styles.label}>owner</span>
+                        <select
+                          className={styles.select}
+                          name="owner_user_id"
+                          value={apiKeyOwnerId}
+                          onChange={(event) => setApiKeyOwnerId(event.target.value)}
+                          required
+                        >
+                          {members.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.email}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className={styles.field}>
+                        <span className={styles.label}>role</span>
+                        <select
+                          className={styles.select}
+                          name="role_slug"
+                          value={apiKeyRoleSlug}
+                          onChange={(event) => setApiKeyRoleSlug(event.target.value)}
+                          required
+                        >
+                          {roles.map((role) => (
+                            <option key={role.id} value={role.slug}>
+                              {role.slug}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                    {selectedApiKeyRole && (
+                      <div className={styles.rolePreview}>
+                        <span className={styles.label}>{selectedApiKeyRole.name}</span>
+                        <span>
+                          reads {selectedApiKeyRole.can_read_labels.join(", ") || "no labels"}
+                          {selectedApiKeyRole.can_write_sessions ? " / writes sessions" : ""}
+                          {selectedApiKeyRole.can_propose_memory ? " / proposes memory" : ""}
+                          {selectedApiKeyRole.can_execute_agents ? " / runs agents" : ""}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className={styles.formStep}>
+                      <span className={styles.stepNumber}>3</span>
+                      <div>
+                        <h3>Set rotation window</h3>
+                        <p>Short expirations reduce the blast radius of copied secrets.</p>
+                      </div>
+                    </div>
+                    <div className={styles.expirationGrid}>
+                      {apiKeyExpirationChoices.map((choice) => (
+                        <label
+                          key={choice.value}
+                          className={`${styles.choice} ${apiKeyExpiration === choice.value ? styles.choiceActive : ""}`}
+                        >
+                          <input
+                            type="radio"
+                            name="expiration"
+                            value={choice.value}
+                            checked={apiKeyExpiration === choice.value}
+                            onChange={(event) => setApiKeyExpiration(event.target.value)}
+                          />
+                          <span>{choice.label}</span>
+                          <small>{choice.description}</small>
+                        </label>
+                      ))}
+                    </div>
+                    {apiKeyExpiration === "custom" && (
+                      <label className={styles.field}>
+                        <span className={styles.label}>custom expiration</span>
+                        <input className={styles.input} name="custom_expires_at" type="datetime-local" required />
+                      </label>
+                    )}
+
+                    <div className={styles.buttonRow}>
+                      <button className={styles.button} type="submit" disabled={!roles.length || !members.length}>
+                        create key
+                      </button>
+                      <span className={styles.status}>
+                        {selectedApiKeyOwner ? `owner: ${selectedApiKeyOwner.email}` : "load an active org member first"}
+                      </span>
+                    </div>
+                  </form>
+
+                  <aside className={styles.keyGuidance}>
+                    <h3>Creation checklist</h3>
+                    <p>Keys authenticate as the selected role immediately after creation.</p>
+                    <ul>
+                      <li>Copy the raw key before leaving this screen.</li>
+                      <li>Store it in the client secret manager or local Frege config.</li>
+                      <li>Revoke keys that move owners or leave a machine.</li>
+                    </ul>
+                    <div className={styles.warningBox}>
+                      Frege stores only a hash. The raw key cannot be recovered or shown again.
+                    </div>
+                  </aside>
+                </div>
+              </div>
+
               {rawKey && (
-                <div className={styles.notice}>
-                  <span className={styles.label}>raw key shown once</span>
-                  <code className={styles.code}>{rawKey}</code>
-                  <span className={styles.status}>
-                    Store this now. Frege stores only the key hash, so this value cannot be shown again.
-                  </span>
+                <div className={`${styles.section} ${styles.keySuccess}`}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <span className={styles.kicker}>Created</span>
+                      <h2 className={styles.sectionTitle}>raw key shown once</h2>
+                      <p className={styles.sectionLead}>
+                        Copy this value now. After refresh or navigation, only the prefix and metadata remain visible.
+                      </p>
+                    </div>
+                    <span className={`${styles.badge} ${styles.badgeWarn}`}>cannot be shown again</span>
+                  </div>
+                  <code className={styles.secretCode}>{rawKey}</code>
                   <div className={styles.buttonRow}>
                     <button className={styles.button} type="button" onClick={() => copyText(rawKey, "raw key")}>
-                      copy key
+                      copy raw key
                     </button>
                     <button
                       className={`${styles.button} ${styles.buttonSecondary}`}
                       type="button"
-                      onClick={() => copyText(`Authorization: Bearer ${rawKey}`, "Bearer header")}
+                      onClick={() => copyText(rawBearerHeader, "Bearer header")}
                     >
                       copy Bearer header
                     </button>
+                    <button
+                      className={`${styles.button} ${styles.buttonSecondary}`}
+                      type="button"
+                      onClick={() => copyText(statusCurl, "status curl")}
+                    >
+                      copy status curl
+                    </button>
+                    <button
+                      className={`${styles.button} ${styles.buttonSecondary}`}
+                      type="button"
+                      onClick={() => copyText(contextCurl, "context curl")}
+                    >
+                      copy context curl
+                    </button>
                   </div>
-                  <pre className={styles.codeBlock}>{`Authorization: Bearer ${rawKey}
-
-curl -s ${browserOrigin || "https://frege.dev"}/api/v1/brain/status \\
-  -H "Authorization: Bearer ${rawKey}"
-
-curl -s ${browserOrigin || "https://frege.dev"}/api/v1/context/build \\
-  -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer ${rawKey}" \\
-  -d '{"query":"refund policy","limit":3}'`}</pre>
+                  <div className={styles.exampleGrid}>
+                    <div>
+                      <span className={styles.label}>Bearer header</span>
+                      <pre className={styles.codeBlock}>{rawBearerHeader}</pre>
+                    </div>
+                    <div>
+                      <span className={styles.label}>/api/v1/brain/status</span>
+                      <pre className={styles.codeBlock}>{statusCurl}</pre>
+                    </div>
+                    <div className={styles.exampleWide}>
+                      <span className={styles.label}>/api/v1/context/build</span>
+                      <pre className={styles.codeBlock}>{contextCurl}</pre>
+                    </div>
+                  </div>
                 </div>
               )}
-              <table className={styles.table}>
-                <thead>
-                  <tr><th>prefix</th><th>name</th><th>owner</th><th>role</th><th>status</th><th>expires</th><th>last used</th><th></th></tr>
-                </thead>
-                <tbody>
-                  {apiKeys.map((key) => (
-                    <tr key={key.id}>
-                      <td>{key.key_prefix}</td><td>{key.name}</td><td>{key.owner_user_email ?? "-"}</td><td>{key.role_slug}</td><td>{key.status}</td><td>{formatDate(key.expires_at)}</td><td>{formatDate(key.last_used_at)}</td>
-                      <td>
-                        <button
-                          className={`${styles.button} ${styles.buttonSecondary}`}
-                          type="button"
-                          disabled={key.status !== "active"}
-                          onClick={() => revokeApiKey(key.id)}
-                        >
-                          revoke
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+
+              <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2 className={styles.sectionTitle}>issued keys</h2>
+                    <p className={styles.meta}>Only prefixes are stored here. Revoke compromised or unused keys.</p>
+                  </div>
+                </div>
+                {apiKeys.length === 0 ? (
+                  <div className={styles.empty}>
+                    <strong>No API keys yet</strong>
+                    <span>Create the first key to connect an agent or service client to this org.</span>
+                  </div>
+                ) : (
+                  <div className={styles.tableScroll}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>
+                          <th>prefix</th>
+                          <th>name</th>
+                          <th>owner</th>
+                          <th>role</th>
+                          <th>status</th>
+                          <th>expires</th>
+                          <th>last used</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {apiKeys.map((key) => {
+                          const keyState = apiKeyStatus(key);
+                          return (
+                            <tr key={key.id}>
+                              <td><code className={styles.inlineCode}>{key.key_prefix}</code></td>
+                              <td>{key.name}</td>
+                              <td>{key.owner_user_email ?? "-"}</td>
+                              <td>{key.role_slug}</td>
+                              <td>
+                                <span className={`${styles.badge} ${statusBadgeClass(keyState)}`}>
+                                  {keyState}
+                                </span>
+                              </td>
+                              <td>{formatDate(key.expires_at)}</td>
+                              <td>{formatDate(key.last_used_at)}</td>
+                              <td>
+                                <div className={styles.rowActions}>
+                                  <button
+                                    className={`${styles.button} ${styles.buttonDanger}`}
+                                    type="button"
+                                    disabled={keyState !== "active"}
+                                    onClick={() => revokeApiKey(key.id)}
+                                  >
+                                    revoke
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {tab === "models" && (
