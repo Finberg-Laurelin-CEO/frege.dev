@@ -1,0 +1,272 @@
+#!/usr/bin/env node
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import { handleInviteAcceptRequest, handleLoginRequest } from "../../lib/prototype/auth-flow-core.ts";
+import {
+  generateApiKey,
+  hashApiKey,
+  parseApiKey,
+  parseStaffApiKey,
+  safelyCompareApiKeyHash,
+} from "../../lib/prototype/keys.ts";
+import { hashPassword, verifyPassword } from "../../lib/prototype/password.ts";
+import { clearSessionCookie, cookieDomainForHost, sessionCookie } from "../../lib/prototype/session-cookie.ts";
+
+const TEST_PASSWORD = "correct horse battery staple";
+const TEST_SALT = "00112233445566778899aabbccddeeff";
+
+function jsonRequest(path, host, body) {
+  return new Request(`https://${host}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Host: host,
+      Origin: `https://${host}`,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function queryText(strings) {
+  return strings.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function makeDeps(sql, overrides = {}) {
+  const telemetry = [];
+  const sessions = [];
+  const deps = {
+    getSql: () => sql,
+    checkRateLimit: async () => ({ allowed: true }),
+    rateLimitedResponse: () => Response.json({ error: "rate_limited" }, { status: 429 }),
+    createUserSession: async (userId, host) => {
+      sessions.push({ userId, host });
+      return {
+        rawToken: `raw-${userId}`,
+        cookie: sessionCookie(`raw-${userId}`, host),
+        expiresAt: new Date(Date.now() + 1000),
+      };
+    },
+    logTelemetryEvent: async (event) => {
+      telemetry.push(event);
+    },
+    routeError: (label, err) => {
+      throw new Error(`${label}: ${err?.message ?? err}`);
+    },
+    verifyPassword,
+    hashPassword,
+    ...overrides,
+  };
+  return { deps, telemetry, sessions };
+}
+
+function makeLoginSql(row) {
+  const calls = [];
+  const sql = async (strings, ...values) => {
+    const text = queryText(strings);
+    calls.push({ text, values });
+    if (text.includes("select users.id")) return row ? [row] : [];
+    if (text.includes("update users set last_login_at")) return [];
+    throw new Error(`unexpected login SQL: ${text}`);
+  };
+  return { sql, calls };
+}
+
+function makeInviteSql({ invite, existingUser = null, credentialExists = false }) {
+  const calls = [];
+  const createdUser = { id: "user-new", email: invite.email, name: "Ada Lovelace" };
+  const updatedUser = { id: existingUser?.id ?? "user-existing", email: invite.email, name: existingUser?.name || "Ada Lovelace" };
+
+  const sql = async (strings, ...values) => {
+    const text = queryText(strings);
+    calls.push({ text, values });
+    if (text.includes("from organization_invites")) return [invite];
+    if (text.includes("from users where email")) return existingUser ? [existingUser] : [];
+    if (text.includes("insert into users")) return [createdUser];
+    if (text.includes("update users set name")) return [updatedUser];
+    if (text.includes("from user_password_credentials")) {
+      return credentialExists ? [{ user_id: existingUser?.id ?? createdUser.id }] : [];
+    }
+    if (text.includes("insert into user_password_credentials")) return [];
+    if (text.includes("insert into organization_memberships")) return [];
+    if (text.includes("update organization_invites")) return [];
+    throw new Error(`unexpected invite SQL: ${text}`);
+  };
+  return { sql, calls, createdUser, updatedUser };
+}
+
+async function readJson(response) {
+  return response.json();
+}
+
+test("password hashing verifies the original password and rejects mismatches", async () => {
+  const result = await hashPassword(TEST_PASSWORD, TEST_SALT);
+
+  assert.equal(result.passwordSalt, TEST_SALT);
+  assert.equal(result.passwordParams.algorithm, "scrypt");
+  assert.equal(result.passwordParams.key_length, 64);
+  assert.match(result.passwordHash, /^[a-f0-9]{128}$/);
+  assert.equal(await verifyPassword(TEST_PASSWORD, result.passwordSalt, result.passwordHash), true);
+  assert.equal(await verifyPassword("wrong password", result.passwordSalt, result.passwordHash), false);
+  assert.equal(await verifyPassword(TEST_PASSWORD, result.passwordSalt, "00"), false);
+});
+
+test("session cookies use frege.dev parent domain only for frege.dev hosts", () => {
+  assert.equal(cookieDomainForHost("frege.dev"), ".frege.dev");
+  assert.equal(cookieDomainForHost("brain.frege.dev"), ".frege.dev");
+  assert.equal(cookieDomainForHost("BRAIN.FREGE.DEV:443"), ".frege.dev");
+  assert.equal(cookieDomainForHost("localhost:3000"), null);
+  assert.equal(cookieDomainForHost("frege-git-preview.vercel.app"), null);
+
+  assert.match(sessionCookie("token", "frege.dev"), /Domain=\.frege\.dev/);
+  assert.match(clearSessionCookie("brain.frege.dev"), /Domain=\.frege\.dev/);
+  assert.doesNotMatch(sessionCookie("token", "localhost:3000"), /Domain=/);
+  assert.doesNotMatch(sessionCookie("token", "frege-git-preview.vercel.app"), /Domain=/);
+});
+
+test("login success returns user shape and session cookie", async () => {
+  const password = await hashPassword(TEST_PASSWORD, TEST_SALT);
+  const { sql, calls } = makeLoginSql({
+    id: "user-1",
+    email: "ada@example.com",
+    name: "Ada",
+    password_hash: password.passwordHash,
+    password_salt: password.passwordSalt,
+  });
+  const { deps, telemetry, sessions } = makeDeps(sql);
+
+  const response = await handleLoginRequest(
+    jsonRequest("/api/v1/auth/login", "brain.frege.dev", {
+      email: "ADA@example.com",
+      password: TEST_PASSWORD,
+    }),
+    deps,
+  );
+  const body = await readJson(response);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(body, { user: { id: "user-1", email: "ada@example.com", name: "Ada" } });
+  assert.match(response.headers.get("set-cookie") ?? "", /Domain=\.frege\.dev/);
+  assert.deepEqual(sessions, [{ userId: "user-1", host: "brain.frege.dev" }]);
+  assert.equal(telemetry.at(-1)?.outcome, "success");
+  assert.equal(calls.some((call) => call.text.includes("last_login_at")), true);
+});
+
+test("login failure returns invalid_credentials and does not create a session", async () => {
+  const password = await hashPassword(TEST_PASSWORD, TEST_SALT);
+  const { sql, calls } = makeLoginSql({
+    id: "user-1",
+    email: "ada@example.com",
+    name: "Ada",
+    password_hash: password.passwordHash,
+    password_salt: password.passwordSalt,
+  });
+  const { deps, telemetry, sessions } = makeDeps(sql);
+
+  const response = await handleLoginRequest(
+    jsonRequest("/api/v1/auth/login", "localhost:3000", {
+      email: "ada@example.com",
+      password: "not the password",
+    }),
+    deps,
+  );
+  const body = await readJson(response);
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(body, { error: "invalid_credentials" });
+  assert.deepEqual(sessions, []);
+  assert.equal(telemetry.at(-1)?.outcome, "denied");
+  assert.equal(calls.some((call) => call.text.includes("last_login_at")), false);
+});
+
+test("invite acceptance creates user credentials and activates membership", async () => {
+  const invite = {
+    id: "invite-1",
+    org_id: "org-1",
+    org_slug: "acme",
+    org_name: "Acme",
+    org_status: "active",
+    email: "new.user@example.com",
+    role: "member",
+  };
+  const { sql, calls } = makeInviteSql({ invite });
+  const { deps, sessions } = makeDeps(sql);
+
+  const response = await handleInviteAcceptRequest(
+    jsonRequest("/api/v1/auth/invites/accept", "frege.dev", {
+      token: "invite-token-with-enough-length",
+      name: " Ada Lovelace ",
+      password: "long-enough-password",
+    }),
+    deps,
+  );
+  const body = await readJson(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.user.email, invite.email);
+  assert.equal(body.organization.slug, "acme");
+  assert.equal(body.next_path, "/admin");
+  assert.deepEqual(sessions, [{ userId: "user-new", host: "frege.dev" }]);
+  assert.equal(calls.some((call) => call.text.includes("insert into users")), true);
+  assert.equal(calls.some((call) => call.text.includes("insert into user_password_credentials")), true);
+  assert.equal(calls.some((call) => call.text.includes("insert into organization_memberships")), true);
+});
+
+test("inactive owner/admin invite acceptance routes to billing", async () => {
+  const invite = {
+    id: "invite-2",
+    org_id: "org-2",
+    org_slug: "inactive-co",
+    org_name: "Inactive Co",
+    org_status: "inactive",
+    email: "owner@example.com",
+    role: "admin",
+  };
+  const existingUser = { id: "user-existing", email: invite.email, name: "" };
+  const { sql, calls } = makeInviteSql({ invite, existingUser, credentialExists: true });
+  const { deps } = makeDeps(sql);
+
+  const response = await handleInviteAcceptRequest(
+    jsonRequest("/api/v1/auth/invites/accept", "brain.frege.dev", {
+      token: "inactive-owner-token-value",
+      name: "Owner Name",
+      password: "long-enough-password",
+    }),
+    deps,
+  );
+  const body = await readJson(response);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.next_path, "/billing");
+  assert.equal(body.organization.status, "inactive");
+  assert.equal(calls.some((call) => call.text.includes("update users set name")), true);
+  assert.equal(calls.some((call) => call.text.includes("insert into user_password_credentials")), false);
+  assert.equal(calls.some((call) => call.text.includes("insert into organization_memberships")), true);
+});
+
+test("API key create/use/revoke mechanics and staff key boundaries stay separate", () => {
+  const salt = "test-api-key-salt";
+  const generated = generateApiKey(salt);
+  const keyRecord = {
+    key_prefix: generated.keyPrefix,
+    key_hash: generated.keyHash,
+    status: "active",
+  };
+
+  function authenticate(rawKey) {
+    const parsed = parseApiKey(rawKey);
+    if (!parsed || parsed.keyPrefix !== keyRecord.key_prefix) return false;
+    if (keyRecord.status !== "active") return false;
+    return safelyCompareApiKeyHash(hashApiKey(parsed.rawKey, salt), keyRecord.key_hash);
+  }
+
+  assert.match(generated.rawKey, /^frg_live_[a-f0-9]{12}_.+/);
+  assert.equal(authenticate(generated.rawKey), true);
+  assert.equal(authenticate(`${generated.rawKey}x`), false);
+
+  keyRecord.status = "revoked";
+  assert.equal(authenticate(generated.rawKey), false);
+
+  assert.equal(parseApiKey("frg_admin_abcdef123456_secret"), null);
+  assert.equal(parseStaffApiKey(generated.rawKey), null);
+});
