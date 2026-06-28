@@ -161,6 +161,38 @@
   color: var(--link);
 }
 
+.summary-meta {
+  color: var(--fg-2) !important;
+}
+
+.summary-actions {
+  margin-top: 10px !important;
+}
+
+.summary-button {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  color: #ffffff;
+  background: var(--accent-dark);
+  border: 1px solid var(--accent-dark);
+  border-radius: 0;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.summary-button:disabled {
+  color: var(--fg-2);
+  background: transparent;
+  border-color: var(--rule);
+  cursor: not-allowed;
+}
+
+.summary-button:not(:disabled):hover {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 /* submit */
 .submit {
   display: inline-flex;

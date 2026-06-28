@@ -22,6 +22,15 @@ type Values = {
   permission_to_contact: boolean;
 };
 
+type RecoveryAction = "sign_in" | "resend_invite_available" | "already_requested";
+
+type RecoveryState = {
+  action: RecoveryAction;
+  requested_at: string | null;
+  email: string;
+  resendStatus: "idle" | "sending" | "sent" | "rate_limited" | "error";
+};
+
 const NOT_PROVIDED = "Not provided";
 
 const EMPTY: Values = {
@@ -72,11 +81,26 @@ function fieldError(key: keyof Values, values: Values): string | null {
   return result.success ? null : result.error.issues[0]?.message ?? "Invalid.";
 }
 
+function formatRequestDate(value: string | null): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function isRecoveryAction(value: unknown): value is RecoveryAction {
+  return value === "sign_in" || value === "resend_invite_available" || value === "already_requested";
+}
+
 export default function Signup() {
   const router = useRouter();
   const [values, setValues] = useState<Values>(EMPTY);
   const [touched, setTouched] = useState<Partial<Record<keyof Values, boolean>>>({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<RecoveryState | null>(null);
   const [showSummary, setShowSummary] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const startedAt = useRef<number>(0);
@@ -119,9 +143,33 @@ export default function Signup() {
     );
   }
 
+  async function onResendSetupEmail() {
+    if (!recovery || recovery.action !== "resend_invite_available") return;
+
+    setRecovery((state) => state ? { ...state, resendStatus: "sending" } : state);
+    try {
+      const res = await fetch("/api/signup/recovery/resend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: recovery.email }),
+      });
+
+      if (res.ok) {
+        setRecovery((state) => state ? { ...state, resendStatus: "sent" } : state);
+      } else if (res.status === 429) {
+        setRecovery((state) => state ? { ...state, resendStatus: "rate_limited" } : state);
+      } else {
+        setRecovery((state) => state ? { ...state, resendStatus: "error" } : state);
+      }
+    } catch {
+      setRecovery((state) => state ? { ...state, resendStatus: "error" } : state);
+    }
+  }
+
   async function onSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
     setSubmitError(null);
+    setRecovery(null);
 
     const parsed = clientSchema.safeParse(values);
     if (!parsed.success) {
@@ -147,7 +195,16 @@ export default function Signup() {
         return;
       }
       if (res.status === 409) {
-        setSubmitError("That email has already been submitted today.");
+        const payload = await res.json().catch(() => null) as {
+          recovery?: { action?: unknown; requested_at?: string | null };
+        } | null;
+        const action = payload?.recovery?.action;
+        setRecovery({
+          action: isRecoveryAction(action) ? action : "already_requested",
+          requested_at: payload?.recovery?.requested_at ?? null,
+          email: parsed.data.work_email,
+          resendStatus: "idle",
+        });
       } else if (res.status === 400) {
         setSubmitError("Some fields need fixing. Please review and try again.");
         setShowSummary(true);
@@ -160,6 +217,8 @@ export default function Signup() {
       setSubmitting(false);
     }
   }
+
+  const requestDate = formatRequestDate(recovery?.requested_at ?? null);
 
   return (
     <main id="main" className="screen">
@@ -197,6 +256,49 @@ export default function Signup() {
         {submitError && (
           <div className="summary" role="alert" aria-live="assertive">
             <p>{submitError}</p>
+          </div>
+        )}
+
+        {recovery && (
+          <div className="summary" role="alert" aria-live="assertive">
+            {recovery.action === "sign_in" && (
+              <>
+                <p>This email already has an account. Sign in to continue.</p>
+                {requestDate && <p className="summary-meta">Original request: {requestDate}.</p>}
+                <p className="summary-actions"><a className="lnk" href="/login">Sign in</a></p>
+              </>
+            )}
+            {recovery.action === "resend_invite_available" && (
+              <>
+                <p>We found your approved request. Resend the setup email to continue.</p>
+                {requestDate && <p className="summary-meta">Original request: {requestDate}.</p>}
+                <p className="summary-actions">
+                  <button
+                    className="summary-button"
+                    type="button"
+                    onClick={onResendSetupEmail}
+                    disabled={recovery.resendStatus === "sending" || recovery.resendStatus === "sent"}
+                  >
+                    {recovery.resendStatus === "sending" ? "Resending..." : "Resend setup email"}
+                  </button>
+                </p>
+                {recovery.resendStatus === "sent" && (
+                  <p className="summary-meta">If the setup email is still pending, we sent a fresh copy.</p>
+                )}
+                {recovery.resendStatus === "rate_limited" && (
+                  <p className="summary-meta">Too many resend attempts. Try again later.</p>
+                )}
+                {recovery.resendStatus === "error" && (
+                  <p className="summary-meta">We could not resend that email. Please try again.</p>
+                )}
+              </>
+            )}
+            {recovery.action === "already_requested" && (
+              <>
+                <p>We already have a request for this email. We'll follow up after review.</p>
+                {requestDate && <p className="summary-meta">Original request: {requestDate}.</p>}
+              </>
+            )}
           </div>
         )}
 

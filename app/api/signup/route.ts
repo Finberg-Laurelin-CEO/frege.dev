@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
-import { neon } from "@neondatabase/serverless";
+import { getSql } from "@/lib/db";
 import { postHermesEvent } from "@/lib/hermes-webhook";
 import { signupSchema } from "@/lib/signup-schema";
+import { signupRecoveryFromRow } from "@/lib/signup-recovery";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,13 @@ type SignupWebhookRow = {
   decision_timeline: string;
   main_pain_point: string;
   other_comments: string;
+};
+
+type DuplicateSignupRow = {
+  created_at: Date | string;
+  user_status: string | null;
+  last_login_at: Date | string | null;
+  invite_status: string | null;
 };
 
 function toIsoString(value: Date | string): string {
@@ -64,6 +72,32 @@ async function sendHermesSignupWebhook(signup: SignupWebhookRow): Promise<void> 
     statusText: result.statusText,
     message: result.message,
   });
+}
+
+async function duplicateSignupResponse(email: string): Promise<Response> {
+  const sql = getSql();
+  const [row] = await sql`
+    select
+      s.created_at,
+      u.status as user_status,
+      u.last_login_at,
+      i.status as invite_status
+    from signups s
+    left join users u
+      on lower(u.email) = lower(s.work_email)
+      and u.status = 'active'
+    left join organization_invites i on i.id = s.invite_id
+    where lower(s.work_email) = lower(${email})
+    limit 1
+  ` as DuplicateSignupRow[];
+
+  return Response.json(
+    {
+      error: "duplicate_signup",
+      recovery: signupRecoveryFromRow(row),
+    },
+    { status: 409 },
+  );
 }
 
 /** Hash the client IP with a day-rotating salt so we never store a raw IP. */
@@ -113,7 +147,7 @@ export async function POST(req: Request) {
   const user_agent = req.headers.get("user-agent") ?? null;
 
   try {
-    const sql = neon(process.env.DATABASE_URL!);
+    const sql = getSql();
     const rows = await sql`
       insert into signups (
         ip_hash, user_agent,
@@ -144,7 +178,7 @@ export async function POST(req: Request) {
     // Unique violation on lower(work_email) → duplicate.
     const code = (err as { code?: string })?.code;
     if (code === "23505") {
-      return Response.json({ error: "duplicate" }, { status: 409 });
+      return duplicateSignupResponse(data.work_email);
     }
     // Never log PII (name/email/company); log only the error shape.
     console.error("signup insert failed", { code, message: (err as Error)?.message });

@@ -1,10 +1,10 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { sendInviteEmail } from "@/lib/prototype/email";
+import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/prototype/invites";
 import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
 import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { customerBaseUrl } from "@/lib/prototype/public-url";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -15,10 +15,6 @@ const approveSchema = z.object({
   org_name: z.string().trim().min(1).max(160).optional(),
   org_slug: z.string().trim().min(1).max(80).optional(),
 });
-
-function hashInviteToken(rawToken: string): string {
-  return createHash("sha256").update(rawToken).digest("hex");
-}
 
 async function uniqueOrgSlug(sql: ReturnType<typeof getSql>, base: string): Promise<string> {
   const root = slugifyOrg(base);
@@ -71,7 +67,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     `;
     await ensureDefaultAgentRoles(org.id);
 
-    const rawToken = randomBytes(24).toString("base64url");
+    const rawToken = generateInviteToken();
     const [invite] = await sql`
       insert into organization_invites (
         org_id, email, role, invited_by_user_id, invite_token_hash, expires_at
@@ -99,7 +95,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Build the invite link against the customer-facing site (never the admin
     // origin this request arrives on) and email it to the prospect.
-    const inviteLink = `${customerBaseUrl()}/invite?token=${rawToken}`;
+    const inviteLink = inviteLinkForToken(rawToken);
     const emailResult = await sendInviteEmail({
       to: invite.email,
       inviteUrl: inviteLink,
