@@ -44,6 +44,13 @@ export async function POST(req: Request) {
     const seats = plan.perSeat ? parsed.data.seats ?? 1 : 1;
     const stripe = getStripe();
     const base = appBaseUrl(req);
+    const metadata = {
+      org_id: auth.organization.id,
+      org_slug: auth.organization.slug,
+      plan: plan.plan,
+      billing_interval: plan.interval,
+      seats: String(seats),
+    };
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -53,13 +60,8 @@ export async function POST(req: Request) {
       customer_email: auth.user.email,
       success_url: `${base}/billing?status=success&org=${encodeURIComponent(auth.organization.slug)}`,
       cancel_url: `${base}/billing?status=cancelled&org=${encodeURIComponent(auth.organization.slug)}`,
-      metadata: {
-        org_id: auth.organization.id,
-        org_slug: auth.organization.slug,
-        plan: plan.plan,
-        billing_interval: plan.interval,
-        seats: String(seats),
-      },
+      metadata,
+      subscription_data: { metadata },
     });
 
     // Persist intended plan/seats so the webhook can reconcile.

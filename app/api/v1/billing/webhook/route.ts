@@ -63,6 +63,52 @@ async function suspendOrgBySubscription(subscriptionId: string, status: string) 
   `;
 }
 
+function subscriptionPeriodEnd(sub: Stripe.Subscription): number | null {
+  return (
+    (sub as unknown as { current_period_end?: number }).current_period_end ??
+    (sub.items?.data?.[0] as unknown as { current_period_end?: number } | undefined)?.current_period_end ??
+    null
+  );
+}
+
+function subscriptionSeats(sub: Stripe.Subscription): number | null {
+  return sub.items?.data?.[0]?.quantity ?? null;
+}
+
+async function orgIdForSubscription(stripe: Stripe, sub: Stripe.Subscription): Promise<string | null> {
+  const metadataOrgId = sub.metadata?.org_id;
+  if (metadataOrgId) return metadataOrgId;
+
+  const sessions = await stripe.checkout.sessions.list({
+    subscription: sub.id,
+    limit: 1,
+  } as Stripe.Checkout.SessionListParams);
+  const session = sessions.data[0];
+  if (session?.metadata?.org_id) return session.metadata.org_id;
+  if (session?.client_reference_id) return session.client_reference_id;
+
+  const sql = getSql();
+  const [billing] = await sql`
+    select org_id
+    from org_billing
+    where stripe_subscription_id = ${sub.id}
+       or stripe_customer_id = ${typeof sub.customer === "string" ? sub.customer : null}
+    order by updated_at desc
+    limit 1
+  `;
+  return billing?.org_id ? String(billing.org_id) : null;
+}
+
+async function activateOrgFromSubscription(orgId: string, sub: Stripe.Subscription) {
+  await activateOrg(orgId, {
+    customerId: typeof sub.customer === "string" ? sub.customer : null,
+    subscriptionId: sub.id,
+    status: sub.status,
+    currentPeriodEnd: subscriptionPeriodEnd(sub),
+    seats: subscriptionSeats(sub),
+  });
+}
+
 export async function POST(req: Request) {
   if (!isStripeConfigured() || !process.env.STRIPE_WEBHOOK_SECRET) {
     return Response.json({ error: "billing_unavailable" }, { status: 503 });
@@ -86,26 +132,26 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       const orgId = session.metadata?.org_id ?? session.client_reference_id ?? null;
       if (orgId) {
+        const subscription =
+          typeof session.subscription === "string"
+            ? await stripe.subscriptions.retrieve(session.subscription)
+            : null;
         await activateOrg(orgId, {
-          customerId: typeof session.customer === "string" ? session.customer : null,
-          subscriptionId: typeof session.subscription === "string" ? session.subscription : null,
-          status: "active",
-          currentPeriodEnd: null,
+          customerId:
+            (subscription && typeof subscription.customer === "string" ? subscription.customer : null) ??
+            (typeof session.customer === "string" ? session.customer : null),
+          subscriptionId: subscription?.id ?? (typeof session.subscription === "string" ? session.subscription : null),
+          status: subscription?.status ?? "active",
+          currentPeriodEnd: subscription ? subscriptionPeriodEnd(subscription) : null,
+          seats: subscription ? subscriptionSeats(subscription) : null,
         });
       }
     } else if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.created") {
       const sub = event.data.object as Stripe.Subscription;
-      const orgId = sub.metadata?.org_id ?? null;
+      const orgId = await orgIdForSubscription(stripe, sub);
       const active = sub.status === "active" || sub.status === "trialing";
-      const seats = sub.items?.data?.[0]?.quantity ?? null;
       if (orgId && active) {
-        await activateOrg(orgId, {
-          customerId: typeof sub.customer === "string" ? sub.customer : null,
-          subscriptionId: sub.id,
-          status: sub.status,
-          currentPeriodEnd: (sub as unknown as { current_period_end?: number }).current_period_end ?? null,
-          seats,
-        });
+        await activateOrgFromSubscription(orgId, sub);
       } else if (!active) {
         await suspendOrgBySubscription(sub.id, sub.status);
       }
