@@ -174,6 +174,8 @@ type SignupRow = {
   invite_id: string | null;
   invite_status: string | null;
   invite_expires_at: string | null;
+  invited_org_slug: string | null;
+  invited_org_status: string | null;
   paid_at: string | null;
 };
 
@@ -359,6 +361,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [createdStripePromoCode, setCreatedStripePromoCode] = useState("");
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [inviteEmailSent, setInviteEmailSent] = useState<Record<string, boolean>>({});
+  const [signupPromoCodes, setSignupPromoCodes] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
@@ -684,6 +687,40 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
       setInviteLinks((prev) => ({ ...prev, [id]: String(json.invite_link ?? "") }));
       setInviteEmailSent((prev) => ({ ...prev, [id]: Boolean(json.email_sent) }));
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendSignupInviteWithPromo(id: string, durationMonths: 1 | 12) {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/signups/${id}/invite-with-promo`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duration_months: durationMonths }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(
+          json.error === "org_already_active"
+            ? "That signup's organization is already active."
+            : platformErrorMessage(json, res.status, "Send invite with Stripe coupon"),
+        );
+        return;
+      }
+
+      const inviteLink = typeof json.invite_link === "string" ? json.invite_link : "";
+      const promoCode =
+        json.stripe_promo_code && typeof json.stripe_promo_code === "object"
+          ? String((json.stripe_promo_code as { code?: unknown }).code ?? "")
+          : "";
+      if (inviteLink) setInviteLinks((prev) => ({ ...prev, [id]: inviteLink }));
+      setInviteEmailSent((prev) => ({ ...prev, [id]: Boolean(json.email_sent) }));
+      if (promoCode) setSignupPromoCodes((prev) => ({ ...prev, [id]: promoCode }));
       await load();
     } finally {
       setBusy(false);
@@ -1188,10 +1225,42 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       <td>{s.willing_to_pay ?? "—"}</td>
                       <td>{s.paid_at ? shortDay(s.paid_at) : "—"}</td>
                       <td>
-                        {s.invite_id ? (
+                        {!s.invite_id ? (
+                          <div className={styles.rowActions}>
+                            <button type="button" className={styles.button} disabled={busy} onClick={() => sendSignupInviteWithPromo(s.id, 1)}>
+                              invite + 1 mo
+                            </button>
+                            <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => sendSignupInviteWithPromo(s.id, 12)}>
+                              invite + 1 yr
+                            </button>
+                          </div>
+                        ) : (
                           <div className={styles.rowActions}>
                             <Badge tone={s.invite_status === "accepted" ? "ok" : "warn"} label={s.invite_status === "accepted" ? "accepted" : "invited"} />
-                            {s.invite_status !== "accepted" ? (
+                            {s.invited_org_status ? <Badge status={s.invited_org_status} /> : null}
+                            {s.invited_org_status === "active" ? (
+                              <Badge tone="ok" label="activated" />
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  className={styles.button}
+                                  disabled={busy}
+                                  onClick={() => sendSignupInviteWithPromo(s.id, 1)}
+                                >
+                                  {s.invite_status === "accepted" ? "send 1 mo" : "resend + 1 mo"}
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.buttonSecondary}
+                                  disabled={busy}
+                                  onClick={() => sendSignupInviteWithPromo(s.id, 12)}
+                                >
+                                  {s.invite_status === "accepted" ? "send 1 yr" : "resend + 1 yr"}
+                                </button>
+                              </>
+                            )}
+                            {s.invite_status !== "accepted" && s.invited_org_status !== "active" ? (
                               <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => resendSignupInvite(s.id)}>
                                 resend invite
                               </button>
@@ -1205,9 +1274,8 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                                 <code className={styles.code}>{inviteLinks[s.id]}</code>
                               </>
                             ) : null}
+                            {signupPromoCodes[s.id] ? <code className={styles.code}>{signupPromoCodes[s.id]}</code> : null}
                           </div>
-                        ) : (
-                          <button type="button" className={styles.button} disabled={busy} onClick={() => approveSignup(s.id)}>approve + invite</button>
                         )}
                       </td>
                     </tr>
