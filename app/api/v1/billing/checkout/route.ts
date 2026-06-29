@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { appBaseUrl, getStripe, isStripeConfigured, planConfigs, type PlanKey } from "@/lib/prototype/billing";
+import { billingSchemaResponse } from "@/lib/prototype/billing-errors";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -64,14 +65,12 @@ export async function POST(req: Request) {
     // Persist intended plan/seats so the webhook can reconcile.
     const sql = getSql();
     await sql`
-      insert into org_billing (org_id, plan, billing_interval, seats, entitlement_kind, entitlement_status, updated_at)
-      values (${auth.organization.id}, ${plan.plan}, ${plan.interval}, ${seats}, 'stripe', 'active', now())
+      insert into org_billing (org_id, plan, billing_interval, seats, updated_at)
+      values (${auth.organization.id}, ${plan.plan}, ${plan.interval}, ${seats}, now())
       on conflict (org_id) do update set
         plan = excluded.plan,
         billing_interval = excluded.billing_interval,
         seats = excluded.seats,
-        entitlement_kind = excluded.entitlement_kind,
-        entitlement_status = excluded.entitlement_status,
         updated_at = now()
     `;
 
@@ -88,6 +87,8 @@ export async function POST(req: Request) {
 
     return Response.json({ checkout_url: session.url }, { status: 200 });
   } catch (err) {
+    const schemaError = billingSchemaResponse("billing checkout storage missing", err);
+    if (schemaError) return schemaError;
     return routeError("billing checkout failed", err);
   }
 }

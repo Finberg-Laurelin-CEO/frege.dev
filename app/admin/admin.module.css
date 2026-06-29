@@ -627,6 +627,50 @@
   gap: 8px;
 }
 
+.billingPlanGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.billingPlanOption {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--fg);
+  padding: 12px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.billingPlanOption:hover,
+.billingPlanSelected {
+  border-color: var(--accent-dark);
+  background: var(--accent-soft);
+}
+
+.billingPlanName {
+  font-weight: 650;
+}
+
+.billingPlanPrice {
+  font-size: 18px;
+  line-height: 1.2;
+}
+
+.billingCheckoutBox {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--strong-line);
+  border-radius: 8px;
+  background: #fafbfa;
+  padding: 12px;
+}
+
 /* --- Operator summary header --- */
 .summaryBar {
   display: grid;
@@ -786,6 +830,7 @@
   .grid,
   .form,
   .formSplit,
+  .billingPlanGrid,
   .keyWorkflow,
   .expirationGrid,
   .exampleGrid,

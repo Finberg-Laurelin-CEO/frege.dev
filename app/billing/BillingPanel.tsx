@@ -30,17 +30,14 @@ type BillingSummary = {
     seats: number | null;
     subscription_status: string | null;
     current_period_end: string | null;
-    entitlement_kind: string | null;
-    entitlement_status: string | null;
-    comp_activated_at: string | null;
     updated_at: string | null;
   } | null;
 };
 
-const plans: { key: string; label: string; price: string; perSeat: boolean }[] = [
-  { key: "solo", label: "Solo — $20/mo", price: "$20 / month", perSeat: false },
-  { key: "team-monthly", label: "Team — $20/user/mo", price: "$20 / user / month", perSeat: true },
-  { key: "team-annual", label: "Team annual — $15/user/mo", price: "$15 / user / month, billed annually", perSeat: true },
+const plans: { key: string; label: string; price: string; detail: string; perSeat: boolean }[] = [
+  { key: "solo", label: "Solo", price: "$20/mo", detail: "Single user workspace", perSeat: false },
+  { key: "team-monthly", label: "Team monthly", price: "$20/user/mo", detail: "Monthly seats for a team", perSeat: true },
+  { key: "team-annual", label: "Team annual", price: "$15/user/mo", detail: "Billed annually", perSeat: true },
 ];
 
 function billingLabel(value: string | null | undefined): string {
@@ -55,8 +52,8 @@ function formatDate(value: string | null | undefined): string {
 }
 
 function statusBadgeClass(status: string | null | undefined): string {
-  if (status === "active" || status === "paid" || status === "comp") return styles.badgeOk;
-  if (status === "inactive" || status === "incomplete" || status === "past_due") return styles.badgeWarn;
+  if (status === "active" || status === "paid") return styles.badgeOk;
+  if (status === "inactive" || status === "incomplete" || status === "past_due" || status === "trialing") return styles.badgeWarn;
   if (status === "suspended" || status === "unpaid" || status === "revoked") return styles.badgeDanger;
   return styles.badgeMuted;
 }
@@ -69,8 +66,6 @@ export default function BillingPanel({ memberships, embedded = false }: { member
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [freeCode, setFreeCode] = useState("");
-  const [compActivatedOrgs, setCompActivatedOrgs] = useState<Set<string>>(new Set());
   const [billingSummary, setBillingSummary] = useState<BillingSummary | null>(null);
   const [billingLoading, setBillingLoading] = useState(false);
 
@@ -98,7 +93,11 @@ export default function BillingPanel({ memberships, embedded = false }: { member
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
           setBillingSummary(null);
-          setError(`Could not load billing summary (${json.error ?? res.status}).`);
+          setError(
+            json.error === "billing_storage_not_configured"
+              ? "Billing storage is not configured yet. You can still contact us to complete payment."
+              : `Could not load billing summary (${json.error ?? res.status}).`,
+          );
           return;
         }
         setBillingSummary(json as BillingSummary);
@@ -114,13 +113,14 @@ export default function BillingPanel({ memberships, embedded = false }: { member
   }, [orgSlug]);
 
   const perSeat = plans.find((p) => p.key === plan)?.perSeat ?? false;
+  const selectedPlan = plans.find((p) => p.key === plan) ?? plans[0];
   const selectedOrg = activeOrgs.find((m) => m.org_slug === orgSlug);
   const selectedOrgStatus = billingSummary?.organization.status ?? selectedOrg?.org_status;
   const canManageSelectedOrg = Boolean(
     billingSummary?.membership.can_manage_billing ?? (selectedOrg?.role === "owner" || selectedOrg?.role === "admin"),
   );
-  const selectedOrgActive = selectedOrgStatus === "active" || compActivatedOrgs.has(orgSlug);
-  const canRedeemFreeCode = canManageSelectedOrg && selectedOrgStatus === "inactive" && !compActivatedOrgs.has(orgSlug);
+  const selectedOrgActive = selectedOrgStatus === "active";
+  const hasSubscription = Boolean(billingSummary?.billing?.subscription_status);
   const billing = billingSummary?.billing ?? null;
 
   async function startCheckout() {
@@ -137,6 +137,8 @@ export default function BillingPanel({ memberships, embedded = false }: { member
         setError(
           json.error === "billing_unavailable" || json.error === "price_not_configured"
             ? "Billing is not configured yet. Please contact us to complete payment."
+            : json.error === "billing_storage_not_configured"
+              ? "Billing storage is not configured yet. Please contact us to complete payment."
             : `Could not start checkout (${json.error ?? res.status}).`,
         );
         return;
@@ -174,41 +176,6 @@ export default function BillingPanel({ memberships, embedded = false }: { member
       }
     } catch {
       setError("Could not open billing portal.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function redeemFreeCode() {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      const res = await fetch("/api/v1/billing/free-code/redeem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ org_slug: orgSlug, code: freeCode }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        const messages: Record<string, string> = {
-          invalid_code: "That activation code was not found.",
-          code_revoked: "That activation code has been revoked.",
-          code_redeemed: "That activation code has already been used.",
-          org_not_inactive: "This organization is already active or cannot be activated with a code.",
-        };
-        setError(messages[json.error as string] ?? `Could not redeem code (${json.error ?? res.status}).`);
-        return;
-      }
-      setCompActivatedOrgs((prev) => new Set(prev).add(orgSlug));
-      setFreeCode("");
-      setNotice("Activation code redeemed. Your organization is active.");
-      const summary = await fetch(`/api/v1/billing/summary?org_slug=${encodeURIComponent(orgSlug)}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .catch(() => null);
-      if (summary) setBillingSummary(summary as BillingSummary);
-    } catch {
-      setError("Could not redeem activation code.");
     } finally {
       setBusy(false);
     }
@@ -275,32 +242,32 @@ export default function BillingPanel({ memberships, embedded = false }: { member
                     {billing?.current_period_end ? `renews ${formatDate(billing.current_period_end)}` : "no renewal date"}
                   </span>
                 </div>
-                <div className={styles.summaryCard}>
-                  <span className={styles.summaryLabel}>Entitlement</span>
-                  <span className={`${styles.badge} ${statusBadgeClass(billing?.entitlement_status)}`}>
-                    {billingLabel(billing?.entitlement_kind)}
-                  </span>
-                  <span className={styles.summaryHint}>
-                    {billing?.comp_activated_at ? `activated ${formatDate(billing.comp_activated_at)}` : billingLabel(billing?.entitlement_status)}
-                  </span>
-                </div>
               </div>
             )}
 
             {!canManageSelectedOrg ? (
               <p className={styles.sectionLead}>
-                Your role can view billing status. Ask an org owner or admin to change plans, manage seats, or redeem an activation code.
+                Your role can view billing status. Ask an org owner or admin to change plans or manage seats.
               </p>
             ) : (
               <div className={styles.detailSection}>
                 <h2 className={styles.sectionTitle}>Choose a plan</h2>
 
-                <label className={styles.label}>Plan</label>
-                <select className={styles.field} value={plan} onChange={(e) => setPlan(e.target.value)}>
+                <div className={styles.billingPlanGrid} role="radiogroup" aria-label="Billing plan">
                   {plans.map((p) => (
-                    <option key={p.key} value={p.key}>{p.label}</option>
+                    <button
+                      key={p.key}
+                      type="button"
+                      className={`${styles.billingPlanOption} ${plan === p.key ? styles.billingPlanSelected : ""}`}
+                      aria-pressed={plan === p.key}
+                      onClick={() => setPlan(p.key)}
+                    >
+                      <span className={styles.billingPlanName}>{p.label}</span>
+                      <span className={styles.billingPlanPrice}>{p.price}</span>
+                      <span className={styles.summaryHint}>{p.detail}</span>
+                    </button>
                   ))}
-                </select>
+                </div>
 
                 {perSeat ? (
                   <>
@@ -316,39 +283,34 @@ export default function BillingPanel({ memberships, embedded = false }: { member
                   </>
                 ) : null}
 
+                <div className={styles.billingCheckoutBox}>
+                  <div>
+                    <span className={styles.summaryLabel}>Stripe Checkout</span>
+                    <p className={styles.sectionLead} style={{ marginTop: 4 }}>
+                      Continue to Stripe for {selectedPlan.label.toLowerCase()}
+                      {perSeat ? ` with ${seats} seat${seats === 1 ? "" : "s"}` : ""}. If you have a 1 month or 1 year Frege code,
+                      enter it in Stripe&apos;s promotion code field before completing checkout.
+                    </p>
+                  </div>
+                </div>
+
                 <div className={styles.buttonRow}>
                   <button type="button" className={styles.button} disabled={busy || !orgSlug} onClick={startCheckout}>
-                    {busy ? "Starting…" : "Continue to payment"}
+                    {busy ? "Starting..." : "Continue to Stripe Checkout"}
                   </button>
-                  <button type="button" className={styles.buttonSecondary} disabled={busy || !orgSlug} onClick={openPortal}>
-                    Manage billing & seats
-                  </button>
+                  {hasSubscription ? (
+                    <button type="button" className={styles.buttonSecondary} disabled={busy || !orgSlug} onClick={openPortal}>
+                      Manage billing & seats
+                    </button>
+                  ) : null}
                 </div>
-                {canRedeemFreeCode ? (
-                  <div className={styles.detailSection}>
-                    <h2 className={styles.sectionTitle}>Redeem free code</h2>
-                    <label className={styles.label}>Activation code</label>
-                    <input
-                      className={styles.field}
-                      value={freeCode}
-                      onChange={(e) => setFreeCode(e.target.value)}
-                      placeholder="FRG-COMP-..."
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                    />
-                    <div className={styles.buttonRow}>
-                      <button type="button" className={styles.buttonSecondary} disabled={busy || !orgSlug || !freeCode.trim()} onClick={redeemFreeCode}>
-                        Redeem code
-                      </button>
-                    </div>
-                  </div>
-                ) : selectedOrgActive ? (
+                {selectedOrgActive ? (
                   <p className={styles.status}>This organization is active.</p>
                 ) : null}
               </div>
             )}
             <p className={styles.sectionLead}>
-              Agents stay blocked until payment completes or a staff-issued activation code is redeemed. Need enterprise terms?{" "}
+              Agents stay blocked until payment completes. If you have a Stripe promotion code, enter it during Checkout. Need enterprise terms?{" "}
               <a className={styles.code} href="/contact">Contact us</a>.
             </p>
           </div>

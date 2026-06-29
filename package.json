@@ -30,8 +30,7 @@
     "smoke:public": "node scripts/prototype/smoke-public.mjs",
     "smoke:admin": "node scripts/prototype/smoke-admin.mjs",
     "smoke:admin:live": "node scripts/prototype/smoke-admin.mjs --live",
-    "test:auth-flow": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-auth-flow.mjs",
-    "smoke:free-codes": "node scripts/prototype/smoke-free-codes.mjs"
+    "test:auth-flow": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-auth-flow.mjs"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.23.0",

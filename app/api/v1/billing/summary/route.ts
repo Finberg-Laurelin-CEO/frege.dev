@@ -1,4 +1,5 @@
 import { getSql } from "@/lib/db";
+import { billingSchemaResponse } from "@/lib/prototype/billing-errors";
 import { getMembershipForOrg } from "@/lib/prototype/org-guard";
 import { authenticateUserRequest, userUnauthorized } from "@/lib/prototype/session";
 import { routeError } from "@/lib/prototype/request-guards";
@@ -12,9 +13,6 @@ type BillingSummaryRow = {
   seats: number | null;
   subscription_status: string | null;
   current_period_end: Date | string | null;
-  entitlement_kind: string | null;
-  entitlement_status: string | null;
-  comp_activated_at: Date | string | null;
   updated_at: Date | string | null;
 };
 
@@ -45,9 +43,6 @@ export async function GET(req: Request) {
         seats,
         subscription_status,
         current_period_end,
-        entitlement_kind,
-        entitlement_status,
-        comp_activated_at,
         updated_at
       from org_billing
       where org_id = ${auth.organization.id}
@@ -74,9 +69,6 @@ export async function GET(req: Request) {
               seats: billing.seats,
               subscription_status: billing.subscription_status,
               current_period_end: toIsoString(billing.current_period_end),
-              entitlement_kind: billing.entitlement_kind,
-              entitlement_status: billing.entitlement_status,
-              comp_activated_at: toIsoString(billing.comp_activated_at),
               updated_at: toIsoString(billing.updated_at),
             }
           : null,
@@ -84,6 +76,8 @@ export async function GET(req: Request) {
       { status: 200 },
     );
   } catch (err) {
+    const schemaError = billingSchemaResponse("billing summary storage missing", err);
+    if (schemaError) return schemaError;
     return routeError("billing summary failed", err);
   }
 }

@@ -60,6 +60,25 @@ function stripePermissionResponse(err: unknown): Response | null {
   );
 }
 
+function stripePromoSchemaResponse(label: string, err: unknown): Response | null {
+  const code = (err as { code?: string })?.code;
+  const message = String((err as { message?: string })?.message ?? "");
+  if (code !== "42P01" && !message.includes("stripe_promo_codes")) return null;
+
+  console.error(label, {
+    code,
+    message: (err as { message?: string })?.message,
+  });
+
+  return Response.json(
+    {
+      error: "stripe_promo_codes_not_configured",
+      message: "Stripe coupon storage is not configured for this deployment. Apply db/016_stripe_promo_codes.sql.",
+    },
+    { status: 503 },
+  );
+}
+
 type SetupTarget = {
   mode: "approved" | "reissued" | "promo_only";
   signupId: string;
@@ -372,6 +391,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   } catch (err) {
     const permissionError = stripePermissionResponse(err);
     if (permissionError) return permissionError;
+    const schemaError = stripePromoSchemaResponse("platform signup invite with Stripe promo schema missing", err);
+    if (schemaError) return schemaError;
     const code = (err as { code?: string })?.code;
     if (code === "23505") return Response.json({ error: "conflict" }, { status: 409 });
     return routeError("platform signup invite with Stripe promo failed", err);

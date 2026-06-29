@@ -3,14 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import styles from "../admin/admin.module.css";
 
-type Tab = "queue" | "orgs" | "users" | "signups" | "free-codes" | "stripe-coupons" | "usage" | "payments" | "audit";
+type Tab = "queue" | "orgs" | "users" | "signups" | "stripe-coupons" | "usage" | "payments" | "audit";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "queue", label: "Queue" },
   { id: "orgs", label: "Organizations" },
   { id: "users", label: "Users" },
   { id: "signups", label: "Approvals" },
-  { id: "free-codes", label: "Free codes" },
   { id: "stripe-coupons", label: "Stripe coupons" },
   { id: "usage", label: "Usage" },
   { id: "payments", label: "Payments" },
@@ -95,25 +94,6 @@ type AuditEvent = {
   target_id: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
-};
-
-type FreeCodeRow = {
-  id: string;
-  label: string | null;
-  status: string;
-  plan: string;
-  billing_interval: string;
-  seats: number;
-  metadata: Record<string, unknown>;
-  created_by_email: string | null;
-  created_at: string;
-  revoked_by_email: string | null;
-  revoked_at: string | null;
-  redeemed_by_email: string | null;
-  redeemed_at: string | null;
-  redeemed_org_id: string | null;
-  redeemed_org_slug: string | null;
-  redeemed_org_name: string | null;
 };
 
 type StripePromoCodeRow = {
@@ -315,9 +295,6 @@ function platformErrorMessage(json: unknown, status: number, action: string): st
   const error = typeof payload.error === "string" ? payload.error : "";
   const message = typeof payload.message === "string" ? payload.message : "";
 
-  if (error === "free_codes_not_configured") {
-    return message || "Free activation code storage is not configured for this deployment. Apply db/015_free_activation_codes.sql.";
-  }
   if (error === "stripe_promo_codes_not_configured") {
     return message || "Stripe coupon storage is not configured for this deployment. Apply db/016_stripe_promo_codes.sql.";
   }
@@ -349,15 +326,12 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [payments, setPayments] = useState<PaymentsOverview | null>(null);
   const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
-  const [freeCodes, setFreeCodes] = useState<FreeCodeRow[]>([]);
   const [stripePromoCodes, setStripePromoCodes] = useState<StripePromoCodeRow[]>([]);
-  const [newFreeCodeLabel, setNewFreeCodeLabel] = useState("");
-  const [newFreeCodePlan, setNewFreeCodePlan] = useState<"solo" | "team">("team");
-  const [newFreeCodeSeats, setNewFreeCodeSeats] = useState(1);
-  const [createdRawCode, setCreatedRawCode] = useState("");
   const [newStripePromoLabel, setNewStripePromoLabel] = useState("");
   const [newStripePromoEmail, setNewStripePromoEmail] = useState("");
   const [newStripePromoDuration, setNewStripePromoDuration] = useState<1 | 12>(1);
+  const [newStripePromoExpiresInDays, setNewStripePromoExpiresInDays] = useState(90);
+  const [newStripePromoCustomCode, setNewStripePromoCustomCode] = useState("");
   const [createdStripePromoCode, setCreatedStripePromoCode] = useState("");
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [inviteEmailSent, setInviteEmailSent] = useState<Record<string, boolean>>({});
@@ -454,24 +428,6 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }, []);
 
-  const loadFreeCodes = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/v1/platform/free-codes`, { credentials: "same-origin" });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setFreeCodes([]);
-        setError(platformErrorMessage(json, res.status, "Load free codes"));
-        return;
-      }
-
-      const rows = (json as { free_codes?: FreeCodeRow[] }).free_codes;
-      setFreeCodes(Array.isArray(rows) ? rows : []);
-    } catch {
-      setError("Failed to load free codes.");
-      setFreeCodes([]);
-    }
-  }, []);
-
   const loadStripePromoCodes = useCallback(async () => {
     try {
       const res = await fetch(`/api/v1/platform/stripe-promo-codes`, { credentials: "same-origin" });
@@ -505,10 +461,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   useEffect(() => {
     if (tab === "queue") void loadQueue();
     else if (tab === "payments") void loadPayments();
-    else if (tab === "free-codes") void loadFreeCodes();
     else if (tab === "stripe-coupons") void loadStripePromoCodes();
     else if (tab === "audit") void loadAudit();
-  }, [tab, loadQueue, loadPayments, loadFreeCodes, loadStripePromoCodes, loadAudit]);
+  }, [tab, loadQueue, loadPayments, loadStripePromoCodes, loadAudit]);
 
   async function cancelSubscription(orgId: string, immediate: boolean) {
     setBusy(true);
@@ -564,65 +519,6 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }
 
-  async function createFreeCode() {
-    setBusy(true);
-    setError("");
-    setCreatedRawCode("");
-    const seats = Math.min(500, Math.max(1, Number(newFreeCodeSeats) || 1));
-    setNewFreeCodeSeats(seats);
-    try {
-      const res = await fetch(`/api/v1/platform/free-codes`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          label: newFreeCodeLabel.trim() || undefined,
-          plan: newFreeCodePlan,
-          billing_interval: "permanent",
-          seats,
-        }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(platformErrorMessage(json, res.status, "Create free code"));
-        return;
-      }
-      const rawCode = (json as { raw_code?: string }).raw_code;
-      setCreatedRawCode(rawCode ?? "");
-      setNewFreeCodeLabel("");
-      await loadFreeCodes();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function revokeFreeCode(id: string) {
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/v1/platform/free-codes/${id}/revoke`, {
-        method: "PATCH",
-        credentials: "same-origin",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) setError(platformErrorMessage(json, res.status, "Revoke free code"));
-      else await loadFreeCodes();
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function copyCreatedFreeCode() {
-    if (!createdRawCode) return;
-    try {
-      await navigator.clipboard.writeText(createdRawCode);
-    } catch {
-      setError("Could not copy the new free code.");
-    }
-  }
-
   async function createStripePromoCode() {
     setBusy(true);
     setError("");
@@ -637,6 +533,8 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
           label: newStripePromoLabel.trim() || undefined,
           recipient_email: recipientEmail || undefined,
           duration_months: newStripePromoDuration,
+          expires_in_days: newStripePromoExpiresInDays,
+          code: newStripePromoCustomCode.trim() || undefined,
           send_email: Boolean(recipientEmail),
         }),
       });
@@ -650,6 +548,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
       setCreatedStripePromoCode(row?.code ?? "");
       setNewStripePromoLabel("");
       setNewStripePromoEmail("");
+      setNewStripePromoCustomCode("");
       await loadStripePromoCodes();
     } finally {
       setBusy(false);
@@ -841,7 +740,6 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
   // --- Derived summary / count values (from already-loaded data) ---
   const pendingApprovals = signups.filter((s) => !s.invite_id).length;
-  const activeFreeCodes = freeCodes.filter((c) => c.status === "active").length;
   const activeStripePromoCodes = stripePromoCodes.filter((c) => c.status === "active").length;
   const activeOrgs = orgs.filter((o) => o.status === "active").length;
   const highQueue = queue.filter((q) => q.severity === "high").length;
@@ -855,7 +753,6 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     orgs: orgs.length,
     users: users.length,
     signups: pendingApprovals,
-    "free-codes": activeFreeCodes,
     "stripe-coupons": activeStripePromoCodes,
     usage: null,
     payments: payments ? payments.past_due_subscriptions : null,
@@ -1228,10 +1125,10 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                         {!s.invite_id ? (
                           <div className={styles.rowActions}>
                             <button type="button" className={styles.button} disabled={busy} onClick={() => sendSignupInviteWithPromo(s.id, 1)}>
-                              invite + 1 mo
+                              invite + 1mo code
                             </button>
                             <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => sendSignupInviteWithPromo(s.id, 12)}>
-                              invite + 1 yr
+                              invite + 1yr code
                             </button>
                           </div>
                         ) : (
@@ -1248,7 +1145,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                                   disabled={busy}
                                   onClick={() => sendSignupInviteWithPromo(s.id, 1)}
                                 >
-                                  {s.invite_status === "accepted" ? "send 1 mo" : "resend + 1 mo"}
+                                  {s.invite_status === "accepted" ? "send 1mo code" : "resend + 1mo code"}
                                 </button>
                                 <button
                                   type="button"
@@ -1256,7 +1153,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                                   disabled={busy}
                                   onClick={() => sendSignupInviteWithPromo(s.id, 12)}
                                 >
-                                  {s.invite_status === "accepted" ? "send 1 yr" : "resend + 1 yr"}
+                                  {s.invite_status === "accepted" ? "send 1yr code" : "resend + 1yr code"}
                                 </button>
                               </>
                             )}
@@ -1285,103 +1182,6 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               </div>
               <p className={styles.sectionLead}>Approving creates an inactive org + owner invite. The org activates after payment.</p>
               </>
-              )}
-            </div>
-          ) : null}
-
-          {tab === "free-codes" ? (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Free activation codes ({freeCodes.length})</h2>
-
-              <div className={styles.detailSection}>
-                <h3 className={styles.sectionTitle}>Create free code</h3>
-                {createdRawCode ? (
-                  <div className={styles.notice}>
-                    <strong>New free code created</strong>
-                    <span>Copy it now. Frege stores only the hash and cannot show this raw code again.</span>
-                    <code className={styles.code}>{createdRawCode}</code>
-                    <div className={styles.buttonRow}>
-                      <button type="button" className={`${styles.button} ${styles.buttonSecondary}`} onClick={copyCreatedFreeCode}>
-                        copy code
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-                <label className={styles.label}>Label</label>
-                <input
-                  className={styles.input}
-                  value={newFreeCodeLabel}
-                  onChange={(e) => setNewFreeCodeLabel(e.target.value)}
-                  placeholder="Demo org, partner, Joe/team"
-                />
-                <label className={styles.label}>Plan</label>
-                <select className={styles.field} value={newFreeCodePlan} onChange={(e) => setNewFreeCodePlan(e.target.value as "solo" | "team")}>
-                  <option value="team">team</option>
-                  <option value="solo">solo</option>
-                </select>
-                <label className={styles.label}>Seats</label>
-                <input
-                  className={styles.field}
-                  type="number"
-                  min={1}
-                  max={500}
-                  value={newFreeCodeSeats}
-                  onChange={(e) => setNewFreeCodeSeats(Math.min(500, Math.max(1, Number(e.target.value) || 1)))}
-                />
-                <div className={styles.buttonRow}>
-                  <button type="button" className={styles.button} disabled={busy} onClick={createFreeCode}>create code</button>
-                </div>
-              </div>
-
-              {freeCodes.length === 0 ? (
-                <div className={styles.empty}><strong>No free codes yet.</strong></div>
-              ) : (
-                <div className={styles.tableScroll}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr><th>label</th><th>status</th><th>entitlement</th><th>created</th><th>redeemed</th><th>action</th></tr>
-                  </thead>
-                  <tbody>
-                    {freeCodes.map((code) => (
-                      <tr key={code.id}>
-                        <td>{code.label ?? "—"}</td>
-                        <td><Badge status={code.status} /></td>
-                        <td>{code.plan}/{code.billing_interval} · {code.seats} seat(s)</td>
-                        <td>{shortDay(code.created_at)} · {code.created_by_email ?? "—"}</td>
-                        <td>
-                          {code.redeemed_at ? (
-                            <>
-                              {shortDay(code.redeemed_at)} · {code.redeemed_by_email ?? "—"}
-                              <br />
-                              <span className={styles.summaryHint}>{code.redeemed_org_slug ?? code.redeemed_org_id ?? "—"}</span>
-                            </>
-                          ) : code.revoked_at ? (
-                            <span className={styles.summaryHint}>revoked {shortDay(code.revoked_at)} · {code.revoked_by_email ?? "—"}</span>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                        <td>
-                          {code.status === "active" ? (
-                            <button
-                              type="button"
-                              className={styles.buttonDanger}
-                              disabled={busy}
-                              onClick={() => {
-                                if (window.confirm(`Revoke unused free code${code.label ? ` "${code.label}"` : ""}?`)) {
-                                  void revokeFreeCode(code.id);
-                                }
-                              }}
-                            >
-                              revoke
-                            </button>
-                          ) : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                </div>
               )}
             </div>
           ) : null}
@@ -1424,6 +1224,25 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                   <option value="1">1 month free</option>
                   <option value="12">1 year free</option>
                 </select>
+                <label className={styles.label}>Code valid for</label>
+                <select
+                  className={styles.field}
+                  value={String(newStripePromoExpiresInDays)}
+                  onChange={(e) => setNewStripePromoExpiresInDays(Number(e.target.value) || 90)}
+                >
+                  <option value="30">30 days</option>
+                  <option value="90">90 days</option>
+                  <option value="365">1 year</option>
+                </select>
+                <label className={styles.label}>Custom code (optional)</label>
+                <input
+                  className={styles.input}
+                  value={newStripePromoCustomCode}
+                  onChange={(e) => setNewStripePromoCustomCode(e.target.value.toUpperCase())}
+                  placeholder="FREGE-1MO-ACME"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                />
                 <label className={styles.label}>Label</label>
                 <input
                   className={styles.input}

@@ -16,6 +16,7 @@ const createSchema = z.object({
   duration_months: z.union([z.literal(1), z.literal(12)]).default(1),
   send_email: z.boolean().default(true),
   expires_in_days: z.number().int().min(1).max(365).default(90),
+  code: z.string().trim().min(4).max(64).regex(/^[A-Za-z0-9-]+$/).optional(),
 });
 
 function durationLabel(months: 1 | 12): string {
@@ -131,6 +132,7 @@ export async function POST(req: Request) {
     if (parsed.data.send_email && !recipientEmail) {
       return Response.json({ error: "recipient_required" }, { status: 400 });
     }
+    const requestedCode = parsed.data.code?.toUpperCase();
 
     const stripe = getStripe();
     const name = couponName({
@@ -157,7 +159,7 @@ export async function POST(req: Request) {
 
     const promo = await stripe.promotionCodes.create({
       promotion: { type: "coupon", coupon: coupon.id },
-      code: generatePromoCode(parsed.data.duration_months),
+      code: requestedCode || generatePromoCode(parsed.data.duration_months),
       max_redemptions: 1,
       expires_at: expiresAt,
       metadata,
