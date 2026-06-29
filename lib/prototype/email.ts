@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { customerBaseUrl } from "@/lib/prototype/public-url";
 
 // Transactional email via Resend. Env-gated like the Stripe/Auth0 clients: when
 // RESEND_API_KEY is unset (dev/preview without email configured), sends become a
@@ -33,6 +34,13 @@ type InviteEmailInput = {
   to: string;
   inviteUrl: string;
   orgName: string;
+};
+
+type StripePromoCodeEmailInput = {
+  to: string;
+  code: string;
+  durationMonths: 1 | 12;
+  label?: string | null;
 };
 
 function inviteSubject(orgName: string): string {
@@ -90,6 +98,68 @@ function inviteHtmlBody(input: InviteEmailInput): string {
 </html>`;
 }
 
+function stripePromoDurationLabel(months: 1 | 12): string {
+  return months === 12 ? "1 year free" : "1 month free";
+}
+
+function stripePromoCheckoutUrl(): string {
+  return `${customerBaseUrl()}/console?view=billing`;
+}
+
+function stripePromoSubject(input: StripePromoCodeEmailInput): string {
+  return `Your Frege ${stripePromoDurationLabel(input.durationMonths)} code`;
+}
+
+function stripePromoTextBody(input: StripePromoCodeEmailInput): string {
+  const label = stripePromoDurationLabel(input.durationMonths);
+  return [
+    `Here is your Frege ${label} Stripe promotion code:`,
+    "",
+    `   ${input.code}`,
+    "",
+    "Use it during Stripe Checkout when you set up billing:",
+    `   ${stripePromoCheckoutUrl()}`,
+    "",
+    "Choose a plan, continue to payment, and enter the code in Stripe's promotion code field.",
+    "",
+    "— The Frege team",
+  ].join("\n");
+}
+
+function stripePromoHtmlBody(input: StripePromoCodeEmailInput): string {
+  const safeCode = escapeHtml(input.code);
+  const safeLabel = escapeHtml(stripePromoDurationLabel(input.durationMonths));
+  const safeUrl = escapeHtml(stripePromoCheckoutUrl());
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px;">Your Frege ${safeLabel} code</h1>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 16px;">
+          Use this Stripe promotion code when you set up billing:
+        </p>
+        <p style="margin:0 0 24px;">
+          <span style="display:inline-block;border:1px solid #d8dedb;background:#f6f8f7;border-radius:8px;padding:12px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:18px;letter-spacing:0;">
+            ${safeCode}
+          </span>
+        </p>
+        <p style="margin:0 0 28px;">
+          <a href="${safeUrl}" style="display:inline-block;background:#0033cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
+            Set up billing
+          </a>
+        </p>
+        <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
+          Choose a plan, continue to payment, and enter the code in Stripe's promotion code field.
+          If the button doesn't work, paste this URL into your browser:<br>
+          <span style="word-break:break-all;color:#0033cc;">${safeUrl}</span>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -116,6 +186,28 @@ export async function sendInviteEmail(input: InviteEmailInput): Promise<SendResu
 
   if (error) {
     console.error("invite email send failed", { to: input.to, message: error.message });
+    return { sent: false, reason: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
+export async function sendStripePromoCodeEmail(input: StripePromoCodeEmailInput): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    console.warn("email not configured; Stripe promo code email skipped", { to: input.to });
+    return { sent: false, reason: "not_configured" };
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: fromAddress(),
+    to: input.to,
+    replyTo: replyToAddress(),
+    subject: stripePromoSubject(input),
+    text: stripePromoTextBody(input),
+    html: stripePromoHtmlBody(input),
+  });
+
+  if (error) {
+    console.error("Stripe promo code email send failed", { to: input.to, message: error.message });
     return { sent: false, reason: error.message };
   }
   return { sent: true, id: data?.id };

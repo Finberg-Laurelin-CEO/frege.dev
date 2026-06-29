@@ -44,6 +44,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       orgName: row.org_name,
     });
 
+    await sql`
+      update signups
+      set invited_at = now()
+      where id = ${row.signup_id}
+    `;
+
     await logTelemetryEvent({
       actor: { type: "system", orgId: row.org_id },
       req,
@@ -58,6 +64,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return Response.json(
       {
         email_sent: emailResult.sent,
+        email_reason: emailResult.reason ?? null,
         invite_token: rawToken,
         invite_link: inviteLink,
       },

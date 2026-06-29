@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import styles from "../admin/admin.module.css";
 
-type Tab = "queue" | "orgs" | "users" | "signups" | "free-codes" | "usage" | "payments" | "audit";
+type Tab = "queue" | "orgs" | "users" | "signups" | "free-codes" | "stripe-coupons" | "usage" | "payments" | "audit";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "queue", label: "Queue" },
@@ -11,6 +11,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "users", label: "Users" },
   { id: "signups", label: "Approvals" },
   { id: "free-codes", label: "Free codes" },
+  { id: "stripe-coupons", label: "Stripe coupons" },
   { id: "usage", label: "Usage" },
   { id: "payments", label: "Payments" },
   { id: "audit", label: "Audit" },
@@ -115,6 +116,29 @@ type FreeCodeRow = {
   redeemed_org_name: string | null;
 };
 
+type StripePromoCodeRow = {
+  id: string;
+  label: string | null;
+  recipient_email: string | null;
+  duration_months: 1 | 12;
+  percent_off: number;
+  max_redemptions: number;
+  status: string;
+  stripe_coupon_id: string;
+  stripe_promotion_code_id: string;
+  code: string;
+  coupon_name: string | null;
+  expires_at: string | null;
+  times_redeemed: number;
+  created_by_email: string | null;
+  created_at: string;
+  sent_to_email: string | null;
+  sent_at: string | null;
+  email_sent: boolean;
+  email_error: string | null;
+  metadata: Record<string, unknown>;
+};
+
 type OrgRow = {
   id: string;
   slug: string;
@@ -148,6 +172,8 @@ type SignupRow = {
   expected_users: number | null;
   invited_at: string | null;
   invite_id: string | null;
+  invite_status: string | null;
+  invite_expires_at: string | null;
   paid_at: string | null;
 };
 
@@ -290,6 +316,18 @@ function platformErrorMessage(json: unknown, status: number, action: string): st
   if (error === "free_codes_not_configured") {
     return message || "Free activation code storage is not configured for this deployment. Apply db/015_free_activation_codes.sql.";
   }
+  if (error === "stripe_promo_codes_not_configured") {
+    return message || "Stripe coupon storage is not configured for this deployment. Apply db/016_stripe_promo_codes.sql.";
+  }
+  if (error === "billing_unavailable") {
+    return "Stripe is not configured for this deployment.";
+  }
+  if (error === "insufficient_stripe_permission") {
+    return message || "Stripe key lacks permission for this action.";
+  }
+  if (error === "recipient_required") {
+    return "Enter a recipient email before sending the Stripe coupon.";
+  }
 
   if (message) return `${action} failed: ${message}`;
   return `${action} failed (${error || status}).`;
@@ -310,10 +348,15 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [revenue, setRevenue] = useState<RevenueSummary | null>(null);
   const [audit, setAudit] = useState<AuditEvent[]>([]);
   const [freeCodes, setFreeCodes] = useState<FreeCodeRow[]>([]);
+  const [stripePromoCodes, setStripePromoCodes] = useState<StripePromoCodeRow[]>([]);
   const [newFreeCodeLabel, setNewFreeCodeLabel] = useState("");
   const [newFreeCodePlan, setNewFreeCodePlan] = useState<"solo" | "team">("team");
   const [newFreeCodeSeats, setNewFreeCodeSeats] = useState(1);
   const [createdRawCode, setCreatedRawCode] = useState("");
+  const [newStripePromoLabel, setNewStripePromoLabel] = useState("");
+  const [newStripePromoEmail, setNewStripePromoEmail] = useState("");
+  const [newStripePromoDuration, setNewStripePromoDuration] = useState<1 | 12>(1);
+  const [createdStripePromoCode, setCreatedStripePromoCode] = useState("");
   const [inviteLinks, setInviteLinks] = useState<Record<string, string>>({});
   const [inviteEmailSent, setInviteEmailSent] = useState<Record<string, boolean>>({});
   const [search, setSearch] = useState("");
@@ -426,6 +469,24 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }, []);
 
+  const loadStripePromoCodes = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/v1/platform/stripe-promo-codes`, { credentials: "same-origin" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStripePromoCodes([]);
+        setError(platformErrorMessage(json, res.status, "Load Stripe coupons"));
+        return;
+      }
+
+      const rows = (json as { stripe_promo_codes?: StripePromoCodeRow[] }).stripe_promo_codes;
+      setStripePromoCodes(Array.isArray(rows) ? rows : []);
+    } catch {
+      setError("Failed to load Stripe coupons.");
+      setStripePromoCodes([]);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -442,8 +503,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     if (tab === "queue") void loadQueue();
     else if (tab === "payments") void loadPayments();
     else if (tab === "free-codes") void loadFreeCodes();
+    else if (tab === "stripe-coupons") void loadStripePromoCodes();
     else if (tab === "audit") void loadAudit();
-  }, [tab, loadQueue, loadPayments, loadFreeCodes, loadAudit]);
+  }, [tab, loadQueue, loadPayments, loadFreeCodes, loadStripePromoCodes, loadAudit]);
 
   async function cancelSubscription(orgId: string, immediate: boolean) {
     setBusy(true);
@@ -555,6 +617,76 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
       await navigator.clipboard.writeText(createdRawCode);
     } catch {
       setError("Could not copy the new free code.");
+    }
+  }
+
+  async function createStripePromoCode() {
+    setBusy(true);
+    setError("");
+    setCreatedStripePromoCode("");
+    try {
+      const recipientEmail = newStripePromoEmail.trim().toLowerCase();
+      const res = await fetch(`/api/v1/platform/stripe-promo-codes`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          label: newStripePromoLabel.trim() || undefined,
+          recipient_email: recipientEmail || undefined,
+          duration_months: newStripePromoDuration,
+          send_email: Boolean(recipientEmail),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(platformErrorMessage(json, res.status, "Create Stripe coupon"));
+        return;
+      }
+
+      const row = (json as { stripe_promo_code?: StripePromoCodeRow }).stripe_promo_code;
+      setCreatedStripePromoCode(row?.code ?? "");
+      setNewStripePromoLabel("");
+      setNewStripePromoEmail("");
+      await loadStripePromoCodes();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyCreatedStripePromoCode() {
+    if (!createdStripePromoCode) return;
+    try {
+      await navigator.clipboard.writeText(createdStripePromoCode);
+    } catch {
+      setError("Could not copy the Stripe coupon code.");
+    }
+  }
+
+  async function resendSignupInvite(id: string) {
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/signups/${id}/resend-invite`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(
+          json.error === "already_accepted"
+            ? "That invite was already accepted."
+            : platformErrorMessage(json, res.status, "Resend invite"),
+        );
+        return;
+      }
+
+      setInviteLinks((prev) => ({ ...prev, [id]: String(json.invite_link ?? "") }));
+      setInviteEmailSent((prev) => ({ ...prev, [id]: Boolean(json.email_sent) }));
+      await load();
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -673,6 +805,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   // --- Derived summary / count values (from already-loaded data) ---
   const pendingApprovals = signups.filter((s) => !s.invite_id).length;
   const activeFreeCodes = freeCodes.filter((c) => c.status === "active").length;
+  const activeStripePromoCodes = stripePromoCodes.filter((c) => c.status === "active").length;
   const activeOrgs = orgs.filter((o) => o.status === "active").length;
   const highQueue = queue.filter((q) => q.severity === "high").length;
   const paymentIssues = payments
@@ -686,6 +819,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     users: users.length,
     signups: pendingApprovals,
     "free-codes": activeFreeCodes,
+    "stripe-coupons": activeStripePromoCodes,
     usage: null,
     payments: payments ? payments.past_due_subscriptions : null,
     audit: null,
@@ -1055,17 +1189,23 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       <td>{s.paid_at ? shortDay(s.paid_at) : "—"}</td>
                       <td>
                         {s.invite_id ? (
-                          inviteLinks[s.id] ? (
-                            <>
-                              <Badge
-                                tone={inviteEmailSent[s.id] ? "ok" : "warn"}
-                                label={inviteEmailSent[s.id] ? "email sent" : "email not sent — share link"}
-                              />
-                              <code className={styles.code}>{inviteLinks[s.id]}</code>
-                            </>
-                          ) : (
-                            <Badge tone="ok" label="invited" />
-                          )
+                          <div className={styles.rowActions}>
+                            <Badge tone={s.invite_status === "accepted" ? "ok" : "warn"} label={s.invite_status === "accepted" ? "accepted" : "invited"} />
+                            {s.invite_status !== "accepted" ? (
+                              <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={() => resendSignupInvite(s.id)}>
+                                resend invite
+                              </button>
+                            ) : null}
+                            {inviteLinks[s.id] ? (
+                              <>
+                                <Badge
+                                  tone={inviteEmailSent[s.id] ? "ok" : "warn"}
+                                  label={inviteEmailSent[s.id] ? "email sent" : "email not sent - share link"}
+                                />
+                                <code className={styles.code}>{inviteLinks[s.id]}</code>
+                              </>
+                            ) : null}
+                          </div>
                         ) : (
                           <button type="button" className={styles.button} disabled={busy} onClick={() => approveSignup(s.id)}>approve + invite</button>
                         )}
@@ -1168,6 +1308,104 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                               revoke
                             </button>
                           ) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {tab === "stripe-coupons" ? (
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>Stripe coupons ({stripePromoCodes.length})</h2>
+
+              <div className={styles.detailSection}>
+                <h3 className={styles.sectionTitle}>Create Stripe promotion code</h3>
+                <p className={styles.sectionLead} style={{ marginTop: 0 }}>
+                  Creates a real Stripe 100% off coupon and a one-use promotion code for Checkout.
+                </p>
+                {createdStripePromoCode ? (
+                  <div className={styles.notice}>
+                    <strong>Stripe promotion code created</strong>
+                    <span>Send or paste this code into the billing conversation. Customers enter it during Stripe Checkout.</span>
+                    <code className={styles.code}>{createdStripePromoCode}</code>
+                    <div className={styles.buttonRow}>
+                      <button type="button" className={`${styles.button} ${styles.buttonSecondary}`} onClick={copyCreatedStripePromoCode}>
+                        copy code
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <label className={styles.label}>Recipient email</label>
+                <input
+                  className={styles.input}
+                  value={newStripePromoEmail}
+                  onChange={(e) => setNewStripePromoEmail(e.target.value)}
+                  placeholder="prospect@company.com"
+                  type="email"
+                />
+                <label className={styles.label}>Offer</label>
+                <select
+                  className={styles.field}
+                  value={String(newStripePromoDuration)}
+                  onChange={(e) => setNewStripePromoDuration(Number(e.target.value) === 12 ? 12 : 1)}
+                >
+                  <option value="1">1 month free</option>
+                  <option value="12">1 year free</option>
+                </select>
+                <label className={styles.label}>Label</label>
+                <input
+                  className={styles.input}
+                  value={newStripePromoLabel}
+                  onChange={(e) => setNewStripePromoLabel(e.target.value)}
+                  placeholder="ThunderPhone follow-up, investor demo, partner intro"
+                />
+                <div className={styles.buttonRow}>
+                  <button type="button" className={styles.button} disabled={busy} onClick={createStripePromoCode}>
+                    create{newStripePromoEmail.trim() ? " + send" : ""}
+                  </button>
+                </div>
+              </div>
+
+              {stripePromoCodes.length === 0 ? (
+                <div className={styles.empty}><strong>No Stripe coupons issued yet.</strong></div>
+              ) : (
+                <div className={styles.tableScroll}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr><th>code</th><th>offer</th><th>recipient</th><th>status</th><th>sent</th><th>expires</th><th>stripe</th></tr>
+                  </thead>
+                  <tbody>
+                    {stripePromoCodes.map((code) => (
+                      <tr key={code.id}>
+                        <td>
+                          <code className={styles.code}>{code.code}</code>
+                          {code.label ? <span className={styles.summaryHint}>{code.label}</span> : null}
+                        </td>
+                        <td>{code.percent_off}% off · {code.duration_months === 12 ? "1 year" : "1 month"}</td>
+                        <td>{code.recipient_email ?? "—"}</td>
+                        <td>
+                          <Badge status={code.status} />
+                          <span className={styles.summaryHint}>{code.times_redeemed}/{code.max_redemptions} used</span>
+                        </td>
+                        <td>
+                          {code.sent_at ? (
+                            <>
+                              <Badge tone={code.email_sent ? "ok" : "warn"} label={code.email_sent ? "email sent" : "email failed"} />
+                              <span className={styles.summaryHint}>{shortDay(code.sent_at)}</span>
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                        <td>{code.expires_at ? shortDay(code.expires_at) : "—"}</td>
+                        <td>
+                          <span className={styles.summaryHint}>{code.stripe_promotion_code_id}</span>
+                          <br />
+                          <span className={styles.summaryHint}>{code.stripe_coupon_id}</span>
                         </td>
                       </tr>
                     ))}
