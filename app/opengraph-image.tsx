@@ -41,10 +41,12 @@ export default async function OpenGraphImage() {
             paddingBottom: 22,
           }}
         >
-          <div style={{ display: "flex", gap: 11 }}>
-            <span>●</span>
-            <span>●</span>
-            <span>●</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
+            {/* terminal traffic-light dots, drawn as shapes so the OG render
+                never reaches for a dynamic font to cover the ● glyph */}
+            <div style={{ display: "flex", width: 14, height: 14, borderRadius: 7, background: "#6b6b6b" }} />
+            <div style={{ display: "flex", width: 14, height: 14, borderRadius: 7, background: "#6b6b6b" }} />
+            <div style={{ display: "flex", width: 14, height: 14, borderRadius: 7, background: "#6b6b6b" }} />
             <span style={{ marginLeft: 22, color: "#000" }}>
               frege — ssh agent@frege.dev
             </span>
