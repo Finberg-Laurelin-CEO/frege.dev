@@ -3,11 +3,10 @@
 import { useEffect, useState } from "react";
 import AdminConsole from "@/app/admin/AdminConsole";
 import BillingPanel from "@/app/billing/BillingPanel";
-import { DEMO_DOCUMENTS, DEMO_ROLES, type DemoRole } from "@/lib/prototype/demo-data";
 import OverviewSection from "./sections/OverviewSection";
 import ActivitySection from "./sections/ActivitySection";
-import KnowledgeSection from "./sections/KnowledgeSection";
 import AccessSection from "./sections/AccessSection";
+import VaultGraphTab from "./VaultGraphTab";
 import type { ConsoleSection } from "./sections/ui";
 import styles from "./page.module.css";
 
@@ -69,13 +68,8 @@ export default function PrototypeConsole({
   initialView?: string;
 }) {
   const [section, setSection] = useState<ConsoleSection>(sectionFromView(initialView) ?? "overview");
-  const [actingAs, setActingAs] = useState<DemoRole["slug"]>("reader");
-  const [query, setQuery] = useState("");
-  const [selectedEventId, setSelectedEventId] = useState("e1");
+  const [selectedEventId, setSelectedEventId] = useState("");
   const [activityFilter, setActivityFilter] = useState("all");
-  const [selectedDocSlug, setSelectedDocSlug] = useState("customer-refunds");
-
-  const role = DEMO_ROLES.find((r) => r.slug === actingAs) ?? DEMO_ROLES[0]!;
 
   useEffect(() => {
     const view = new URL(window.location.href).searchParams.get("view");
@@ -83,13 +77,11 @@ export default function PrototypeConsole({
     if (mapped) setSection(mapped);
   }, []);
 
-  const visibleDocCount = DEMO_DOCUMENTS.filter((d) => role.allowedLabels.includes(d.sensitivity)).length;
-
   const counts: Record<ConsoleSection, string> = {
     overview: "live",
     activity: "live",
-    knowledge: `${visibleDocCount} docs`,
-    access: `${DEMO_ROLES.length} roles`,
+    knowledge: "vault",
+    access: "rbac",
     connect: "keys",
     billing: "status",
   };
@@ -98,10 +90,6 @@ export default function PrototypeConsole({
   const activeOrg = memberships.find((m) => m.status === "active") ?? memberships[0];
   const orgName = activeOrg?.org_name ?? "your org";
   const orgSlug = activeOrg?.org_slug ?? "";
-
-  const showRole = section === "knowledge" || section === "access";
-  const showSearch = section === "knowledge";
-  const showControls = showRole || showSearch;
 
   async function logout() {
     await fetch("/api/v1/auth/logout", { method: "POST" }).catch(() => null);
@@ -146,7 +134,7 @@ export default function PrototypeConsole({
         <div className={styles.sidebarFoot}>
           <span className={styles.footOrg}>{orgName}</span>
           {userEmail ? <span className={styles.footEmail}>{userEmail}</span> : null}
-          <span className={styles.footRole}>{role.name.toLowerCase()} · viewing</span>
+          {activeOrg?.role ? <span className={styles.footRole}>{activeOrg.role}</span> : null}
           <button type="button" className={styles.logout} onClick={logout}>
             logout →
           </button>
@@ -167,28 +155,6 @@ export default function PrototypeConsole({
             <span className={styles.opStatus}>
               <span className={styles.opDot} aria-hidden="true">●</span>operational
             </span>
-            {showControls ? (
-              <div className={styles.controls}>
-                {showRole ? (
-                  <label className={styles.field}>
-                    <span>viewing as</span>
-                    <select value={actingAs} onChange={(e) => setActingAs(e.target.value as DemoRole["slug"])}>
-                      {DEMO_ROLES.map((r) => (
-                        <option key={r.slug} value={r.slug}>
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                {showSearch ? (
-                  <label className={styles.field}>
-                    <span>search</span>
-                    <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="refund, incident, sales…" />
-                  </label>
-                ) : null}
-              </div>
-            ) : null}
           </div>
         </header>
 
@@ -205,10 +171,8 @@ export default function PrototypeConsole({
               onFilter={setActivityFilter}
             />
           ) : null}
-          {section === "knowledge" ? (
-            <KnowledgeSection roleSlug={actingAs} query={query} selectedSlug={selectedDocSlug} onSelectSlug={setSelectedDocSlug} />
-          ) : null}
-          {section === "access" ? <AccessSection roleSlug={actingAs} actingAsName={role.name} /> : null}
+          {section === "knowledge" ? <VaultGraphTab /> : null}
+          {section === "access" ? <AccessSection orgSlug={orgSlug} /> : null}
           {section === "connect" ? (
             <div className={styles.embed}>
               <AdminConsole embedded />
