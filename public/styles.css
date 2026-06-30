@@ -24,6 +24,62 @@
   --pad: clamp(20px, 5vw, 72px);
   --bar-h: 56px;
   --measure: 70ch;
+
+  /* ── Console design system ───────────────────────────────────────
+     Paper-and-green tokens shared by the authenticated console
+     (page.module.css) and the operator surfaces (admin.module.css).
+     The marketing palette above already matches; these extend it with
+     the surfaces, hairlines, green scale, sensitivity tones, and the
+     terminal block the console needs. */
+
+  /* surfaces */
+  --surface: #ffffff;        /* cards, panels, inputs */
+  --surface-mute: #fbfcfc;   /* list rows, secondary panels */
+  --surface-soft: #fafafa;   /* code / output wells */
+  --paper-deep: var(--bg-deep);
+
+  /* ink scale */
+  --ink-2: #37403c;          /* app body copy */
+
+  /* hairlines */
+  --line: #d8dddd;           /* table rows, inner dividers */
+  --line-strong: #c4cccc;    /* panel borders */
+
+  /* green scale (one accent hue) */
+  --green: var(--accent);
+  --green-dark: var(--accent-dark);
+  --green-soft: var(--accent-soft);
+  --green-tint: #eff8f4;     /* active nav/row wash, "public" surface */
+  --green-glow: #8fd4c1;
+
+  /* sensitivity / trust-zone tones */
+  --public-bd: #a7beb5;   --public-bg: #eff8f4;
+  --internal-bd: #c9b98f; --internal-bg: #fbf6e7;
+  --restricted-bd: #bd9a9a; --restricted-bg: #fbefef;
+  --restricted-ink: #a23c3c;
+
+  /* dark terminal block (code samples) */
+  --term-bg: #111513;
+  --term-bd: #1f2b27;
+  --term-ink: #e9f0ed;
+
+  /* radii — square console, soft admin */
+  --radius-app: 6px;
+  --radius-card: 8px;
+}
+
+/* Thin square scrollbars for the console's scrolling regions. */
+.frgscroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.frgscroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border: 3px solid var(--bg);
+  border-radius: 0;
+}
+.frgscroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 *, *::before, *::after {

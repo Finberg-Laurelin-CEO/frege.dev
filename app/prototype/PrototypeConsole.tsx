@@ -1,24 +1,16 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import AdminConsole from "@/app/admin/AdminConsole";
 import BillingPanel from "@/app/billing/BillingPanel";
-import {
-  DEMO_AUDIT_EVENTS,
-  DEMO_CHUNKS,
-  DEMO_CONCEPTS,
-  DEMO_DOCUMENT_LINKS,
-  DEMO_DOCUMENTS,
-  DEMO_ROLES,
-  type DemoAuditEvent,
-  type DemoDocument,
-  type DemoRole,
-} from "@/lib/prototype/demo-data";
-import type { SensitivityLabel } from "@/lib/prototype/types";
+import { DEMO_DOCUMENTS, DEMO_ROLES, type DemoRole } from "@/lib/prototype/demo-data";
+import { CONSOLE_EVENTS } from "@/lib/prototype/console-demo";
+import OverviewSection from "./sections/OverviewSection";
+import ActivitySection from "./sections/ActivitySection";
+import KnowledgeSection from "./sections/KnowledgeSection";
+import AccessSection from "./sections/AccessSection";
+import type { ConsoleSection } from "./sections/ui";
 import styles from "./page.module.css";
-import VaultGraphTab from "./VaultGraphTab";
-
-type ConsoleTab = "documents" | "map" | "write" | "audit" | "vault" | "agents" | "billing";
 
 type Membership = {
   org_id: string;
@@ -29,83 +21,43 @@ type Membership = {
   status: string;
 };
 
-const consoleTabs: Array<{ id: ConsoleTab; label: string }> = [
-  { id: "documents", label: "Documents" },
-  { id: "map", label: "Map" },
-  { id: "agents", label: "Agent Control" },
-  { id: "billing", label: "Billing" },
-  { id: "write", label: "Write" },
-  { id: "audit", label: "Audit" },
-  { id: "vault", label: "Vault" },
+const NAV: { id: ConsoleSection; label: string }[] = [
+  { id: "overview", label: "overview" },
+  { id: "activity", label: "activity" },
+  { id: "knowledge", label: "knowledge" },
+  { id: "access", label: "access" },
+  { id: "connect", label: "connect" },
+  { id: "billing", label: "billing" },
 ];
 
-const knowledgeTabs = new Set<ConsoleTab>(["documents", "map", "write", "audit", "vault"]);
-
-function consoleTabFromValue(value: string | null | undefined): ConsoleTab | null {
-  return consoleTabs.some((tab) => tab.id === value) ? (value as ConsoleTab) : null;
-}
-
-type DemoProposal = {
-  id: string;
-  documentSlug: string;
-  summary: string;
-  proposedBodyMd: string;
-  actor: string;
-  createdAt: string;
+const SECTION_META: Record<ConsoleSection, { eyebrow: string; title: string; subtitle: string }> = {
+  overview: { eyebrow: "overview", title: "What’s going on", subtitle: "Live health and activity across your company brain" },
+  activity: { eyebrow: "activity", title: "Activity", subtitle: "Every query → context → answer, with what was denied" },
+  knowledge: { eyebrow: "knowledge", title: "Knowledge", subtitle: "Documents, semantic map, and reviewable proposals" },
+  access: { eyebrow: "access", title: "Access & trust zones", subtitle: "Who can read what — before anything is denied" },
+  connect: { eyebrow: "connect", title: "Connect", subtitle: "API keys, hosted agents, models, and MCP setup" },
+  billing: { eyebrow: "billing", title: "Billing & support", subtitle: "Plan, usage, invoices, account, and help" },
 };
 
-function canRead(role: DemoRole, document: DemoDocument): boolean {
-  return role.allowedLabels.includes(document.sensitivity);
-}
-
-function matchesQuery(document: DemoDocument, query: string): boolean {
-  const normalizedQuery = query.trim().toLowerCase();
-  if (!normalizedQuery) return true;
-
-  const haystack = [
-    document.title,
-    document.path,
-    document.summary,
-    document.bodyMd,
-    document.tags.join(" "),
-    document.sensitivity,
-  ]
-    .join(" ")
-    .toLowerCase();
-
-  return haystack.includes(normalizedQuery);
-}
-
-function formatTime(value: string): string {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Los_Angeles",
-  }).format(new Date(value));
-}
-
-function slugify(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .replace(/\.md$/i, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "document"
-  );
-}
-
-function sensitivityClass(label: SensitivityLabel): string {
-  if (label === "restricted") return styles.restricted;
-  if (label === "internal") return styles.internal;
-  return styles.public;
-}
-
-function metadataText(metadata: DemoAuditEvent["metadata"]): string {
-  return Object.entries(metadata)
-    .map(([key, value]) => `${key}=${value}`)
-    .join(" ");
+// Map the legacy ?view= values (and any inbound links from AdminConsole /
+// BillingPanel) onto the new six-section IA so old deep links keep working.
+function sectionFromView(view: string | null | undefined): ConsoleSection | null {
+  if (!view) return null;
+  const map: Record<string, ConsoleSection> = {
+    documents: "knowledge",
+    map: "knowledge",
+    write: "knowledge",
+    vault: "knowledge",
+    audit: "activity",
+    agents: "connect",
+    overview: "overview",
+    activity: "activity",
+    knowledge: "knowledge",
+    access: "access",
+    connect: "connect",
+    billing: "billing",
+  };
+  return map[view] ?? null;
 }
 
 export default function PrototypeConsole({
@@ -117,453 +69,165 @@ export default function PrototypeConsole({
   memberships: Membership[];
   initialView?: string;
 }) {
-  const [roleSlug, setRoleSlug] = useState<DemoRole["slug"]>("reader");
-  const [activeTab, setActiveTab] = useState<ConsoleTab>(consoleTabFromValue(initialView) ?? "documents");
-  const [query, setQuery] = useState("refund");
-  const [documents, setDocuments] = useState<DemoDocument[]>(DEMO_DOCUMENTS);
-  const [selectedSlug, setSelectedSlug] = useState("customer-refunds");
-  const [proposalSummary, setProposalSummary] = useState("Tighten the wording and keep the approval threshold explicit.");
-  const [proposalBody, setProposalBody] = useState(
-    "# Customer Refund Policy\n\nSupport can approve eligible refunds under $250. Larger refunds still require manager approval.",
-  );
-  const [proposals, setProposals] = useState<DemoProposal[]>([]);
-  const [newTitle, setNewTitle] = useState("Partner Escalation Notes");
-  const [newSensitivity, setNewSensitivity] = useState<SensitivityLabel>("internal");
-  const [newBody, setNewBody] = useState(
-    "# Partner Escalation Notes\n\nPartner issues should be assigned an owner before handoff.",
-  );
+  const [section, setSection] = useState<ConsoleSection>(sectionFromView(initialView) ?? "overview");
+  const [actingAs, setActingAs] = useState<DemoRole["slug"]>("reader");
+  const [query, setQuery] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("e1");
+  const [activityFilter, setActivityFilter] = useState("all");
+  const [selectedDocSlug, setSelectedDocSlug] = useState("customer-refunds");
 
-  const activeRole = DEMO_ROLES.find((role) => role.slug === roleSlug) ?? DEMO_ROLES[0]!;
-  const isKnowledgeView = knowledgeTabs.has(activeTab);
-  const activeTabLabel = consoleTabs.find((tab) => tab.id === activeTab)?.label ?? "Knowledge";
+  const role = DEMO_ROLES.find((r) => r.slug === actingAs) ?? DEMO_ROLES[0]!;
 
   useEffect(() => {
-    const url = new URL(window.location.href);
-    const view = consoleTabFromValue(url.searchParams.get("view"));
-    if (view) setActiveTab(view);
+    const view = new URL(window.location.href).searchParams.get("view");
+    const mapped = sectionFromView(view);
+    if (mapped) setSection(mapped);
   }, []);
 
-  const visibleDocuments = useMemo(
-    () => documents.filter((document) => canRead(activeRole, document)),
-    [activeRole, documents],
-  );
+  const deniedToday = CONSOLE_EVENTS.filter((e) => e.status === "denied").length;
+  const visibleDocCount = DEMO_DOCUMENTS.filter((d) => role.allowedLabels.includes(d.sensitivity)).length;
 
-  const filteredDocuments = useMemo(
-    () => visibleDocuments.filter((document) => matchesQuery(document, query)),
-    [query, visibleDocuments],
-  );
+  const counts: Record<ConsoleSection, string> = {
+    overview: "live",
+    activity: `${deniedToday} denied`,
+    knowledge: `${visibleDocCount} docs`,
+    access: `${DEMO_ROLES.length} roles`,
+    connect: "keys",
+    billing: "status",
+  };
 
-  const selectedDocument =
-    visibleDocuments.find((document) => document.slug === selectedSlug) ??
-    filteredDocuments[0] ??
-    visibleDocuments[0] ??
-    null;
+  const meta = SECTION_META[section];
+  const orgName = memberships.find((m) => m.status === "active")?.org_name ?? memberships[0]?.org_name ?? "your org";
 
-  const selectedLinks = useMemo(() => {
-    if (!selectedDocument) return [];
-
-    return DEMO_DOCUMENT_LINKS.flatMap((link) => {
-      const isOutbound = link.sourceSlug === selectedDocument.slug;
-      const isInbound = link.targetSlug === selectedDocument.slug;
-      if (!isOutbound && !isInbound) return [];
-
-      const neighborSlug = isOutbound ? link.targetSlug : link.sourceSlug;
-      const neighbor = documents.find((document) => document.slug === neighborSlug);
-      if (!neighbor || !canRead(activeRole, neighbor)) return [];
-
-      return [
-        {
-          ...link,
-          direction: isOutbound ? "outbound" : "inbound",
-          neighbor,
-        },
-      ];
-    });
-  }, [activeRole, documents, selectedDocument]);
-
-  const hiddenLinkCount = useMemo(() => {
-    if (!selectedDocument) return 0;
-
-    return DEMO_DOCUMENT_LINKS.filter((link) => {
-      const touchesSelected = link.sourceSlug === selectedDocument.slug || link.targetSlug === selectedDocument.slug;
-      if (!touchesSelected) return false;
-
-      const neighborSlug = link.sourceSlug === selectedDocument.slug ? link.targetSlug : link.sourceSlug;
-      const neighbor = documents.find((document) => document.slug === neighborSlug);
-      return Boolean(neighbor && !canRead(activeRole, neighbor));
-    }).length;
-  }, [activeRole, documents, selectedDocument]);
-
-  const selectedConcepts = useMemo(() => {
-    if (!selectedDocument) return [];
-
-    return DEMO_CONCEPTS.filter((concept) => concept.documentSlugs.includes(selectedDocument.slug)).map((concept) => ({
-      ...concept,
-      documents: concept.documentSlugs
-        .map((slug) => documents.find((document) => document.slug === slug))
-        .filter((document): document is DemoDocument => Boolean(document && canRead(activeRole, document))),
-    }));
-  }, [activeRole, documents, selectedDocument]);
-
-  const selectedChunks = useMemo(() => {
-    if (!selectedDocument) return [];
-    return DEMO_CHUNKS.filter((chunk) => chunk.documentSlug === selectedDocument.slug);
-  }, [selectedDocument]);
-
-  function chooseDocument(slug: string) {
-    setSelectedSlug(slug);
-    setActiveTab("documents");
-  }
-
-  function submitProposal(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!selectedDocument || !activeRole.capabilities.canUpdateDocs) return;
-
-    const createdAt = new Date().toISOString();
-    setProposals((current) => [
-      {
-        id: `proposal_${createdAt}`,
-        documentSlug: selectedDocument.slug,
-        summary: proposalSummary.trim() || "Proposed wording update",
-        proposedBodyMd: proposalBody.trim(),
-        actor: activeRole.keyPrefix,
-        createdAt,
-      },
-      ...current,
-    ]);
-    setActiveTab("audit");
-  }
-
-  function createLocalDocument(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeRole.capabilities.canCreateDocs) return;
-    if (!activeRole.allowedLabels.includes(newSensitivity)) return;
-
-    const slug = slugify(newTitle);
-    const createdAt = new Date().toISOString();
-    const nextDocument: DemoDocument = {
-      id: `doc_${slug}_${documents.length + 1}`,
-      slug,
-      path: `drafts/${slug}.md`,
-      title: newTitle.trim() || "Untitled Document",
-      sensitivity: newSensitivity,
-      status: "published",
-      tags: ["draft", "local"],
-      summary: newBody.replace(/^#+\s+/gm, "").replace(/\s+/g, " ").trim().slice(0, 180),
-      bodyMd: newBody.trim(),
-      revisionNumber: 1,
-      updatedAt: createdAt,
-    };
-
-    setDocuments((current) => [nextDocument, ...current.filter((document) => document.slug !== slug)]);
-    setSelectedSlug(slug);
-    setQuery("");
-    setActiveTab("documents");
-  }
-
-  const proposalEvents: DemoAuditEvent[] = proposals.map((proposal) => ({
-    id: proposal.id,
-    action: "documents.proposal.created",
-    resourceType: "document_revision_proposal",
-    resourceSlug: proposal.documentSlug,
-    actor: proposal.actor,
-    createdAt: proposal.createdAt,
-    metadata: {
-      status: "pending",
-      summary: proposal.summary,
-    },
-  }));
-  const auditEvents = [...proposalEvents, ...DEMO_AUDIT_EVENTS];
+  const showRole = section === "knowledge" || section === "access";
+  const showSearch = section === "knowledge";
+  const showControls = showRole || showSearch;
 
   async function logout() {
     await fetch("/api/v1/auth/logout", { method: "POST" }).catch(() => null);
     window.location.href = "/login";
   }
 
-  const tabCounts: Record<ConsoleTab, string> = {
-    documents: String(filteredDocuments.length),
-    map: selectedLinks.length > 0 ? String(selectedLinks.length) : hiddenLinkCount > 0 ? `${hiddenLinkCount} hidden` : "0",
-    write: proposals.length > 0 ? String(proposals.length) : activeRole.capabilities.canCreateDocs ? "ready" : "locked",
-    audit: activeRole.capabilities.canReadAudit ? String(auditEvents.length) : "locked",
-    vault: "live",
-    agents: "keys",
-    billing: "status",
-  };
+  function goEvent(id: string) {
+    setSelectedEventId(id);
+    setActivityFilter("all");
+    setSection("activity");
+  }
+  function inspectDenied() {
+    setActivityFilter("denied");
+    setSection("activity");
+  }
+  function reviewDoc(slug: string) {
+    setSelectedDocSlug(slug);
+    setSection("knowledge");
+  }
 
   return (
     <main id="main" className={styles.console}>
-      <div className={styles.appShell}>
-        <aside className={styles.sidebar} aria-label="Console navigation">
-          <div className={styles.sidebarHeader}>
-            <span className={styles.kicker}>Frege</span>
-            <strong>Console</strong>
+      <aside className={styles.sidebar} aria-label="Console navigation">
+        <div className={styles.brand}>
+          <div className={styles.brandRow}>
+            <span className={styles.brandMark}>◆ Frege</span>
+            <span className={styles.cursor} aria-hidden="true">_</span>
           </div>
-          <nav className={styles.productNav} aria-label="Workspace links">
-            <a href="/docs">Docs</a>
-            <a href="/contact">Support</a>
-          </nav>
-          <nav className={styles.viewNav} aria-label="Knowledge views">
-            {consoleTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={activeTab === tab.id ? styles.activeView : undefined}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                <span>{tab.label}</span>
-                <small>{tabCounts[tab.id]}</small>
-              </button>
-            ))}
-          </nav>
-          <div className={styles.sidebarMeta}>
-            {userEmail ? <span>{userEmail}</span> : null}
-            <span>{activeRole.name}</span>
-            <code>{activeRole.keyPrefix}</code>
-            <small>{activeRole.allowedLabels.join(" / ")}</small>
-          </div>
-          <button className={styles.logoutButton} type="button" onClick={logout}>Logout</button>
-        </aside>
+          <div className={styles.brandEyebrow}>// control plane</div>
+        </div>
 
-        <section className={styles.content}>
-          <header className={styles.topbar}>
-            <div className={styles.pageTitle}>
-              <h1>{activeTabLabel}</h1>
-              <p>
-                {activeTab === "agents"
-                  ? "API keys, roles, models, telemetry, and agent runs"
-                  : activeTab === "billing"
-                    ? "Plan, activation, seats, and subscription status"
-                    : selectedDocument
-                      ? selectedDocument.path
-                      : "No document selected"}
-              </p>
+        <nav className={styles.nav} aria-label="Console sections">
+          {NAV.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`${styles.navBtn} ${section === item.id ? styles.navActive : ""}`}
+              onClick={() => setSection(item.id)}
+            >
+              <span>{item.label}</span>
+              <small>{counts[item.id]}</small>
+            </button>
+          ))}
+        </nav>
+
+        <div className={styles.sidebarFoot}>
+          <span className={styles.footOrg}>{orgName}</span>
+          {userEmail ? <span className={styles.footEmail}>{userEmail}</span> : null}
+          <span className={styles.footRole}>{role.name.toLowerCase()} · viewing</span>
+          <button type="button" className={styles.logout} onClick={logout}>
+            logout →
+          </button>
+        </div>
+      </aside>
+
+      <div className={styles.main}>
+        <header className={styles.topbar}>
+          <div className={styles.pageTitle}>
+            <div className={styles.eyebrow}>
+              <span className={styles.eyebrowSlash}>// </span>
+              {meta.eyebrow}
             </div>
-            {isKnowledgeView ? (
-              <div className={styles.controls} aria-label="Console controls">
-                <label className={styles.field}>
-                  <span>role</span>
-                  <select value={roleSlug} onChange={(event) => setRoleSlug(event.target.value as DemoRole["slug"])}>
-                    {DEMO_ROLES.map((role) => (
-                      <option key={role.slug} value={role.slug}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className={styles.field}>
-                  <span>search</span>
-                  <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="refund, incident, sales..." />
-                </label>
-              </div>
-            ) : null}
-          </header>
-
-          <section className={`${styles.workspace} ${!isKnowledgeView ? styles.controlWorkspace : ""}`} aria-label="Console workspace">
-            {isKnowledgeView ? (
-              <aside className={styles.documentList} aria-label="Visible documents">
-                <div className={styles.panelHead}>
-                  <h2>Documents</h2>
-                  <span>{filteredDocuments.length} visible</span>
-                </div>
-                <div className={styles.listScroll}>
-                  {filteredDocuments.map((document) => (
-                    <button
-                      key={document.slug}
-                      type="button"
-                      className={document.slug === selectedDocument?.slug ? styles.selectedDocument : styles.documentButton}
-                      onClick={() => chooseDocument(document.slug)}
-                    >
-                      <span className={styles.documentTitle}>{document.title}</span>
-                      <span className={styles.documentPath}>{document.path}</span>
-                      <span className={`${styles.badge} ${sensitivityClass(document.sensitivity)}`}>{document.sensitivity}</span>
-                    </button>
-                  ))}
-                  {filteredDocuments.length === 0 ? <p className={styles.empty}>No visible documents match this query.</p> : null}
-                </div>
-              </aside>
-            ) : null}
-
-            <div className={styles.detail} aria-live="polite">
-          {selectedDocument && activeTab === "documents" ? (
-            <article className={styles.documentDetail}>
-              <div className={styles.panelHead}>
-                <div>
-                  <h2>{selectedDocument.title}</h2>
-                  <p>{selectedDocument.path}</p>
-                </div>
-                <span className={`${styles.badge} ${sensitivityClass(selectedDocument.sensitivity)}`}>{selectedDocument.sensitivity}</span>
-              </div>
-              <div className={styles.metaRow}>
-                <span>rev {selectedDocument.revisionNumber}</span>
-                <span>{formatTime(selectedDocument.updatedAt)}</span>
-                <span>{selectedDocument.tags.join(" / ")}</span>
-              </div>
-              <p className={styles.summaryText}>{selectedDocument.summary}</p>
-              <pre className={styles.markdown}>{selectedDocument.bodyMd}</pre>
-            </article>
-          ) : null}
-
-          {selectedDocument && activeTab === "map" ? (
-            <section className={styles.mapView} aria-label="Semantic context">
-              <div className={styles.panelHead}>
-                <div>
-                  <h2>Semantic Context</h2>
-                  <p>{selectedDocument.title}</p>
-                </div>
-                {hiddenLinkCount > 0 ? <span className={styles.hiddenCount}>{hiddenLinkCount} hidden</span> : null}
-              </div>
-              <div className={styles.mapGrid}>
-                <section>
-                  <h3>Links</h3>
-                  {selectedLinks.map((link) => (
-                    <button key={link.id} type="button" className={styles.linkRow} onClick={() => chooseDocument(link.neighbor.slug)}>
-                      <span>{link.direction}</span>
-                      <strong>{link.neighbor.title}</strong>
-                      <em>{link.linkType} · {Math.round(link.confidence * 100)}%</em>
-                      <small>{link.evidence}</small>
-                    </button>
-                  ))}
-                  {selectedLinks.length === 0 ? <p className={styles.empty}>No readable neighbors for this role.</p> : null}
-                </section>
-
-                <section>
-                  <h3>Concepts</h3>
-                  {selectedConcepts.map((concept) => (
-                    <div key={concept.id} className={styles.conceptRow}>
-                      <strong>{concept.name}</strong>
-                      <span>{Math.round(concept.confidence * 100)}%</span>
-                      <p>{concept.description}</p>
-                      <small>{concept.documents.map((document) => document.title).join(" / ")}</small>
-                    </div>
-                  ))}
-                </section>
-
-                <section className={styles.chunkSection}>
-                  <h3>Chunks</h3>
-                  {selectedChunks.map((chunk) => (
-                    <blockquote key={chunk.id}>
-                      <span>chunk {chunk.chunkIndex} · {chunk.tokenCount} tokens</span>
-                      <p>{chunk.bodyMd}</p>
-                    </blockquote>
-                  ))}
-                </section>
-              </div>
-            </section>
-          ) : null}
-
-          {selectedDocument && activeTab === "write" ? (
-            <section className={styles.writeView} aria-label="Write operations">
-              <div className={styles.panelHead}>
-                <div>
-                  <h2>Write</h2>
-                  <p>{activeRole.capabilities.canUpdateDocs ? "proposal and create paths are enabled" : "current role has read-only capabilities"}</p>
-                </div>
-              </div>
-              <div className={styles.writeGrid}>
-                <form className={styles.formPanel} onSubmit={submitProposal}>
-                  <h3>Propose Revision</h3>
+            <h1>{meta.title}</h1>
+            <p>{meta.subtitle}</p>
+          </div>
+          <div className={styles.headerControls}>
+            <span className={styles.opStatus}>
+              <span className={styles.opDot} aria-hidden="true">●</span>operational
+            </span>
+            {showControls ? (
+              <div className={styles.controls}>
+                {showRole ? (
                   <label className={styles.field}>
-                    <span>target</span>
-                    <input readOnly value={selectedDocument.slug} />
-                  </label>
-                  <label className={styles.field}>
-                    <span>summary</span>
-                    <input value={proposalSummary} onChange={(event) => setProposalSummary(event.target.value)} />
-                  </label>
-                  <label className={styles.field}>
-                    <span>body</span>
-                    <textarea value={proposalBody} onChange={(event) => setProposalBody(event.target.value)} rows={7} />
-                  </label>
-                  <button type="submit" disabled={!activeRole.capabilities.canUpdateDocs || !proposalBody.trim()}>
-                    create proposal
-                  </button>
-                </form>
-
-                <form className={styles.formPanel} onSubmit={createLocalDocument}>
-                  <h3>Create Document</h3>
-                  <label className={styles.field}>
-                    <span>title</span>
-                    <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} />
-                  </label>
-                  <label className={styles.field}>
-                    <span>sensitivity</span>
-                    <select
-                      value={newSensitivity}
-                      onChange={(event) => setNewSensitivity(event.target.value as SensitivityLabel)}
-                    >
-                      <option value="public">public</option>
-                      <option value="internal">internal</option>
-                      <option value="restricted">restricted</option>
+                    <span>viewing as</span>
+                    <select value={actingAs} onChange={(e) => setActingAs(e.target.value as DemoRole["slug"])}>
+                      {DEMO_ROLES.map((r) => (
+                        <option key={r.slug} value={r.slug}>
+                          {r.name}
+                        </option>
+                      ))}
                     </select>
                   </label>
+                ) : null}
+                {showSearch ? (
                   <label className={styles.field}>
-                    <span>body</span>
-                    <textarea value={newBody} onChange={(event) => setNewBody(event.target.value)} rows={7} />
+                    <span>search</span>
+                    <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="refund, incident, sales…" />
                   </label>
-                  <button
-                    type="submit"
-                    disabled={
-                      !activeRole.capabilities.canCreateDocs ||
-                      !activeRole.allowedLabels.includes(newSensitivity) ||
-                      !newTitle.trim() ||
-                      !newBody.trim()
-                    }
-                  >
-                    create local doc
-                  </button>
-                </form>
+                ) : null}
               </div>
+            ) : null}
+          </div>
+        </header>
 
-              {proposals.length > 0 ? (
-                <section className={styles.proposalList} aria-label="Pending proposals">
-                  <h3>Pending proposals</h3>
-                  {proposals.map((proposal) => (
-                    <article key={proposal.id}>
-                      <strong>{proposal.documentSlug}</strong>
-                      <span>{formatTime(proposal.createdAt)}</span>
-                      <p>{proposal.summary}</p>
-                    </article>
-                  ))}
-                </section>
-              ) : null}
-            </section>
+        <div className={`${styles.scroll} frgscroll`}>
+          {section === "overview" ? (
+            <OverviewSection
+              onNavigate={setSection}
+              onOpenEvent={goEvent}
+              onReviewDoc={reviewDoc}
+              onInspectDenied={inspectDenied}
+            />
           ) : null}
-
-          {activeTab === "audit" ? (
-            <section className={styles.auditView} aria-label="Audit events">
-              <div className={styles.panelHead}>
-                <div>
-                  <h2>Audit</h2>
-                  <p>{activeRole.capabilities.canReadAudit ? "admin view" : "403 for this role"}</p>
-                </div>
-              </div>
-              {activeRole.capabilities.canReadAudit ? (
-                <div className={styles.auditRows}>
-                  {auditEvents.map((event) => (
-                    <article key={event.id}>
-                      <span>{formatTime(event.createdAt)}</span>
-                      <strong>{event.action}</strong>
-                      <em>{event.actor}</em>
-                      <p>{event.resourceType}:{event.resourceSlug}</p>
-                      <small>{metadataText(event.metadata)}</small>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.forbidden}>
-                  <strong>forbidden</strong>
-                  <p>Switch to the admin key to inspect audit_events.</p>
-                </div>
-              )}
-            </section>
+          {section === "activity" ? (
+            <ActivitySection
+              selectedId={selectedEventId}
+              onSelect={setSelectedEventId}
+              filter={activityFilter}
+              onFilter={setActivityFilter}
+            />
           ) : null}
-
-          {activeTab === "vault" ? <VaultGraphTab /> : null}
-          {activeTab === "agents" ? <AdminConsole embedded /> : null}
-          {activeTab === "billing" ? <BillingPanel memberships={memberships} embedded /> : null}
+          {section === "knowledge" ? (
+            <KnowledgeSection roleSlug={actingAs} query={query} selectedSlug={selectedDocSlug} onSelectSlug={setSelectedDocSlug} />
+          ) : null}
+          {section === "access" ? <AccessSection roleSlug={actingAs} actingAsName={role.name} /> : null}
+          {section === "connect" ? (
+            <div className={styles.embed}>
+              <AdminConsole embedded />
             </div>
-          </section>
-        </section>
+          ) : null}
+          {section === "billing" ? (
+            <div className={styles.embed}>
+              <BillingPanel memberships={memberships} embedded />
+            </div>
+          ) : null}
+        </div>
       </div>
     </main>
   );

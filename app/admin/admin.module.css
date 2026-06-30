@@ -1,8 +1,8 @@
 .shell {
   /* Local fallbacks for tokens not declared in the global stylesheet, so
      borders render as subtle rules instead of falling back to currentColor. */
-  --line: #d9e0db;
-  --strong-line: #b7c6bf;
+  --line: #d8dddd;
+  --strong-line: #c4cccc;
   max-width: 1480px;
   margin: 0 auto;
   padding: 24px var(--pad) 64px;
@@ -75,7 +75,7 @@
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   color: var(--fg);
   font: inherit;
   text-align: left;
@@ -133,7 +133,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 18px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .section:first-child {
@@ -166,7 +166,7 @@
 .sectionLead {
   max-width: 78ch;
   margin: 10px 0 0;
-  color: #37403c;
+  color: var(--ink-2);
 }
 
 .kicker {
@@ -183,7 +183,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 24px;
   align-items: end;
-  background: #f3f7f5;
+  background: var(--surface-mute);
 }
 
 .setupGrid {
@@ -197,7 +197,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 16px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .setupPanel h3 {
@@ -207,7 +207,7 @@
 
 .setupPanel p {
   margin: 0 0 14px;
-  color: #37403c;
+  color: var(--ink-2);
 }
 
 .inlineActions {
@@ -244,7 +244,7 @@
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 6px;
-  background: #fff;
+  background: var(--surface);
   color: var(--fg);
   font: inherit;
   padding: 9px 10px;
@@ -266,9 +266,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #000;
+  border: 1px solid var(--green-dark);
   border-radius: 6px;
-  background: #000;
+  background: var(--green-dark);
   color: #fff;
   font: inherit;
   min-height: 38px;
@@ -278,12 +278,18 @@
 }
 
 .buttonSecondary {
-  background: #fff;
+  background: var(--surface);
   color: #000;
+}
+
+.button:hover {
+  border-color: var(--green);
+  background: var(--green);
 }
 
 .buttonSecondary:hover {
   border-color: var(--accent-dark);
+  background: var(--surface);
   color: var(--accent-dark);
 }
 
@@ -305,7 +311,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 6px 8px;
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 
 .keyStats b {
@@ -381,8 +387,8 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 9px 10px;
-  background: #fafafa;
-  color: #37403c;
+  background: var(--surface-soft);
+  color: var(--ink-2);
   font-size: 13px;
 }
 
@@ -400,7 +406,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 9px;
-  background: #fff;
+  background: var(--surface);
   cursor: pointer;
 }
 
@@ -430,13 +436,13 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 14px;
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 
 .keyGuidance ul {
   margin: 0;
   padding-left: 18px;
-  color: #37403c;
+  color: var(--ink-2);
   font-size: 13px;
 }
 
@@ -462,7 +468,7 @@
   border: 1px solid var(--accent-dark);
   border-radius: 8px;
   padding: 12px;
-  background: #fff;
+  background: var(--surface);
   color: var(--fg);
   font-family: var(--mono);
   font-size: 13px;
@@ -484,7 +490,7 @@
   border: 1px solid var(--line);
   border-radius: 4px;
   padding: 2px 5px;
-  background: #fafafa;
+  background: var(--surface-soft);
   font-size: 12px;
 }
 
@@ -514,18 +520,18 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 8px;
-  background: #fafafa;
+  background: var(--surface-soft);
   font-size: 12px;
 }
 
 .codeBlock {
   max-width: 100%;
   overflow-x: auto;
-  border: 1px solid #1f2b27;
+  border: 1px solid var(--term-bd);
   border-radius: 8px;
   padding: 14px;
-  background: #111513;
-  color: #e9f0ed;
+  background: var(--term-bg);
+  color: var(--term-ink);
   font-family: var(--mono);
   font-size: 13px;
   line-height: 1.55;
@@ -535,7 +541,7 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 10px;
-  background: #fafafa;
+  background: var(--surface-soft);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: 13px;
@@ -551,7 +557,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
-  background: #fafafa;
+  background: var(--surface-soft);
 }
 
 .metricValue {
@@ -639,7 +645,7 @@
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
   color: var(--fg);
   padding: 12px;
   font: inherit;
@@ -667,7 +673,7 @@
   gap: 8px;
   border: 1px solid var(--strong-line);
   border-radius: 8px;
-  background: #fafbfa;
+  background: var(--surface-soft);
   padding: 12px;
 }
 
@@ -685,7 +691,7 @@
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .summaryCard.summaryAlert {
@@ -722,7 +728,7 @@
   padding: 1px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: #f3f5f3;
+  background: var(--surface-soft);
   color: var(--fg-2);
   font-size: 11px;
   line-height: 1.7;
@@ -750,7 +756,7 @@
 
 .badgeMuted {
   border-color: var(--line);
-  background: #f0f2f0;
+  background: var(--surface-soft);
   color: var(--fg-3);
 }
 
@@ -772,7 +778,7 @@
   padding: 22px 16px;
   border: 1px dashed var(--strong-line);
   border-radius: 8px;
-  background: #fafbfa;
+  background: var(--surface-soft);
   color: var(--fg-2);
   text-align: center;
 }
@@ -785,7 +791,7 @@
 /* --- Destructive action --- */
 .buttonDanger {
   border-color: #b23a1c;
-  background: #fff;
+  background: var(--surface);
   color: #b23a1c;
 }
 
