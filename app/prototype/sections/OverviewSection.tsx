@@ -1,195 +1,178 @@
 "use client";
 
-import { DEMO_DOCUMENTS } from "@/lib/prototype/demo-data";
-import { CONSOLE_AGENTS, CONSOLE_EVENTS, CONSOLE_SPARK } from "@/lib/prototype/console-demo";
-import type { SensitivityLabel } from "@/lib/prototype/types";
+import { useEffect, useState } from "react";
+import {
+  type RealAgent,
+  type RealEvent,
+  type RealSummary,
+  eventActor,
+  eventStatus,
+  eventSummary,
+  formatCost,
+  formatEventTime,
+  formatLatency,
+  getJson,
+} from "./realdata";
 import { type ConsoleSection, panel, sectionHeading, statusColor, statusLabel } from "./ui";
 
-const SENS_ORDER: SensitivityLabel[] = ["public", "internal", "restricted"];
-
-function sensBorder(sens: SensitivityLabel): string {
-  if (sens === "restricted") return "var(--restricted-bd)";
-  if (sens === "internal") return "var(--internal-bd)";
-  return "var(--public-bd)";
-}
-
 export default function OverviewSection({
+  orgSlug,
   onNavigate,
   onOpenEvent,
-  onReviewDoc,
   onInspectDenied,
 }: {
+  orgSlug: string;
   onNavigate: (section: ConsoleSection) => void;
   onOpenEvent: (id: string) => void;
-  onReviewDoc: (slug: string) => void;
   onInspectDenied: () => void;
 }) {
-  const deniedToday = CONSOLE_EVENTS.filter((e) => e.status === "denied").length;
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState<RealSummary | null>(null);
+  const [events, setEvents] = useState<RealEvent[]>([]);
+  const [agents, setAgents] = useState<RealAgent[]>([]);
+
+  useEffect(() => {
+    let live = true;
+    setLoading(true);
+    if (!orgSlug) {
+      setLoading(false);
+      return;
+    }
+    const q = `org_slug=${encodeURIComponent(orgSlug)}`;
+    Promise.all([
+      getJson<{ summary: RealSummary }>(`/api/v1/admin/telemetry?${q}`),
+      getJson<{ events: RealEvent[] }>(`/api/v1/admin/audit-events?${q}&limit=8`),
+      getJson<{ agents: RealAgent[] }>(`/api/v1/admin/agents?${q}`),
+    ]).then(([tel, audit, ag]) => {
+      if (!live) return;
+      setSummary(tel.data?.summary ?? null);
+      setEvents(audit.data?.events ?? []);
+      setAgents(ag.data?.agents ?? []);
+      setLoading(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, [orgSlug]);
+
+  const deniedReads = summary?.denied_events ?? 0;
 
   const metrics: { value: string; label: string }[] = [
-    { value: "38", label: "context builds" },
-    { value: "24", label: "model calls" },
-    { value: String(deniedToday), label: "denied reads" },
-    { value: "1", label: "pending proposals" },
-    { value: "$0.42", label: "est. cost" },
-    { value: "1.6s", label: "avg latency" },
+    { value: String(summary?.context_builds ?? 0), label: "context builds" },
+    { value: String(summary?.model_calls ?? 0), label: "model calls" },
+    { value: String(deniedReads), label: "denied reads" },
+    { value: String(summary?.total_events ?? 0), label: "total events" },
+    { value: formatCost(summary?.estimated_cost_usd), label: "est. cost" },
+    { value: formatLatency(summary?.avg_latency_ms), label: "avg latency" },
   ];
 
-  const peak = Math.max(...CONSOLE_SPARK);
-  const recent = CONSOLE_EVENTS.slice(0, 5);
-
-  const sensCounts: Record<SensitivityLabel, number> = { public: 0, internal: 0, restricted: 0 };
-  for (const doc of DEMO_DOCUMENTS) sensCounts[doc.sensitivity] += 1;
-  const maxSens = Math.max(...SENS_ORDER.map((s) => sensCounts[s]));
-
-  const attention = [
-    {
-      text: "1 write proposal awaiting review on customer-refunds",
-      cta: "review",
-      onClick: () => onReviewDoc("customer-refunds"),
-    },
-    { text: "frg_writer_c3a1 expires in 12 days", cta: "rotate", onClick: () => onNavigate("connect") },
-    { text: `${deniedToday} access attempts were blocked in the last 24h`, cta: "inspect", onClick: onInspectDenied },
-  ];
+  const recent = events.slice(0, 6);
 
   return (
     <div style={{ maxWidth: 1180, margin: "0 auto", display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ border: "1px solid var(--internal-bd)", background: "var(--internal-bg)", padding: "14px 16px" }}>
-        <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-2)", marginBottom: 8 }}>
-          ▸ needs attention
+      {deniedReads > 0 ? (
+        <div style={{ border: "1px solid var(--internal-bd)", background: "var(--internal-bg)", padding: "14px 16px" }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--ink-2)", marginBottom: 8 }}>
+            ▸ needs attention
+          </div>
+          <button
+            type="button"
+            onClick={onInspectDenied}
+            style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", textAlign: "left", width: "100%" }}
+          >
+            <span style={{ fontSize: 13, color: "var(--ink)" }}>
+              {deniedReads} access {deniedReads === 1 ? "attempt was" : "attempts were"} blocked in this period
+            </span>
+            <span style={{ fontSize: 12, color: "var(--green)", whiteSpace: "nowrap" }}>inspect →</span>
+          </button>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-          {attention.map((a) => (
-            <button
-              key={a.text}
-              type="button"
-              onClick={a.onClick}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 12,
-                alignItems: "baseline",
-                textAlign: "left",
-                width: "100%",
-              }}
-            >
-              <span style={{ fontSize: 13, color: "var(--ink)" }}>{a.text}</span>
-              <span style={{ fontSize: 12, color: "var(--green)", whiteSpace: "nowrap" }}>{a.cta} →</span>
-            </button>
-          ))}
-        </div>
-      </div>
+      ) : null}
 
       <div>
         <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 10 }}>
-          last 24 hours
+          recent activity
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
           {metrics.map((m) => (
             <div key={m.label} style={{ ...panel, padding: "14px 14px", minHeight: 70 }}>
-              <div style={{ fontSize: 22, color: "var(--ink)", letterSpacing: "-0.01em" }}>{m.value}</div>
+              <div style={{ fontSize: 22, color: "var(--ink)", letterSpacing: "-0.01em" }}>{loading ? "–" : m.value}</div>
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>{m.label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.35fr 1fr", gap: 18, alignItems: "start" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <section style={{ ...panel, padding: 18 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 }}>
-              <h2 style={sectionHeading}>agent calls · hourly</h2>
-              <span style={{ fontSize: 11, color: "var(--faint)" }}>{peak} calls peak</span>
+      <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 18, alignItems: "start" }}>
+        <section style={panel}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "16px 18px 12px" }}>
+            <h2 style={sectionHeading}>recent events</h2>
+            <button type="button" onClick={() => onNavigate("activity")} style={{ fontSize: 12, color: "var(--green)" }}>
+              view all →
+            </button>
+          </div>
+          {loading ? (
+            <p style={{ padding: "0 18px 16px", fontSize: 12, color: "var(--muted)" }}>Loading activity…</p>
+          ) : recent.length === 0 ? (
+            <div style={{ padding: "4px 18px 18px" }}>
+              <p style={{ fontSize: 13, color: "var(--ink)", margin: 0 }}>No activity yet.</p>
+              <p style={{ fontSize: 12, color: "var(--muted)", margin: "4px 0 0" }}>
+                Connect an agent in{" "}
+                <button type="button" onClick={() => onNavigate("connect")} style={{ color: "var(--green)" }}>
+                  connect
+                </button>{" "}
+                and its queries, context builds, and denied reads appear here.
+              </p>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 84 }}>
-              {CONSOLE_SPARK.map((v, i) => (
-                <div
-                  key={i}
-                  title={`${i}:00 · ${v} calls`}
-                  style={{
-                    flex: 1,
-                    height: Math.max(6, Math.round((v / peak) * 84)),
-                    background: v >= peak - 1 ? "var(--green)" : "var(--green-dark)",
-                    opacity: v >= peak - 1 ? 1 : 0.45,
-                  }}
-                />
-              ))}
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "var(--faint)" }}>
-              <span>00:00</span>
-              <span>06:00</span>
-              <span>12:00</span>
-              <span>18:00</span>
-              <span>now</span>
-            </div>
-          </section>
+          ) : (
+            recent.map((ev) => {
+              const status = eventStatus(ev);
+              return (
+                <button
+                  key={ev.id}
+                  type="button"
+                  onClick={() => onOpenEvent(ev.id)}
+                  style={{ display: "block", width: "100%", textAlign: "left", padding: "11px 18px", borderTop: "1px solid var(--line)" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                    <span style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.4 }}>{eventSummary(ev)}</span>
+                    <span style={{ fontSize: 11, color: statusColor(status), whiteSpace: "nowrap" }}>{statusLabel(status)}</span>
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 11, color: "var(--muted)" }}>
+                    {formatEventTime(ev.created_at)} · {eventActor(ev)}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </section>
 
-          <section style={panel}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "16px 18px 12px" }}>
-              <h2 style={sectionHeading}>recent events</h2>
-              <button type="button" onClick={() => onNavigate("activity")} style={{ fontSize: 12, color: "var(--green)" }}>
-                view all →
-              </button>
-            </div>
-            {recent.map((ev) => (
-              <button
-                key={ev.id}
-                type="button"
-                onClick={() => onOpenEvent(ev.id)}
-                style={{ display: "block", width: "100%", textAlign: "left", padding: "11px 18px", borderTop: "1px solid var(--line)" }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-                  <span style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.4 }}>{ev.summary}</span>
-                  <span style={{ fontSize: 11, color: statusColor(ev.status), whiteSpace: "nowrap" }}>{statusLabel(ev.status)}</span>
-                </div>
-                <div style={{ marginTop: 4, fontSize: 11, color: "var(--muted)" }}>
-                  {ev.time} · {ev.actor}
-                </div>
-              </button>
-            ))}
-          </section>
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <section style={{ ...panel, padding: 18 }}>
-            <h2 style={{ ...sectionHeading, marginBottom: 12 }}>agents</h2>
+        <section style={{ ...panel, padding: 18 }}>
+          <h2 style={{ ...sectionHeading, marginBottom: 12 }}>agents</h2>
+          {loading ? (
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Loading…</p>
+          ) : agents.length === 0 ? (
+            <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>No hosted agents yet.</p>
+          ) : (
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {CONSOLE_AGENTS.map((ag) => (
+              {agents.map((ag) => (
                 <div
-                  key={ag.name}
+                  key={ag.slug}
                   style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--line)" }}
                 >
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: 13, color: "var(--ink)" }}>
-                      <span style={{ color: "var(--green)" }}>●</span> {ag.name}
+                      <span style={{ color: ag.status === "active" ? "var(--green)" : "var(--faint)" }}>●</span> {ag.name}
                     </div>
                     <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                      {ag.model} · {ag.zone}
+                      {(ag.model_name ?? ag.model_config_slug ?? "model") + (ag.trust_zone ? ` · ${ag.trust_zone} zone` : "")}
                     </div>
                   </div>
-                  <span style={{ fontSize: 11, color: "var(--faint)", whiteSpace: "nowrap" }}>{ag.lastRun}</span>
+                  <span style={{ fontSize: 11, color: "var(--faint)", whiteSpace: "nowrap" }}>{ag.status ?? ""}</span>
                 </div>
               ))}
             </div>
-          </section>
-
-          <section style={{ ...panel, padding: 18 }}>
-            <h2 style={{ ...sectionHeading, marginBottom: 12 }}>knowledge by sensitivity</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-              {SENS_ORDER.map((s) => (
-                <div key={s}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 5 }}>
-                    <span style={{ color: "var(--ink)" }}>{s}</span>
-                    <span style={{ color: "var(--muted)" }}>{sensCounts[s]} docs</span>
-                  </div>
-                  <div style={{ height: 7, background: "var(--paper-deep)", border: "1px solid var(--line)" }}>
-                    <div style={{ height: "100%", width: `${Math.round((sensCounts[s] / maxSens) * 100)}%`, background: sensBorder(s) }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
+          )}
+        </section>
       </div>
     </div>
   );

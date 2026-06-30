@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import AdminConsole from "@/app/admin/AdminConsole";
 import BillingPanel from "@/app/billing/BillingPanel";
 import { DEMO_DOCUMENTS, DEMO_ROLES, type DemoRole } from "@/lib/prototype/demo-data";
-import { CONSOLE_EVENTS } from "@/lib/prototype/console-demo";
 import OverviewSection from "./sections/OverviewSection";
 import ActivitySection from "./sections/ActivitySection";
 import KnowledgeSection from "./sections/KnowledgeSection";
@@ -84,12 +83,11 @@ export default function PrototypeConsole({
     if (mapped) setSection(mapped);
   }, []);
 
-  const deniedToday = CONSOLE_EVENTS.filter((e) => e.status === "denied").length;
   const visibleDocCount = DEMO_DOCUMENTS.filter((d) => role.allowedLabels.includes(d.sensitivity)).length;
 
   const counts: Record<ConsoleSection, string> = {
     overview: "live",
-    activity: `${deniedToday} denied`,
+    activity: "live",
     knowledge: `${visibleDocCount} docs`,
     access: `${DEMO_ROLES.length} roles`,
     connect: "keys",
@@ -97,7 +95,9 @@ export default function PrototypeConsole({
   };
 
   const meta = SECTION_META[section];
-  const orgName = memberships.find((m) => m.status === "active")?.org_name ?? memberships[0]?.org_name ?? "your org";
+  const activeOrg = memberships.find((m) => m.status === "active") ?? memberships[0];
+  const orgName = activeOrg?.org_name ?? "your org";
+  const orgSlug = activeOrg?.org_slug ?? "";
 
   const showRole = section === "knowledge" || section === "access";
   const showSearch = section === "knowledge";
@@ -116,10 +116,6 @@ export default function PrototypeConsole({
   function inspectDenied() {
     setActivityFilter("denied");
     setSection("activity");
-  }
-  function reviewDoc(slug: string) {
-    setSelectedDocSlug(slug);
-    setSection("knowledge");
   }
 
   return (
@@ -198,15 +194,11 @@ export default function PrototypeConsole({
 
         <div className={`${styles.scroll} frgscroll`}>
           {section === "overview" ? (
-            <OverviewSection
-              onNavigate={setSection}
-              onOpenEvent={goEvent}
-              onReviewDoc={reviewDoc}
-              onInspectDenied={inspectDenied}
-            />
+            <OverviewSection orgSlug={orgSlug} onNavigate={setSection} onOpenEvent={goEvent} onInspectDenied={inspectDenied} />
           ) : null}
           {section === "activity" ? (
             <ActivitySection
+              orgSlug={orgSlug}
               selectedId={selectedEventId}
               onSelect={setSelectedEventId}
               filter={activityFilter}
