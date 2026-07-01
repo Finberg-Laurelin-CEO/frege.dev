@@ -1,7 +1,24 @@
 import { getSql } from "@/lib/db";
 import { resolveModelConfig, type ResolvedModelConfig } from "@/lib/prototype/model-configs";
 import type { ContextPacket } from "@/lib/prototype/context-gateway";
+import { fetchWithTimeout, isFetchTimeoutError } from "@/lib/prototype/http";
 import type { TrustZone } from "@/lib/prototype/types";
+
+function modelTimeoutMs(): number {
+  const raw = Number(process.env.FREGE_MODEL_TIMEOUT_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 60000;
+}
+
+// fetch() a model endpoint with a hard timeout; a timeout surfaces as model_timeout
+// so a hung upstream fails deterministically instead of holding the request open.
+async function fetchModel(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, init, { timeoutMs: modelTimeoutMs() });
+  } catch (err) {
+    if (isFetchTimeoutError(err)) throw new Error("model_timeout");
+    throw err;
+  }
+}
 
 export type ModelInvokeInput = {
   orgId: string;
@@ -88,7 +105,7 @@ export async function invokeModel(input: ModelInvokeInput): Promise<ModelInvokeR
     if ((config.provider === "openrouter" || config.provider === "vercel-ai-gateway") && !config.api_key) {
       throw new Error("model_api_key_missing");
     }
-    const response = await fetch(`${defaultBaseUrl(config)}/chat/completions`, {
+    const response = await fetchModel(`${defaultBaseUrl(config)}/chat/completions`, {
       method: "POST",
       headers: openAiCompatibleHeaders(config),
       body: JSON.stringify({
@@ -115,7 +132,7 @@ export async function invokeModel(input: ModelInvokeInput): Promise<ModelInvokeR
     };
   }
 
-  const response = await fetch(`${defaultBaseUrl(config)}/api/chat`, {
+  const response = await fetchModel(`${defaultBaseUrl(config)}/api/chat`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
