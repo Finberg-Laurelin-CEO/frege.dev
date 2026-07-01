@@ -49,6 +49,8 @@ export type AgentRun = {
   max_steps: number;
   lease_owner: string | null;
   lease_expires_at: Date | string | null;
+  attempt_count: number;
+  last_error: string | null;
   started_at: Date | string | null;
   completed_at: Date | string | null;
   metadata: Record<string, unknown>;
@@ -118,6 +120,10 @@ type AgentRunRow = AgentRun & {
   agent_max_steps?: number;
   model_config_slug?: string;
 };
+
+// A run is claimed (and attempt_count incremented) once per execution attempt. Past
+// this budget it is dead-lettered instead of retried so a poison run can't loop.
+const MAX_ATTEMPTS = 3;
 
 function normalizeSlug(value: string): string {
   return (
@@ -552,6 +558,7 @@ export async function claimAgentRunsForRuntime(input: {
       status = 'running',
       lease_owner = ${input.workerId},
       lease_expires_at = now() + (${leaseSeconds}::text || ' seconds')::interval,
+      attempt_count = attempt_count + 1,
       started_at = coalesce(started_at, now()),
       updated_at = now()
     where id in (select id from candidates)
@@ -560,6 +567,12 @@ export async function claimAgentRunsForRuntime(input: {
 
   const packets: RuntimeExecutionPacket[] = [];
   for (const run of claimed) {
+    if (run.attempt_count > MAX_ATTEMPTS) {
+      // Poison run: it has been claimed more times than allowed. Dead-letter it as a
+      // failure rather than handing back a packet so it stops being picked up.
+      await failAgentRun(run.id, input.workerId, "max_attempts_exceeded");
+      continue;
+    }
     try {
       packets.push(await prepareRuntimeExecutionPacket(run.id, input.workerId));
     } catch (err) {
@@ -703,17 +716,27 @@ export async function completeAgentRunFromRuntime(input: {
   const sql = getSql();
   const row = await loadRunForRuntime(input.runId);
   if (!row) throw new Error("agent_run_not_found");
-  if (row.lease_owner !== input.workerId) throw new Error("agent_run_lease_mismatch");
+
+  // Idempotent replay: a run that already reached a terminal state is returned as-is
+  // with no UPDATE, step, or session event. This makes a duplicate/stale re-complete
+  // (e.g. a retried worker delivery) a no-op rather than a second ledger entry.
+  if (row.status === "succeeded" || row.status === "failed" || row.status === "cancelled") {
+    return row as AgentRun;
+  }
 
   const resultMd = redactSecrets(input.resultMd ?? "");
   const error = input.error ? redactSecrets(input.error) : null;
+  // Clearing lease_owner in the same guarded UPDATE means a racing/stale re-complete
+  // can never re-satisfy `lease_owner = workerId`, so it can't double-write the row.
   const [updated] = await sql`
     update agent_runs
     set
       status = ${input.status},
       result_md = ${resultMd},
       error = ${error},
+      last_error = ${error},
       completed_at = now(),
+      lease_owner = null,
       lease_expires_at = null,
       updated_at = now(),
       metadata = metadata || ${JSON.stringify({ usage: input.usage ?? {} })}::jsonb
@@ -721,6 +744,7 @@ export async function completeAgentRunFromRuntime(input: {
       and lease_owner = ${input.workerId}
     returning *
   `;
+  if (!updated) throw new Error("agent_run_lease_mismatch");
   const run = updated as AgentRun;
 
   await insertRunStep({
