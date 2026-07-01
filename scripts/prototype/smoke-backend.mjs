@@ -89,6 +89,19 @@ async function step(name, fn) {
   return output;
 }
 
+async function pollAgentRun(baseUrl, apiKey, runId, { attempts = 40, delayMs = 500 } = {}) {
+  for (let index = 0; index < attempts; index += 1) {
+    const { json } = await request(baseUrl, apiKey, `/api/v1/agent-runs/${runId}`);
+    const status = json.run?.status;
+    if (status === "succeeded") return status;
+    if (status === "failed" || status === "cancelled") {
+      throw new Error(`agent run ${runId} ended as ${status}: ${json.run?.error ?? json.run?.last_error ?? "unknown"}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw new Error(`agent run ${runId} did not reach succeeded within ${attempts * delayMs}ms`);
+}
+
 function runMcpTool(baseUrl, apiKey, name, input = {}) {
   const message = {
     jsonrpc: "2.0",
@@ -155,6 +168,7 @@ async function main() {
   const baseUrl = normalizeBaseUrl(args["base-url"] || process.env.FREGE_BASE_URL || config.baseUrl || config.base_url);
   const apiKey = args["api-key"] || process.env.FREGE_API_KEY || config.apiKey || config.api_key;
   const includeAgentRun = Boolean(args["include-agent-run"]);
+  const cronSecret = args["cron-secret"] || process.env.CRON_SECRET || config.cronSecret || config.cron_secret;
 
   if (!apiKey) {
     throw new Error("Missing Frege API key. Set FREGE_API_KEY or run `frege connect <base-url> --token <key>`.");
@@ -351,7 +365,7 @@ async function main() {
     } else if (!agents.length) {
       console.log("- hosted agent queue smoke... skipped (no active agents)");
     } else {
-      await step("hosted agent run queues and reads back", async () => {
+      const runId = await step("hosted agent run queues and reads back", async () => {
         const agent = agents[0];
         const { json } = await request(baseUrl, apiKey, "/api/v1/agents", {
           method: "POST",
@@ -368,7 +382,23 @@ async function main() {
         assertEqual(json.run.status, "queued", "agent run status");
         const readback = await request(baseUrl, apiKey, `/api/v1/agent-runs/${json.run.id}`);
         assertEqual(readback.json.run.id, json.run.id, "agent run readback id");
+        return json.run.id;
       });
+
+      if (!cronSecret) {
+        console.log("- hosted agent run executes via cron worker... skipped (set CRON_SECRET to enable)");
+      } else {
+        await step("hosted agent run executes via cron worker and reaches succeeded", async () => {
+          const worker = await request(baseUrl, apiKey, "/api/cron/agent-worker", {
+            auth: false,
+            headers: { Authorization: `Bearer ${cronSecret}` },
+            expectedStatus: 200,
+          });
+          assert(worker.json.ok !== false, `cron worker returned not-ok: ${JSON.stringify(worker.json)}`);
+          const finalStatus = await pollAgentRun(baseUrl, apiKey, runId);
+          assertEqual(finalStatus, "succeeded", "agent run terminal status");
+        });
+      }
     }
   }
 

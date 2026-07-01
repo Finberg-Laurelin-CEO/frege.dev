@@ -826,6 +826,7 @@ async function acceptPageProposal(
         title = coalesce(nullif(${proposal.title}, ''), title),
         trust_zone = ${proposal.trust_zone},
         frontmatter = ${JSON.stringify(proposal.metadata ?? {})}::jsonb,
+        status = 'published',
         updated_at = now()
       where id = ${pageId}
         and org_id = ${auth.organization.id}
@@ -868,6 +869,33 @@ async function acceptPageProposal(
   return { page_id: pageId, revision };
 }
 
+async function acceptLinkProposal(
+  auth: HumanOrgContext,
+  proposal: { slug: string | null; body_md: string },
+) {
+  if (!proposal.slug) throw new Error("proposal_slug_required");
+  const sql = getSql();
+  const [page] = await sql`
+    select id
+    from brain_pages
+    where org_id = ${auth.organization.id}
+      and slug = ${proposal.slug}
+    limit 1
+  `;
+  if (!page) throw new Error("brain_page_not_found");
+  const pageId = (page as { id: string }).id;
+
+  await refreshBrainPageLinks({
+    orgId: auth.organization.id,
+    pageId,
+    bodyMd: proposal.body_md,
+    userId: auth.user.id,
+    keyId: null,
+  });
+
+  return { page_id: pageId };
+}
+
 export async function resolveMemoryProposal(
   auth: HumanOrgContext,
   input: { proposalId: string; action: "accept" | "reject" },
@@ -902,6 +930,8 @@ export async function resolveMemoryProposal(
       acceptedResource = await acceptSourceProposal(auth, typed);
     } else if (typed.proposal_type === "page_create" || typed.proposal_type === "page_update") {
       acceptedResource = await acceptPageProposal(auth, typed);
+    } else if (typed.proposal_type === "link_update") {
+      acceptedResource = await acceptLinkProposal(auth, typed);
     }
   }
 
