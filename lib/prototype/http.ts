@@ -21,6 +21,11 @@ export class FetchTimeoutError extends Error {
   }
 }
 
+// Type guard so callers can map a timeout to a domain error (e.g. model_timeout).
+export function isFetchTimeoutError(err: unknown): err is FetchTimeoutError {
+  return err instanceof FetchTimeoutError;
+}
+
 function isRetryableStatus(status: number): boolean {
   return status === 429 || status >= 500;
 }
