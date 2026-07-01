@@ -30,6 +30,7 @@
     "smoke:public": "node scripts/prototype/smoke-public.mjs",
     "smoke:admin": "node scripts/prototype/smoke-admin.mjs",
     "smoke:admin:live": "node scripts/prototype/smoke-admin.mjs --live",
+    "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-*.mjs",
     "test:auth-flow": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-auth-flow.mjs"
   },
   "dependencies": {
