@@ -24,6 +24,7 @@ export type UserSessionContext = {
     email: string;
     name: string;
     status: string;
+    email_verified_at: Date | string | null;
   };
   session: {
     id: string;
@@ -39,6 +40,7 @@ type SessionRow = {
   email: string;
   name: string;
   status: string;
+  email_verified_at: Date | string | null;
 };
 
 type MembershipRow = UserSessionMembership;
@@ -128,7 +130,8 @@ export async function authenticateSessionToken(rawToken: string | null): Promise
       users.id as user_id,
       users.email,
       users.name,
-      users.status
+      users.status,
+      users.email_verified_at
     from user_sessions
     join users on users.id = user_sessions.user_id
     where user_sessions.session_hash = ${hashSessionToken(rawToken)}
@@ -167,6 +170,7 @@ export async function authenticateSessionToken(rawToken: string | null): Promise
       email: row.email,
       name: row.name,
       status: row.status,
+      email_verified_at: row.email_verified_at,
     },
     session: {
       id: row.session_id,

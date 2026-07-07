@@ -12,7 +12,7 @@ type RouteContext = {
 
 export async function GET(req: Request, context: RouteContext) {
   const startedAt = Date.now();
-  const actorResult = await authenticateFregeActor(req);
+  const actorResult = await authenticateFregeActor(req, { allowInactiveUser: true });
   if (!actorResult.ok) return actorResult.response;
 
   try {

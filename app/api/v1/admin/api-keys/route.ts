@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { generateApiKey } from "@/lib/prototype/keys";
+import { assertActiveHumanOrg, assertVerifiedHumanUser } from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -80,6 +81,10 @@ export async function POST(req: Request) {
     const authResult = await authenticateAdminRequest(req, parsed.data.org_slug);
     if (!authResult.ok) return authResult.response;
     const auth = authResult.auth;
+    const unverified = assertVerifiedHumanUser(auth);
+    if (unverified) return unverified;
+    const inactive = assertActiveHumanOrg(auth);
+    if (inactive) return inactive;
 
     const sql = getSql();
     const ownerUserId = parsed.data.owner_user_id ?? auth.user.id;

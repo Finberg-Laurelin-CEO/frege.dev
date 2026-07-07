@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
+import { assertActiveHumanOrg } from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -72,6 +73,8 @@ export async function POST(req: Request) {
     const authResult = await authenticateAdminRequest(req, parsed.data.org_slug);
     if (!authResult.ok) return authResult.response;
     const auth = authResult.auth;
+    const inactive = assertActiveHumanOrg(auth);
+    if (inactive) return inactive;
 
     const sql = getSql();
     const [role] = await sql`

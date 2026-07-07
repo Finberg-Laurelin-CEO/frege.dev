@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { listAgentDefinitionsForAdmin, upsertAgentDefinitionForAdmin } from "@/lib/prototype/agent-runtime";
+import { assertActiveHumanOrg } from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -46,6 +47,8 @@ export async function POST(req: Request) {
 
     const authResult = await authenticateAdminRequest(req, parsed.data.org_slug);
     if (!authResult.ok) return authResult.response;
+    const inactive = assertActiveHumanOrg(authResult.auth);
+    if (inactive) return inactive;
     const agent = await upsertAgentDefinitionForAdmin(authResult.auth, parsed.data);
     await logTelemetryEvent({
       actor: { type: "user", auth: authResult.auth },

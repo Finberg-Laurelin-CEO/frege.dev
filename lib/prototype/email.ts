@@ -55,14 +55,19 @@ type SignupWelcomeEmailInput = {
   to: string;
   name: string;
   orgName: string;
-  billingUrl: string;
-  checkoutUrl?: string | null;
+  accountUrl: string;
 };
 
 type PasswordResetEmailInput = {
   to: string;
   name: string;
   resetUrl: string;
+};
+
+type EmailVerificationEmailInput = {
+  to: string;
+  name: string;
+  verificationUrl: string;
 };
 
 function inviteSubject(orgName: string): string {
@@ -248,38 +253,29 @@ function inviteWithStripePromoHtmlBody(input: InviteWithStripePromoCodeEmailInpu
 }
 
 function signupWelcomeSubject(input: SignupWelcomeEmailInput): string {
-  return `Your Frege account is ready - activate ${input.orgName}`;
+  return `Your Frege account is ready - open ${input.orgName}`;
 }
 
 function signupWelcomeTextBody(input: SignupWelcomeEmailInput): string {
   const firstName = input.name.trim().split(/\s+/)[0] || "there";
-  const lines = [
+  return [
     `Hi ${firstName},`,
     "",
     `Your Frege account for ${input.orgName} is ready.`,
     "",
-  ];
-
-  if (input.checkoutUrl) {
-    lines.push("Continue to Stripe Checkout to activate your org:");
-    lines.push(`   ${input.checkoutUrl}`);
-    lines.push("");
-  }
-
-  lines.push("You can also resume setup from the Frege billing screen:");
-  lines.push(`   ${input.billingUrl}`);
-  lines.push("");
-  lines.push("Have a Frege code? Enter it in Stripe's promotion-code field before paying.");
-  lines.push("");
-  lines.push("- The Frege team");
-  return lines.join("\n");
+    "Open your account page to verify email, look around the console, and start billing when you're ready:",
+    `   ${input.accountUrl}`,
+    "",
+    "Agent actions, API keys, writes, invites, and hosted runs stay locked until email is verified and billing activates the org.",
+    "",
+    "- The Frege team",
+  ].join("\n");
 }
 
 function signupWelcomeHtmlBody(input: SignupWelcomeEmailInput): string {
   const safeFirstName = escapeHtml(input.name.trim().split(/\s+/)[0] || "there");
   const safeOrg = escapeHtml(input.orgName);
-  const safeBillingUrl = escapeHtml(input.billingUrl);
-  const safeCheckoutUrl = input.checkoutUrl ? escapeHtml(input.checkoutUrl) : null;
+  const safeAccountUrl = escapeHtml(input.accountUrl);
   return `<!doctype html>
 <html>
   <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
@@ -289,25 +285,63 @@ function signupWelcomeHtmlBody(input: SignupWelcomeEmailInput): string {
         <p style="font-size:15px;line-height:1.5;margin:0 0 20px;">
           Hi ${safeFirstName}, your account for <strong>${safeOrg}</strong> has been created.
         </p>
-        ${safeCheckoutUrl ? `
-        <p style="margin:0 0 24px;">
-          <a href="${safeCheckoutUrl}" style="display:inline-block;background:#0033cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
-            Continue to Stripe Checkout
-          </a>
-        </p>
-        ` : ""}
         <p style="font-size:15px;line-height:1.5;margin:0 0 20px;">
-          You can resume setup from the Frege billing screen any time.
+          Open your account page to verify email, tour the console, and start billing when you are ready.
         </p>
         <p style="margin:0 0 28px;">
-          <a href="${safeBillingUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
-            Open billing
+          <a href="${safeAccountUrl}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
+            Open account
           </a>
         </p>
         <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
-          Have a Frege code? Enter it in Stripe's promotion-code field before paying.
+          Agent actions, API keys, writes, invites, and hosted runs stay locked until email is verified and billing activates the org.
           If the button doesn't work, paste this URL into your browser:<br>
-          <span style="word-break:break-all;color:#0033cc;">${safeBillingUrl}</span>
+          <span style="word-break:break-all;color:#0033cc;">${safeAccountUrl}</span>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function emailVerificationSubject(): string {
+  return "Verify your Frege email";
+}
+
+function emailVerificationTextBody(input: EmailVerificationEmailInput): string {
+  const firstName = input.name.trim().split(/\s+/)[0] || "there";
+  return [
+    `Hi ${firstName},`,
+    "",
+    "Verify this email address to finish setting up Frege:",
+    `   ${input.verificationUrl}`,
+    "",
+    "This link expires in 24 hours. If you did not create a Frege account, you can ignore this email.",
+    "",
+    "- The Frege team",
+  ].join("\n");
+}
+
+function emailVerificationHtmlBody(input: EmailVerificationEmailInput): string {
+  const safeFirstName = escapeHtml(input.name.trim().split(/\s+/)[0] || "there");
+  const safeUrl = escapeHtml(input.verificationUrl);
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px;">Verify your Frege email</h1>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 20px;">
+          Hi ${safeFirstName}, confirm this email address so your Frege account can move to billing and activation.
+        </p>
+        <p style="margin:0 0 28px;">
+          <a href="${safeUrl}" style="display:inline-block;background:#0033cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
+            Verify email
+          </a>
+        </p>
+        <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
+          This link expires in 24 hours. If the button doesn't work, paste this URL into your browser:<br>
+          <span style="word-break:break-all;color:#0033cc;">${safeUrl}</span>
         </p>
       </td></tr>
     </table>
@@ -453,6 +487,28 @@ export async function sendSignupWelcomeEmail(input: SignupWelcomeEmailInput): Pr
 
   if (error) {
     console.error("signup welcome email send failed", { to: input.to, message: error.message });
+    return { sent: false, reason: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
+export async function sendEmailVerificationEmail(input: EmailVerificationEmailInput): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    console.warn("email not configured; email verification skipped", { to: input.to });
+    return { sent: false, reason: "not_configured" };
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: fromAddress(),
+    to: input.to,
+    replyTo: replyToAddress(),
+    subject: emailVerificationSubject(),
+    text: emailVerificationTextBody(input),
+    html: emailVerificationHtmlBody(input),
+  });
+
+  if (error) {
+    console.error("email verification send failed", { to: input.to, message: error.message });
     return { sent: false, reason: error.message };
   }
   return { sent: true, id: data?.id };

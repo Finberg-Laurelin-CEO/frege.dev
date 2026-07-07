@@ -1,0 +1,248 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { ConsoleSection } from "./ui";
+
+type Membership = {
+  org_id: string;
+  org_slug: string;
+  org_name: string;
+  org_status: string;
+  role: string;
+  status: string;
+};
+
+type BillingSummary = {
+  organization: { id: string; slug: string; name: string; status: string };
+  user: { email: string; email_verified_at: string | null };
+  billing: {
+    plan: string | null;
+    billing_interval: string | null;
+    seats: number | null;
+    subscription_status: string | null;
+  } | null;
+};
+
+function statusText(verified: string | undefined): string | null {
+  if (!verified) return null;
+  if (verified === "1") return "Email verified. Billing and activation are the next step.";
+  if (verified === "expired") return "That verification link expired. Send a fresh link below.";
+  if (verified === "used") return "That verification link was already used. If this account is still pending, send a fresh link.";
+  if (verified === "invalid") return "That verification link is invalid. Send a fresh link below.";
+  return null;
+}
+
+function planLabel(plan: string | null | undefined, interval: string | null | undefined): string {
+  if (plan === "team" && interval === "annual") return "Team annual";
+  if (plan === "team") return "Team monthly";
+  if (plan === "solo") return "Solo";
+  return "Not selected";
+}
+
+function CheckItem({ done, title, detail }: { done: boolean; title: string; detail: string }) {
+  return (
+    <li style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", gap: 10, alignItems: "start", padding: "12px 0", borderTop: "1px solid var(--line)" }}>
+      <span style={{ color: done ? "var(--green)" : "var(--faint)", fontSize: 15 }}>{done ? "✓" : "○"}</span>
+      <span>
+        <strong style={{ display: "block", color: "var(--ink)", fontSize: 13, fontWeight: 400 }}>{title}</strong>
+        <span style={{ display: "block", color: "var(--muted)", fontSize: 12, lineHeight: 1.5, marginTop: 2 }}>{detail}</span>
+      </span>
+    </li>
+  );
+}
+
+export default function AccountSection({
+  userEmail,
+  emailVerifiedAt,
+  memberships,
+  verificationStatus,
+  onNavigate,
+}: {
+  userEmail?: string;
+  emailVerifiedAt: string | null;
+  memberships: Membership[];
+  verificationStatus?: string;
+  onNavigate: (section: ConsoleSection) => void;
+}) {
+  const activeOrg = memberships.find((m) => m.status === "active") ?? memberships[0] ?? null;
+  const [billing, setBilling] = useState<BillingSummary | null>(null);
+  const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent" | "not_configured" | "verified" | "rate_limited" | "error">("idle");
+
+  useEffect(() => {
+    let live = true;
+    if (!activeOrg?.org_slug) return;
+    fetch(`/api/v1/billing/summary?org_slug=${encodeURIComponent(activeOrg.org_slug)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (live) setBilling(json as BillingSummary | null);
+      })
+      .catch(() => null);
+    return () => {
+      live = false;
+    };
+  }, [activeOrg?.org_slug]);
+
+  const verifiedAt = billing?.user.email_verified_at ?? emailVerifiedAt;
+  const emailVerified = Boolean(verifiedAt);
+  const orgActive = activeOrg?.org_status === "active";
+  const plan = billing?.billing ?? null;
+  const selectedPlan = planLabel(plan?.plan, plan?.billing_interval);
+  const seats = plan?.seats ?? (plan?.plan === "team" ? 2 : 1);
+  const subscriptionStatus = plan?.subscription_status ?? null;
+  const verifyNotice = statusText(verificationStatus);
+  const canStartBilling = emailVerified && !orgActive;
+
+  async function resendVerification() {
+    setResendStatus("sending");
+    try {
+      const res = await fetch("/api/v1/auth/email/verification/resend", { method: "POST" });
+      const json = (await res.json().catch(() => ({}))) as { email_sent?: boolean; verified?: boolean; error?: string };
+      if (res.status === 429) {
+        setResendStatus("rate_limited");
+      } else if (!res.ok) {
+        setResendStatus("error");
+      } else if (json.verified) {
+        setResendStatus("verified");
+      } else if (json.email_sent) {
+        setResendStatus("sent");
+      } else {
+        setResendStatus("not_configured");
+      }
+    } catch {
+      setResendStatus("error");
+    }
+  }
+
+  return (
+    <div style={{ maxWidth: 1120, margin: "0 auto", display: "grid", gap: 20 }}>
+      {verifyNotice ? (
+        <section style={{ border: "1px solid var(--internal-bd)", background: "var(--internal-bg)", padding: "13px 16px", color: "var(--ink)" }}>
+          {verifyNotice}
+        </section>
+      ) : null}
+
+      <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)" }}>account</div>
+            <h2 style={{ margin: "5px 0 0", fontSize: 20, fontWeight: 400, color: "var(--ink)" }}>
+              {activeOrg?.org_name ?? "Your Frege account"}
+            </h2>
+            <p style={{ margin: "5px 0 0", color: "var(--muted)", fontSize: 12.5 }}>
+              {userEmail ?? "Signed in"} · {activeOrg?.role ?? "member"}
+            </p>
+          </div>
+          <span style={{ border: "1px solid var(--line-strong)", color: orgActive ? "var(--green-dark)" : "var(--muted)", background: orgActive ? "var(--green-tint)" : "var(--surface-mute)", padding: "4px 10px", fontSize: 12 }}>
+            {orgActive ? "active" : "limited tour"}
+          </span>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          <div style={{ border: "1px solid var(--line)", background: "var(--surface-mute)", padding: 13 }}>
+            <span style={{ display: "block", color: "var(--faint)", fontSize: 11 }}>Email</span>
+            <strong style={{ display: "block", color: emailVerified ? "var(--green-dark)" : "#8a6d1f", marginTop: 4, fontWeight: 400 }}>
+              {emailVerified ? "verified" : "pending"}
+            </strong>
+          </div>
+          <div style={{ border: "1px solid var(--line)", background: "var(--surface-mute)", padding: 13 }}>
+            <span style={{ display: "block", color: "var(--faint)", fontSize: 11 }}>Plan</span>
+            <strong style={{ display: "block", color: "var(--ink)", marginTop: 4, fontWeight: 400 }}>
+              {selectedPlan} · {seats} seat{seats === 1 ? "" : "s"}
+            </strong>
+          </div>
+          <div style={{ border: "1px solid var(--line)", background: "var(--surface-mute)", padding: 13 }}>
+            <span style={{ display: "block", color: "var(--faint)", fontSize: 11 }}>Billing</span>
+            <strong style={{ display: "block", color: orgActive ? "var(--green-dark)" : "var(--muted)", marginTop: 4, fontWeight: 400 }}>
+              {orgActive ? "active" : subscriptionStatus ?? (emailVerified ? "ready" : "email pending")}
+            </strong>
+          </div>
+        </div>
+      </section>
+
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(300px, 0.85fr)", gap: 18, alignItems: "start" }}>
+        <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)", marginBottom: 8 }}>onboarding</div>
+          <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            <CheckItem done title="Account created" detail="Your user, organization, owner membership, and default roles exist." />
+            <CheckItem done={emailVerified} title="Verify email" detail="Required before Stripe billing and account activation actions." />
+            <CheckItem done={false} title="Explore the console" detail="Overview, knowledge, access, and connect are available as a read-only tour while limited." />
+            <CheckItem done={orgActive} title="Choose billing plan" detail="Start Stripe checkout from account or billing once email is verified." />
+            <CheckItem done={orgActive} title="Create first API key" detail="API key creation unlocks after email verification and billing activation." />
+          </ol>
+        </section>
+
+        <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)", marginBottom: 8 }}>next action</div>
+          {!emailVerified ? (
+            <>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>Verify your email</h2>
+              <p style={{ margin: "8px 0 14px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+                The signup email may be skipped if this deployment is missing email provider configuration. Resend will report that state here.
+              </p>
+              <button type="button" onClick={resendVerification} disabled={resendStatus === "sending"} style={{ minHeight: 36, padding: "0 13px", border: "1px solid var(--green-dark)", background: "var(--green-dark)", color: "#fff", font: "inherit" }}>
+                {resendStatus === "sending" ? "Sending..." : "Resend verification email"}
+              </button>
+              {resendStatus !== "idle" ? (
+                <p style={{ margin: "10px 0 0", color: resendStatus === "sent" ? "var(--green-dark)" : "var(--muted)", fontSize: 12 }}>
+                  {resendStatus === "sent"
+                    ? "Verification email sent."
+                    : resendStatus === "not_configured"
+                      ? "No email was sent from this deployment. Contact support or configure the email provider."
+                      : resendStatus === "verified"
+                        ? "This email is already verified."
+                        : resendStatus === "rate_limited"
+                          ? "Too many resend attempts. Try again later."
+                          : resendStatus === "sending"
+                            ? "Sending..."
+                            : "Could not send a verification email."}
+                </p>
+              ) : null}
+            </>
+          ) : canStartBilling ? (
+            <>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>Start billing</h2>
+              <p style={{ margin: "8px 0 14px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+                Stripe checkout activates the org through the billing webhook. Until then, write actions and API keys stay locked.
+              </p>
+              <button type="button" onClick={() => onNavigate("billing")} style={{ minHeight: 36, padding: "0 13px", border: "1px solid var(--green-dark)", background: "var(--green-dark)", color: "#fff", font: "inherit" }}>
+                Start billing with Stripe
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>Create the first API key</h2>
+              <p style={{ margin: "8px 0 14px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+                Your organization is active. Use connect to issue a scoped key for your local agent or MCP client.
+              </p>
+              <button type="button" onClick={() => onNavigate("connect")} style={{ minHeight: 36, padding: "0 13px", border: "1px solid var(--green-dark)", background: "var(--green-dark)", color: "#fff", font: "inherit" }}>
+                Open connect
+              </button>
+            </>
+          )}
+        </section>
+      </div>
+
+      <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
+        <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)", marginBottom: 12 }}>tour</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {[
+            ["overview", "Overview"],
+            ["knowledge", "Knowledge"],
+            ["access", "Access"],
+            ["connect", "Connect"],
+            ["billing", "Billing"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onNavigate(id as ConsoleSection)}
+              style={{ minHeight: 34, padding: "0 12px", border: "1px solid var(--line-strong)", background: "var(--surface-mute)", color: "var(--ink)", font: "inherit" }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}

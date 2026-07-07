@@ -212,7 +212,7 @@ test("invite acceptance creates user credentials and activates membership", asyn
   assert.equal(calls.some((call) => call.text.includes("insert into organization_memberships")), true);
 });
 
-test("inactive owner/admin invite acceptance routes to billing", async () => {
+test("inactive owner/admin invite acceptance routes to account onboarding", async () => {
   const invite = {
     id: "invite-2",
     org_id: "org-2",
@@ -237,7 +237,7 @@ test("inactive owner/admin invite acceptance routes to billing", async () => {
   const body = await readJson(response);
 
   assert.equal(response.status, 200);
-  assert.equal(body.next_path, "/billing");
+  assert.equal(body.next_path, "/console?view=account");
   assert.equal(body.organization.status, "inactive");
   assert.equal(calls.some((call) => call.text.includes("update users set name")), true);
   assert.equal(calls.some((call) => call.text.includes("insert into user_password_credentials")), false);

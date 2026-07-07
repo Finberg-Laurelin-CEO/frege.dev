@@ -40,6 +40,12 @@ export type ActorAuthResult =
   | { ok: true; actor: FregeActorContext }
   | { ok: false; response: Response };
 
+type AuthenticateFregeActorOptions = {
+  orgSlug?: string;
+  allowInactiveUser?: boolean;
+  allowInactiveApiKey?: boolean;
+};
+
 function hasBearer(req: Request): boolean {
   return /^Bearer\s+/i.test(req.headers.get("authorization") ?? "");
 }
@@ -53,15 +59,21 @@ export function assertActiveActorOrg(actor: { organization: { status: string } }
   return null;
 }
 
-export async function authenticateFregeActor(req: Request, orgSlug?: string): Promise<ActorAuthResult> {
+export async function authenticateFregeActor(
+  req: Request,
+  orgSlugOrOptions?: string | AuthenticateFregeActorOptions,
+): Promise<ActorAuthResult> {
+  const options: AuthenticateFregeActorOptions =
+    typeof orgSlugOrOptions === "string" ? { orgSlug: orgSlugOrOptions } : orgSlugOrOptions ?? {};
+
   if (hasBearer(req)) {
     const auth = await authenticatePrototypeRequest(req);
     if (!auth) return { ok: false, response: Response.json({ error: "unauthorized" }, { status: 401 }) };
-    if (orgSlug && auth.organization.slug !== orgSlug) {
+    if (options.orgSlug && auth.organization.slug !== options.orgSlug) {
       return { ok: false, response: Response.json({ error: "forbidden_org" }, { status: 403 }) };
     }
     // Pay-to-activate gate: agents (API keys) are blocked until the org is active.
-    const inactive = assertActiveActorOrg(auth);
+    const inactive = options.allowInactiveApiKey ? null : assertActiveActorOrg(auth);
     if (inactive) return { ok: false, response: inactive };
 
     return {
@@ -84,7 +96,7 @@ export async function authenticateFregeActor(req: Request, orgSlug?: string): Pr
   const session = await authenticateUserRequest(req);
   if (!session) return { ok: false, response: Response.json({ error: "unauthorized" }, { status: 401 }) };
 
-  const selectedOrgSlug = orgSlug ?? session.memberships.find((membership) => membership.status === "active")?.org_slug;
+  const selectedOrgSlug = options.orgSlug ?? session.memberships.find((membership) => membership.status === "active")?.org_slug;
   if (!selectedOrgSlug) return { ok: false, response: Response.json({ error: "missing_org" }, { status: 400 }) };
 
   const auth = getMembershipForOrg(session, selectedOrgSlug);
@@ -112,7 +124,7 @@ export async function authenticateFregeActor(req: Request, orgSlug?: string): Pr
   };
 
   // Pay-to-activate gate: users of an inactive/suspended org are blocked too.
-  const inactive = assertActiveActorOrg(actor);
+  const inactive = options.allowInactiveUser ? null : assertActiveActorOrg(actor);
   if (inactive) return { ok: false, response: inactive };
 
   return { ok: true, actor };

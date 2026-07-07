@@ -13,8 +13,16 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function ConsolePage({ searchParams }: { searchParams?: Promise<{ view?: string }> }) {
+export default async function ConsolePage({ searchParams }: { searchParams?: Promise<{ view?: string; verified?: string }> }) {
   const session = await requireUserPageSession("/console");
   const params = await searchParams;
-  return <PrototypeConsole userEmail={session.user.email} memberships={session.memberships} initialView={params?.view} />;
+  return (
+    <PrototypeConsole
+      userEmail={session.user.email}
+      emailVerifiedAt={session.user.email_verified_at ? String(session.user.email_verified_at) : null}
+      memberships={session.memberships}
+      initialView={params?.view}
+      verificationStatus={params?.verified}
+    />
+  );
 }

@@ -3,6 +3,7 @@ import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { appBaseUrl, createCheckoutSession, isStripeConfigured } from "@/lib/prototype/billing";
 import { billingSchemaResponse } from "@/lib/prototype/billing-errors";
+import { assertVerifiedHumanUser } from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
     const authResult = await authenticateAdminRequest(req, parsed.data.org_slug);
     if (!authResult.ok) return authResult.response;
     const auth = authResult.auth;
+    const unverified = assertVerifiedHumanUser(auth);
+    if (unverified) return unverified;
 
     const checkout = await createCheckoutSession({
       organization: auth.organization,

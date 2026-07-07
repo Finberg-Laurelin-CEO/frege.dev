@@ -7,7 +7,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { SensitivityLabel } from "@/lib/prototype/types";
 
-export type ConsoleSection = "overview" | "activity" | "knowledge" | "access" | "connect" | "billing";
+export type ConsoleSection = "account" | "overview" | "activity" | "knowledge" | "access" | "connect" | "billing";
 
 export const panel: CSSProperties = {
   background: "var(--surface)",

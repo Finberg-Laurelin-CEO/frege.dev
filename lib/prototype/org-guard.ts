@@ -87,6 +87,40 @@ export function requireManageOrg(context: HumanOrgContext): Response | null {
   return Response.json({ error: "forbidden" }, { status: 403 });
 }
 
+export function orgActivationRequiredResponse(status: string): Response {
+  return Response.json(
+    {
+      error: "org_inactive",
+      message:
+        status === "suspended"
+          ? "This organization is suspended. Manage billing in Stripe or contact support."
+          : "Billing must activate this organization before this action is available.",
+      org_status: status,
+    },
+    { status: 403 },
+  );
+}
+
+export function assertActiveHumanOrg(context: HumanOrgContext): Response | null {
+  if (context.membership.org_status === "active") return null;
+  return orgActivationRequiredResponse(context.membership.org_status);
+}
+
+export function emailVerificationRequiredResponse(): Response {
+  return Response.json(
+    {
+      error: "email_unverified",
+      message: "Verify your email before this action is available.",
+    },
+    { status: 403 },
+  );
+}
+
+export function assertVerifiedHumanUser(context: HumanOrgContext): Response | null {
+  if (context.user.email_verified_at) return null;
+  return emailVerificationRequiredResponse();
+}
+
 export async function ensureDefaultAgentRoles(orgId: string): Promise<void> {
   const sql = getSql();
   const defaults = [

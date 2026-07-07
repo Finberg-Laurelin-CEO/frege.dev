@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { listModelConfigs, upsertModelConfig } from "@/lib/prototype/model-configs";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
+import { assertActiveHumanOrg } from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -60,6 +61,8 @@ export async function POST(req: Request) {
     const authResult = await authenticateAdminRequest(req, parsed.data.org_slug);
     if (!authResult.ok) return authResult.response;
     const auth = authResult.auth;
+    const inactive = assertActiveHumanOrg(auth);
+    if (inactive) return inactive;
 
     const modelConfig = await upsertModelConfig(auth, parsed.data);
     await logTelemetryEvent({

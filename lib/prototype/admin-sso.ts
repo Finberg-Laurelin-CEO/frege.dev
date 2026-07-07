@@ -36,7 +36,7 @@ export async function resolveAdminSsoStaff(): Promise<UserSessionContext | null>
 
   const user = row as { id: string; email: string; name: string; status: string };
   return {
-    user: { id: user.id, email: user.email, name: user.name, status: user.status },
+    user: { id: user.id, email: user.email, name: user.name, status: user.status, email_verified_at: null },
     session: { id: "sso", expires_at: new Date(Date.now() + 60 * 60 * 1000) },
     memberships: [],
   };

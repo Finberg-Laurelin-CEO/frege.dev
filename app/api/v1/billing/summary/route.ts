@@ -62,6 +62,10 @@ export async function GET(req: Request) {
           status: auth.membership.status,
           can_manage_billing: auth.capabilities.canManageOrg,
         },
+        user: {
+          email: auth.user.email,
+          email_verified_at: toIsoString(auth.user.email_verified_at),
+        },
         billing: billing
           ? {
               plan: billing.plan,

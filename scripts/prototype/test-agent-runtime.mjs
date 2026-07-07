@@ -260,7 +260,7 @@ function makeUserActor() {
     actorType: "user",
     organization,
     userAuth: {
-      user: { id: "user-1", email: "u@acme.dev", name: "U", status: "active" },
+      user: { id: "user-1", email: "u@acme.dev", name: "U", status: "active", email_verified_at: "2026-01-01T00:00:00.000Z" },
       organization: { id: "org-1", slug: "acme", name: "Acme" },
       membership: { org_id: "org-1", org_slug: "acme", org_name: "Acme", org_status: "active", role: "admin", status: "active" },
       allowedLabels: ["public", "internal", "restricted"],

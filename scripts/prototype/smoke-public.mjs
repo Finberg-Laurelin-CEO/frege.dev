@@ -51,7 +51,7 @@ async function main() {
 
   const routes = [
     { path: "/", needles: ["Start now", "Frege"] },
-    { path: "/signup", needles: ["Full name", "Work email", "Password", "Org size", "create account"] },
+    { path: "/signup", needles: ["Full name", "Work email", "Password", "Org size", "verify your email", "open account"] },
     { path: "/docs", needles: ["Set up Frege", "register MCP", "frege doctor"] },
     { path: "/architecture", needles: ["Architecture", "control plane", "trust zone"] },
     { path: "/pricing", needles: ["$20", "$15", "Enterprise"] },

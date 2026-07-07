@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import AdminConsole from "@/app/admin/AdminConsole";
 import BillingPanel from "@/app/billing/BillingPanel";
+import AccountSection from "./sections/AccountSection";
 import OverviewSection from "./sections/OverviewSection";
 import ActivitySection from "./sections/ActivitySection";
 import AccessSection from "./sections/AccessSection";
@@ -20,6 +21,7 @@ type Membership = {
 };
 
 const NAV: { id: ConsoleSection; label: string }[] = [
+  { id: "account", label: "account" },
   { id: "overview", label: "overview" },
   { id: "activity", label: "activity" },
   { id: "knowledge", label: "knowledge" },
@@ -29,6 +31,7 @@ const NAV: { id: ConsoleSection; label: string }[] = [
 ];
 
 const SECTION_META: Record<ConsoleSection, { eyebrow: string; title: string; subtitle: string }> = {
+  account: { eyebrow: "account", title: "Account setup", subtitle: "Verify email, tour the console, and activate billing" },
   overview: { eyebrow: "overview", title: "What’s going on", subtitle: "Live health and activity across your company brain" },
   activity: { eyebrow: "activity", title: "Activity", subtitle: "Every query → context → answer, with what was denied" },
   knowledge: { eyebrow: "knowledge", title: "Knowledge", subtitle: "Documents, semantic map, and reviewable proposals" },
@@ -48,6 +51,7 @@ function sectionFromView(view: string | null | undefined): ConsoleSection | null
     vault: "knowledge",
     audit: "activity",
     agents: "connect",
+    account: "account",
     overview: "overview",
     activity: "activity",
     knowledge: "knowledge",
@@ -60,12 +64,16 @@ function sectionFromView(view: string | null | undefined): ConsoleSection | null
 
 export default function PrototypeConsole({
   userEmail,
+  emailVerifiedAt,
   memberships,
   initialView,
+  verificationStatus,
 }: {
   userEmail?: string;
+  emailVerifiedAt: string | null;
   memberships: Membership[];
   initialView?: string;
+  verificationStatus?: string;
 }) {
   const [section, setSection] = useState<ConsoleSection>(sectionFromView(initialView) ?? "overview");
   const [selectedEventId, setSelectedEventId] = useState("");
@@ -78,6 +86,7 @@ export default function PrototypeConsole({
   }, []);
 
   const counts: Record<ConsoleSection, string> = {
+    account: "setup",
     overview: "live",
     activity: "live",
     knowledge: "vault",
@@ -159,6 +168,15 @@ export default function PrototypeConsole({
         </header>
 
         <div className={`${styles.scroll} frgscroll`}>
+          {section === "account" ? (
+            <AccountSection
+              userEmail={userEmail}
+              emailVerifiedAt={emailVerifiedAt}
+              memberships={memberships}
+              verificationStatus={verificationStatus}
+              onNavigate={setSection}
+            />
+          ) : null}
           {section === "overview" ? (
             <OverviewSection orgSlug={orgSlug} onNavigate={setSection} onOpenEvent={goEvent} onInspectDenied={inspectDenied} />
           ) : null}

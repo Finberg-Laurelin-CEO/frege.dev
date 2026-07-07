@@ -102,7 +102,7 @@ export default function PricingPage() {
           </article>
         </div>
         <p className="docs__note">
-          New here? <a className="lnk" href="/signup">Create an account</a>, choose a plan, and continue to Stripe checkout.
+          New here? <a className="lnk" href="/signup">Create an account</a>, choose a plan, then start Stripe billing from your account page.
           Have a Frege code? Enter it in Stripe before paying.
         </p>
       </section>

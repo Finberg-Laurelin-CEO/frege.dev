@@ -15,6 +15,7 @@ type Membership = {
 type BillingSummary = {
   organization: { id: string; slug: string; name: string; status: string };
   membership: { role: string; status: string; can_manage_billing: boolean };
+  user: { email: string; email_verified_at: string | null };
   billing: {
     plan: string | null;
     billing_interval: string | null;
@@ -58,6 +59,12 @@ function billingLabel(value: string | null | undefined): string {
   return value ? value.replace(/_/g, " ") : "-";
 }
 
+function planKeyFromBilling(plan: string | null | undefined, interval: string | null | undefined): string {
+  if (plan === "team" && interval === "annual") return "team-annual";
+  if (plan === "team") return "team-monthly";
+  return "solo";
+}
+
 function formatDate(value: string | null | undefined): string {
   if (!value) return "-";
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
@@ -85,6 +92,42 @@ function statusBadgeClass(status: string | null | undefined): string {
   if (status === "inactive" || status === "incomplete" || status === "past_due" || status === "trialing" || status === "open") return styles.badgeWarn;
   if (status === "suspended" || status === "unpaid" || status === "revoked" || status === "uncollectible" || status === "void") return styles.badgeDanger;
   return styles.badgeMuted;
+}
+
+function accountBillingStatus(input: {
+  emailVerified: boolean;
+  orgStatus: string | null | undefined;
+  subscriptionStatus: string | null | undefined;
+  hasSubscription: boolean;
+}): { label: string; detail: string } {
+  if (!input.emailVerified) {
+    return {
+      label: "email pending",
+      detail: "Verify your email before starting Stripe billing.",
+    };
+  }
+  if (input.subscriptionStatus === "canceled" || input.subscriptionStatus === "unpaid") {
+    return {
+      label: "canceled",
+      detail: "Billing is no longer active. Manage the subscription in Stripe or start a new checkout.",
+    };
+  }
+  if (input.orgStatus === "active") {
+    return {
+      label: "active",
+      detail: "Billing has activated this organization.",
+    };
+  }
+  if (input.hasSubscription || input.subscriptionStatus) {
+    return {
+      label: "payment pending",
+      detail: "Stripe has a subscription record, but the organization is not active yet.",
+    };
+  }
+  return {
+    label: "ready for billing",
+    detail: "Choose a plan and start secure checkout with Stripe.",
+  };
 }
 
 export default function BillingPanel({ memberships, embedded = false }: { memberships: Membership[]; embedded?: boolean }) {
@@ -158,6 +201,14 @@ export default function BillingPanel({ memberships, embedded = false }: { member
     void loadPayments();
   }, [orgSlug]);
 
+  const billing = billingSummary?.billing ?? null;
+
+  useEffect(() => {
+    if (!billing) return;
+    setPlan(planKeyFromBilling(billing.plan, billing.billing_interval));
+    if (billing.seats) setSeats(billing.seats);
+  }, [billing?.plan, billing?.billing_interval, billing?.seats]);
+
   const perSeat = plans.find((p) => p.key === plan)?.perSeat ?? false;
   const selectedPlan = plans.find((p) => p.key === plan) ?? plans[0];
   const selectedOrg = activeOrgs.find((m) => m.org_slug === orgSlug);
@@ -165,9 +216,15 @@ export default function BillingPanel({ memberships, embedded = false }: { member
   const canManage = Boolean(
     billingSummary?.membership.can_manage_billing ?? (selectedOrg?.role === "owner" || selectedOrg?.role === "admin"),
   );
-  const billing = billingSummary?.billing ?? null;
   const sub = payments?.subscription ?? null;
   const hasSubscription = Boolean(sub ?? billing?.subscription_status);
+  const emailVerified = Boolean(billingSummary?.user.email_verified_at);
+  const billingStatus = accountBillingStatus({
+    emailVerified,
+    orgStatus: selectedOrgStatus,
+    subscriptionStatus: sub?.status ?? billing?.subscription_status,
+    hasSubscription,
+  });
 
   const renewIso = sub?.current_period_end ?? billing?.current_period_end ?? null;
   const daysLeft = daysUntil(renewIso);
@@ -194,6 +251,8 @@ export default function BillingPanel({ memberships, embedded = false }: { member
             ? "Billing is not configured yet. Please contact us to complete payment."
             : json.error === "billing_storage_not_configured"
               ? "Billing storage is not configured yet. Please contact us to complete payment."
+              : json.error === "email_unverified"
+                ? "Verify your email before starting Stripe billing."
               : `Could not start checkout (${json.error ?? res.status}).`,
         );
         return;
@@ -341,13 +400,13 @@ export default function BillingPanel({ memberships, embedded = false }: { member
 
               {sub?.cancel_at_period_end ? (
                 <p className={styles.sectionLead} style={{ color: "#8a4242" }}>
-                  This subscription is set to cancel on {formatDate(renewIso)}. Reactivate any time in the Stripe portal.
+                  This subscription is set to cancel on {formatDate(renewIso)}. Access remains active until the period ends.
                 </p>
               ) : null}
 
               <div className={styles.buttonRow} style={{ marginTop: 14 }}>
                 <button type="button" className={styles.button} disabled={busy} onClick={openPortal}>
-                  Manage billing &amp; payment method →
+                  Manage or cancel in Stripe →
                 </button>
                 <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={openPortal}>
                   Change plan or seats
@@ -429,19 +488,37 @@ export default function BillingPanel({ memberships, embedded = false }: { member
             </div>
           </>
         ) : (
-          // ── No subscription yet: activation / onboarding ──
+          // ── No subscription yet: account billing status ──
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div>
-                <span className={styles.kicker}>// activate</span>
-                <h2 className={styles.sectionTitle}>Activate {selectedOrg?.org_name ?? "your organization"}</h2>
-                <p className={styles.sectionLead}>
-                  Choose a plan to turn on governed agent memory. Agents stay blocked until the first payment completes.
-                </p>
+                <span className={styles.kicker}>// billing status</span>
+                <h2 className={styles.sectionTitle}>{billingStatus.label}</h2>
+                <p className={styles.sectionLead}>{billingStatus.detail}</p>
               </div>
-              <span className={`${styles.badge} ${statusBadgeClass(selectedOrgStatus)}`}>{billingLabel(selectedOrgStatus)}</span>
+              <span className={`${styles.badge} ${statusBadgeClass(billingStatus.label === "ready for billing" ? "trialing" : selectedOrgStatus)}`}>
+                {billingStatus.label}
+              </span>
             </div>
             {orgPicker}
+
+            <div className={styles.summaryBar}>
+              <div className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>Current status</span>
+                <span className={styles.summaryValue} style={{ fontSize: 18 }}>{billingStatus.label}</span>
+                <span className={styles.summaryHint}>{billingLabel(selectedOrgStatus)}</span>
+              </div>
+              <div className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>Selected plan</span>
+                <span className={styles.summaryValue} style={{ fontSize: 18 }}>{selectedPlan.label}</span>
+                <span className={styles.summaryHint}>{selectedPlan.price}</span>
+              </div>
+              <div className={styles.summaryCard}>
+                <span className={styles.summaryLabel}>Seats</span>
+                <span className={styles.summaryValue}>{perSeat ? seats : 1}</span>
+                <span className={styles.summaryHint}>{perSeat ? "team seats" : "solo workspace"}</span>
+              </div>
+            </div>
 
             <div className={styles.billingPlanGrid} role="radiogroup" aria-label="Billing plan" style={{ marginTop: 12 }}>
               {plans.map((p) => (
@@ -474,12 +551,13 @@ export default function BillingPanel({ memberships, embedded = false }: { member
             ) : null}
 
             <div className={styles.buttonRow} style={{ marginTop: 16 }}>
-              <button type="button" className={styles.button} disabled={busy || !orgSlug} onClick={startCheckout}>
-                {busy ? "Starting…" : `Continue to Stripe Checkout — ${selectedPlan.price}`}
+              <button type="button" className={styles.button} disabled={busy || !orgSlug || !emailVerified} onClick={startCheckout}>
+                {busy ? "Starting..." : "Start billing with Stripe"}
               </button>
             </div>
             <p className={styles.meta} style={{ marginTop: 10 }}>
               Secure checkout is hosted by Stripe. Have a 1-month or 1-year Frege code? Enter it in the promotion-code field at checkout.
+              {!emailVerified ? " Verify your email first; the account page can resend the link." : ""}
               Need enterprise terms? <a className={styles.linkButton} href="/contact">Contact us</a>.
             </p>
           </div>

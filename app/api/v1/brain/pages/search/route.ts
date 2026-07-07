@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const startedAt = Date.now();
-  const actorResult = await authenticateFregeActor(req);
+  const actorResult = await authenticateFregeActor(req, { allowInactiveUser: true });
   if (!actorResult.ok) return actorResult.response;
 
   try {

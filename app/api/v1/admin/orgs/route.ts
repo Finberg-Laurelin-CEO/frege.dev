@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { ensureDefaultAgentRoles, slugifyOrg } from "@/lib/prototype/org-guard";
+import {
+  emailVerificationRequiredResponse,
+  ensureDefaultAgentRoles,
+  orgActivationRequiredResponse,
+  slugifyOrg,
+} from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { authenticateUserRequest, userUnauthorized } from "@/lib/prototype/session";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
@@ -27,6 +32,9 @@ export async function POST(req: Request) {
   try {
     const session = await authenticateUserRequest(req);
     if (!session) return userUnauthorized();
+    if (!session.user.email_verified_at) return emailVerificationRequiredResponse();
+    const inactiveMembership = session.memberships.find((membership) => membership.org_status !== "active");
+    if (inactiveMembership) return orgActivationRequiredResponse(inactiveMembership.org_status);
 
     const json = await readJson(req);
     if (!json.ok) return json.response;

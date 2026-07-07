@@ -21,6 +21,7 @@ type Membership = {
   org_id: string;
   org_slug: string;
   org_name: string;
+  org_status: string;
   role: string;
   status: string;
 };
@@ -29,6 +30,7 @@ type Session = {
   user: {
     email: string;
     name: string;
+    email_verified_at: string | null;
   };
   memberships: Membership[];
 };
@@ -253,6 +255,10 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
     () => session?.memberships.find((membership) => membership.org_slug === selectedOrgSlug) ?? null,
     [selectedOrgSlug, session],
   );
+  const emailVerified = Boolean(session?.user.email_verified_at);
+  const orgActive = selectedOrg?.org_status === "active";
+  const orgWriteLocked = Boolean(selectedOrg && !orgActive);
+  const apiKeyLocked = orgWriteLocked || !emailVerified;
   const selectedApiKeyRole = useMemo(
     () => roles.find((role) => role.slug === apiKeyRoleSlug) ?? roles[0] ?? null,
     [apiKeyRoleSlug, roles],
@@ -682,6 +688,25 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
         </aside>
 
         <section className={styles.panel}>
+          {(orgWriteLocked || !emailVerified) && (
+            <div className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <span className={styles.kicker}>Limited account</span>
+                  <h2 className={styles.sectionTitle}>Actions are locked</h2>
+                  <p className={styles.sectionLead}>
+                    {!emailVerified
+                      ? "Verify your email before creating API keys or starting billing."
+                      : "Billing must activate this organization before keys, invites, models, roles, hosted agents, and writes are available."}
+                  </p>
+                </div>
+                <span className={`${styles.badge} ${styles.badgeWarn}`}>
+                  {!emailVerified ? "email pending" : selectedOrg?.org_status ?? "inactive"}
+                </span>
+              </div>
+            </div>
+          )}
+
           {tab === "setup" && (
             <>
               <div className={`${styles.section} ${styles.setupHero}`}>
@@ -802,7 +827,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                     <input className={styles.input} name="slug" />
                   </label>
                   <div className={styles.buttonRow}>
-                    <button className={styles.button} type="submit">create org</button>
+                    <button className={styles.button} type="submit" disabled={!emailVerified || orgWriteLocked}>create org</button>
                   </div>
                 </form>
               </div>
@@ -824,7 +849,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                     </select>
                   </label>
                   <div className={styles.buttonRow}>
-                    <button className={styles.button} type="submit">invite</button>
+                    <button className={styles.button} type="submit" disabled={orgWriteLocked}>invite</button>
                   </div>
                 </form>
                 {lastInviteLink && (
@@ -880,7 +905,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                   <label className={styles.checkbox}><input type="checkbox" name="can_manage_sources" /> manage sources</label>
                   <label className={styles.checkbox}><input type="checkbox" name="can_execute_agents" /> execute agents</label>
                   <div className={styles.buttonRow}>
-                    <button className={styles.button} type="submit">save role</button>
+                    <button className={styles.button} type="submit" disabled={orgWriteLocked}>save role</button>
                   </div>
                 </form>
                 <table className={styles.table}>
@@ -1040,7 +1065,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                     )}
 
                     <div className={styles.buttonRow}>
-                      <button className={styles.button} type="submit" disabled={!roles.length || !members.length}>
+                      <button className={styles.button} type="submit" disabled={apiKeyLocked || !roles.length || !members.length}>
                         create key
                       </button>
                       <span className={styles.status}>
@@ -1213,7 +1238,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                   </select>
                 </label>
                 <div className={styles.buttonRow}>
-                  <button className={styles.button} type="submit">save model</button>
+                  <button className={styles.button} type="submit" disabled={orgWriteLocked}>save model</button>
                 </div>
               </form>
               <table className={styles.table}>
@@ -1239,7 +1264,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                   <label className={styles.field}><span className={styles.label}>query</span><input className={styles.input} name="query" defaultValue="refund" /></label>
                   <label className={styles.field}><span className={styles.label}>slug</span><input className={styles.input} name="slug" /></label>
                   <label className={styles.field}><span className={styles.label}>limit</span><input className={styles.input} name="limit" type="number" defaultValue="8" /></label>
-                  <div className={styles.buttonRow}><button className={styles.button} type="submit">build</button></div>
+                  <div className={styles.buttonRow}><button className={styles.button} type="submit" disabled={orgWriteLocked}>build</button></div>
                 </form>
                 {contextOutput && <pre className={styles.output}>{contextOutput}</pre>}
               </div>
@@ -1258,7 +1283,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                   <label className={styles.field}><span className={styles.label}>context build id</span><input className={styles.input} name="context_build_id" value={lastContextBuildId} onChange={(event) => setLastContextBuildId(event.target.value)} /></label>
                   <label className={styles.field}><span className={styles.label}>max tokens</span><input className={styles.input} name="max_tokens" type="number" defaultValue="800" /></label>
                   <label className={`${styles.field} ${styles.fieldWide}`}><span className={styles.label}>prompt</span><textarea className={styles.textarea} name="prompt" defaultValue="Summarize the relevant policy and cite source slugs." /></label>
-                  <div className={styles.buttonRow}><button className={styles.button} type="submit">invoke</button></div>
+                  <div className={styles.buttonRow}><button className={styles.button} type="submit" disabled={orgWriteLocked}>invoke</button></div>
                 </form>
                 {modelOutput && <pre className={styles.output}>{modelOutput}</pre>}
               </div>
@@ -1324,8 +1349,8 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                         <td>
                           {proposal.status === "pending" && (
                             <span className={styles.buttonRow}>
-                              <button className={styles.button} type="button" onClick={() => resolveMemoryProposal(proposal.id, "accept")}>accept</button>
-                              <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => resolveMemoryProposal(proposal.id, "reject")}>reject</button>
+                              <button className={styles.button} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "accept")}>accept</button>
+                              <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "reject")}>reject</button>
                             </span>
                           )}
                         </td>
@@ -1373,7 +1398,7 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                     <span className={styles.label}>instructions</span>
                     <textarea className={styles.textarea} name="instructions_md" defaultValue="Summarize the task using only Frege-provided context. Cite source slugs. If context was denied, mention that without guessing denied sources." />
                   </label>
-                  <div className={styles.buttonRow}><button className={styles.button} type="submit">save agent</button></div>
+                  <div className={styles.buttonRow}><button className={styles.button} type="submit" disabled={orgWriteLocked}>save agent</button></div>
                 </form>
                 <table className={styles.table}>
                   <thead>

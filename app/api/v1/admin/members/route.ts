@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { sendInviteEmail } from "@/lib/prototype/email";
 import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/prototype/invites";
-import { normalizeEmail } from "@/lib/prototype/org-guard";
+import { assertActiveHumanOrg, normalizeEmail } from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -59,6 +59,8 @@ export async function POST(req: Request) {
     const authResult = await authenticateAdminRequest(req, parsed.data.org_slug);
     if (!authResult.ok) return authResult.response;
     const auth = authResult.auth;
+    const inactive = assertActiveHumanOrg(auth);
+    if (inactive) return inactive;
 
     const email = normalizeEmail(parsed.data.email);
     const rawToken = generateInviteToken();
@@ -74,6 +76,60 @@ export async function POST(req: Request) {
       order by created_at desc
       limit 1
     `;
+
+    const [existingMember] = await sql`
+      select 1
+      from organization_memberships
+      join users on users.id = organization_memberships.user_id
+      where organization_memberships.org_id = ${auth.organization.id}
+        and users.email = ${email}
+        and organization_memberships.status = 'active'
+      limit 1
+    `;
+    if (existingMember) return Response.json({ error: "already_member" }, { status: 409 });
+
+    const [limits] = await sql`
+      select
+        coalesce((select plan from org_billing where org_id = ${auth.organization.id}), 'solo') as plan,
+        coalesce((select seats from org_billing where org_id = ${auth.organization.id}), 1)::int as seats,
+        (select count(*)::int from organization_memberships where org_id = ${auth.organization.id} and status = 'active') as active_members,
+        (
+          select count(*)::int
+          from organization_invites
+          where org_id = ${auth.organization.id}
+            and status = 'pending'
+            and expires_at > now()
+            and email <> ${email}
+        ) as pending_invites
+    `;
+    const plan = String(limits?.plan ?? "solo");
+    const seats = Number(limits?.seats ?? 1);
+    const activeMembers = Number(limits?.active_members ?? 0);
+    const pendingInvites = Number(limits?.pending_invites ?? 0);
+    const totalAfterInvite = activeMembers + pendingInvites + 1;
+    if (plan === "solo" && totalAfterInvite > 1) {
+      return Response.json(
+        {
+          error: "plan_limit",
+          message: "Solo includes one active member. Upgrade to Team before inviting additional members.",
+          plan,
+          seats,
+        },
+        { status: 403 },
+      );
+    }
+    if (plan === "team" && totalAfterInvite > seats) {
+      return Response.json(
+        {
+          error: "seat_limit",
+          message: "This Team plan does not have enough seats for another invite.",
+          plan,
+          seats,
+          used_seats: activeMembers + pendingInvites,
+        },
+        { status: 403 },
+      );
+    }
 
     const [invite] = existingPendingInvite
       ? await sql`

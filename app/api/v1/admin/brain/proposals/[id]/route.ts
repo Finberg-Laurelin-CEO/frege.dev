@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
 import { resolveMemoryProposal } from "@/lib/prototype/brain";
+import { assertActiveHumanOrg } from "@/lib/prototype/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
 import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 
@@ -23,6 +24,8 @@ export async function PATCH(req: Request, context: RouteContext) {
   try {
     const authResult = await authenticateAdminRequest(req);
     if (!authResult.ok) return authResult.response;
+    const inactive = assertActiveHumanOrg(authResult.auth);
+    if (inactive) return inactive;
     const json = await readJson(req);
     if (!json.ok) return json.response;
     const parsed = resolveSchema.safeParse(json.value);

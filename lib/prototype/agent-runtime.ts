@@ -275,6 +275,7 @@ function actorFromRun(row: AgentRunRow): FregeActorContext {
         email: userSnapshot.email ?? "runtime@frege.local",
         name: userSnapshot.name ?? "Frege Runtime",
         status: userSnapshot.status ?? "active",
+        email_verified_at: null,
       },
       organization,
       membership: membershipSnapshot,

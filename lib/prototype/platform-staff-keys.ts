@@ -68,6 +68,7 @@ export async function authenticatePlatformStaffKey(req: Request): Promise<UserSe
       email: row.owner_email,
       name: row.owner_name,
       status: row.owner_status,
+      email_verified_at: null,
     },
     session: { id: "staff_key", expires_at: new Date(Date.now() + 60 * 60 * 1000) },
     memberships: [],

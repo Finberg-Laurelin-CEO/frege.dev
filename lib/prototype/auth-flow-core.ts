@@ -242,8 +242,8 @@ export async function handleInviteAcceptRequest(req: Request, deps: InviteAccept
 
     if (!user) {
       const insertedUsers = (await sql`
-        insert into users (email, name, status)
-        values (${invite.email}, ${parsed.data.name.trim()}, 'active')
+        insert into users (email, name, status, email_verified_at)
+        values (${invite.email}, ${parsed.data.name.trim()}, 'active', now())
         returning id, email, name
       `) as unknown as UserRow[];
       [user] = insertedUsers;
@@ -251,7 +251,8 @@ export async function handleInviteAcceptRequest(req: Request, deps: InviteAccept
       const updatedUsers = (await sql`
         update users
         set name = case when trim(name) = '' then ${parsed.data.name.trim()} else name end,
-            status = 'active'
+            status = 'active',
+            email_verified_at = coalesce(email_verified_at, now())
         where id = ${user.id}
         returning id, email, name
       `) as unknown as UserRow[];
@@ -287,7 +288,7 @@ export async function handleInviteAcceptRequest(req: Request, deps: InviteAccept
 
     const session = await deps.createUserSession(user.id, req.headers.get("host"));
     const canManageBilling = invite.role === "owner" || invite.role === "admin";
-    const nextPath = invite.org_status === "active" || !canManageBilling ? "/admin" : "/billing";
+    const nextPath = invite.org_status === "active" || !canManageBilling ? "/admin" : "/console?view=account";
     await deps.logTelemetryEvent({
       actor: { type: "system", orgId: invite.org_id },
       req,

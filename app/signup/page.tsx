@@ -145,7 +145,7 @@ function appOrigin(): string {
 }
 
 function safeNextPath(value: unknown): string {
-  const fallback = "/console?view=billing";
+  const fallback = "/console?view=account";
   if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return fallback;
 
   try {
@@ -154,19 +154,6 @@ function safeNextPath(value: unknown): string {
     return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
   } catch {
     return fallback;
-  }
-}
-
-function safeCheckoutUrl(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:") return null;
-    if (url.hostname !== "checkout.stripe.com" && !url.hostname.endsWith(".stripe.com")) return null;
-    return url.toString();
-  } catch {
-    return null;
   }
 }
 
@@ -286,12 +273,7 @@ export default function Signup() {
       });
 
       if (res.ok) {
-        const payload = await res.json().catch(() => null) as { checkout_url?: unknown; next_path?: unknown } | null;
-        const checkoutUrl = safeCheckoutUrl(payload?.checkout_url);
-        if (checkoutUrl) {
-          window.location.href = checkoutUrl;
-          return;
-        }
+        const payload = await res.json().catch(() => null) as { next_path?: unknown } | null;
         const nextPath = safeNextPath(payload?.next_path);
         if (nextPath.startsWith("/console")) {
           window.location.href = `${appOrigin()}${nextPath}`;
@@ -334,17 +316,18 @@ export default function Signup() {
         <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege signup --start</span></p>
         <h1 className="hero-tag" style={{ marginTop: "8px" }}>create your Frege account</h1>
         <p className="out wrap">
-          Create an org, choose a plan, get a setup email, and continue through Stripe checkout. If you have a Frege code, enter it in Stripe.
+          Create an org, choose a plan, verify your email, and open your account page. Stripe starts later from billing when you are ready.
         </p>
 
         <div className="pilot-get" aria-label="What you get">
           <p className="pilot-get__head"># what happens next</p>
           <ul className="pilot-get__list">
             <li>Your org is created immediately</li>
-            <li>Your setup email includes a billing resume link</li>
-            <li>Stripe checkout accepts Frege promotion codes</li>
-            <li>The webhook activates your org after payment</li>
-            <li>You can create MCP keys from the console</li>
+            <li>Your setup email includes a verification link</li>
+            <li>Your account page opens after signup</li>
+            <li>You can tour overview, knowledge, access, and connect before payment</li>
+            <li>Stripe billing activates the org after email verification</li>
+            <li>API keys and write actions unlock after activation</li>
           </ul>
         </div>
 
@@ -604,13 +587,13 @@ export default function Signup() {
               </div>
             )}
             <p className="out muted checkout-note">
-              Selected: {selectedPlan.name} ({selectedPlan.price}). Stripe opens next and accepts Frege promotion codes.
+              Selected: {selectedPlan.name} ({selectedPlan.price}). You can change plan or start Stripe billing from the account console.
             </p>
           </fieldset>
 
           <p className="line cta-big" style={{ marginBottom: "6px" }}>
             <button className="submit" type="submit" disabled={!isValid || submitting}>
-              {submitting ? "opening Stripe..." : "create account and continue to Stripe ->"}
+              {submitting ? "creating account..." : "create account and open account ->"}
             </button>
           </p>
           <p className="out muted">
