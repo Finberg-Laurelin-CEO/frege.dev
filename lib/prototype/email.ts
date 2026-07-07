@@ -59,6 +59,12 @@ type SignupWelcomeEmailInput = {
   checkoutUrl?: string | null;
 };
 
+type PasswordResetEmailInput = {
+  to: string;
+  name: string;
+  resetUrl: string;
+};
+
 function inviteSubject(orgName: string): string {
   return `You're approved for Frege — set up ${orgName}`;
 }
@@ -309,6 +315,52 @@ function signupWelcomeHtmlBody(input: SignupWelcomeEmailInput): string {
 </html>`;
 }
 
+function passwordResetSubject(): string {
+  return "Reset your Frege password";
+}
+
+function passwordResetTextBody(input: PasswordResetEmailInput): string {
+  const firstName = input.name.trim().split(/\s+/)[0] || "there";
+  return [
+    `Hi ${firstName},`,
+    "",
+    "Use this link to reset your Frege password:",
+    `   ${input.resetUrl}`,
+    "",
+    "This link expires in 1 hour. If you did not request it, you can ignore this email.",
+    "",
+    "- The Frege team",
+  ].join("\n");
+}
+
+function passwordResetHtmlBody(input: PasswordResetEmailInput): string {
+  const safeFirstName = escapeHtml(input.name.trim().split(/\s+/)[0] || "there");
+  const safeResetUrl = escapeHtml(input.resetUrl);
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px;">Reset your Frege password</h1>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 20px;">
+          Hi ${safeFirstName}, use this link to set a new password for your Frege account.
+        </p>
+        <p style="margin:0 0 28px;">
+          <a href="${safeResetUrl}" style="display:inline-block;background:#0033cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
+            Reset password
+          </a>
+        </p>
+        <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
+          This link expires in 1 hour. If you did not request it, you can ignore this email.
+          If the button doesn't work, paste this URL into your browser:<br>
+          <span style="word-break:break-all;color:#0033cc;">${safeResetUrl}</span>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -401,6 +453,28 @@ export async function sendSignupWelcomeEmail(input: SignupWelcomeEmailInput): Pr
 
   if (error) {
     console.error("signup welcome email send failed", { to: input.to, message: error.message });
+    return { sent: false, reason: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
+export async function sendPasswordResetEmail(input: PasswordResetEmailInput): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    console.warn("email not configured; password reset email skipped", { to: input.to });
+    return { sent: false, reason: "not_configured" };
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: fromAddress(),
+    to: input.to,
+    replyTo: replyToAddress(),
+    subject: passwordResetSubject(),
+    text: passwordResetTextBody(input),
+    html: passwordResetHtmlBody(input),
+  });
+
+  if (error) {
+    console.error("password reset email send failed", { to: input.to, message: error.message });
     return { sent: false, reason: error.message };
   }
   return { sent: true, id: data?.id };

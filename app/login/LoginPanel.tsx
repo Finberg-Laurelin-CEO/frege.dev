@@ -102,6 +102,9 @@ export default function LoginPanel() {
           </button>
           <span className={styles.status}>{status}</span>
         </div>
+        <p className={`${styles.meta} ${styles.fieldWide}`}>
+          <a className="lnk" href="/forgot-password">Forgot your password?</a>
+        </p>
       </form>
     </main>
   );

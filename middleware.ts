@@ -25,7 +25,7 @@ const ADMIN_ALLOWED_PREFIXES = [
 const APP_PREFIXES = ["/console", "/billing", "/admin", "/prototype"];
 
 // Shared infra that must work on either host (auth handshake, API, invites).
-const APP_SHARED_PREFIXES = ["/api", "/auth", "/login", "/invite", "/setup"];
+const APP_SHARED_PREFIXES = ["/api", "/auth", "/login", "/forgot-password", "/reset-password", "/invite", "/setup"];
 
 const APP_HOST = "brain.frege.dev";
 const MARKETING_HOST = "frege.dev";
