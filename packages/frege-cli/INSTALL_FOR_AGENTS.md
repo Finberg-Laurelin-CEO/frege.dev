@@ -31,6 +31,8 @@ The API key starts with:
 frg_live_
 ```
 
+The key must be valid, unrevoked, unexpired, and attached to an active org. You can install the CLI without it, but you cannot connect Frege, register usable MCP tools, or read Frege context until `frege connect` verifies it.
+
 Never print the full key after you receive it. If it appears in logs or chat, tell the user to rotate it.
 
 ## Step 2: Confirm Node.js 20+
@@ -86,7 +88,7 @@ frege connect "$FREGE_BASE_URL" --token "$FREGE_API_KEY"
 frege doctor
 ```
 
-`frege doctor` should show the connected org, role, and key prefix. If the org or role is wrong, ask the user for a new API key with the correct role.
+`frege connect` must succeed before MCP registration is useful. It verifies the API key and should print the connected org, active org status, role, and key prefix. If `frege connect` or `frege doctor` fails, stop and ask the user for a valid key with the correct org and role.
 
 `connect` stores local machine config at:
 
@@ -234,6 +236,8 @@ Frege requires Node.js 20 or newer.
 frege connect "$FREGE_BASE_URL" --token "$FREGE_API_KEY"
 frege doctor
 ```
+
+If this fails, do not continue registering MCP. The key may be invalid, revoked, expired, or attached to an inactive org.
 
 ### Wrong org or role
 

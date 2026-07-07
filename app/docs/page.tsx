@@ -20,7 +20,7 @@ const toc: [string, string, string][] = [
 const setupSteps: [string, string][] = [
   ["Sign in", "Open the protected Frege control plane and choose or create your organization."],
   ["Create roles", "Define what an agent can read, whether it can write sessions, and whether it can propose memory."],
-  ["Generate a key", "Create a per-user API key for the agent. Frege shows the raw key once."],
+  ["Generate a valid key", "Create a per-user API key for an active org. Frege shows the raw key once."],
   ["Give agent prompt", "Ask the user's agent to install the CLI, connect the key, and register MCP."],
   ["Register MCP", "Point Claude Code, Codex, or another MCP client at frege mcp serve."],
   ["Push docs", "Have the agent push approved markdown with frege docs push or frege docs sync."],
@@ -48,27 +48,28 @@ const mcpTools: [string, string][] = [
   ["frege_get_agent_run", "Read status and output for a hosted agent run."],
 ];
 
-const agentInstallPrompt = `Install Frege for this machine.
+const agentInstallPrompt = `Set up Frege MCP for this machine.
 
-Use this API base unless Frege support gives us a different one:
-FREGE_BASE_URL=https://frege.dev
+Prerequisite: I must provide a valid Frege API key from an active org.
+If I do not provide one, install the CLI only, then stop and ask me to create or copy a key from Frege.
 
-I will provide the Frege API key separately. It starts with frg_live_.
-Do not print the full key after you receive it.
+API base: https://frege.dev
+The browser app may open on https://brain.frege.dev. That does not change MCP setup.
 
 Do this directly:
 1. Confirm Node.js 20+ and npm are available.
 2. Run npm install -g @frege-dev/cli.
 3. Run command -v frege and frege help.
 4. If npm reports EEXIST or frege is not found, use the troubleshooting steps at https://frege.dev/docs.
-5. Run frege connect "$FREGE_BASE_URL" --token "$FREGE_API_KEY".
-6. Run frege doctor and show me only the org, role, and key prefix.
-7. Register MCP with this agent/client using frege mcp serve.
-8. If available, run frege agent install codex or frege agent install claude.
-9. Otherwise configure MCP with command "frege" and args ["mcp", "serve"].
-10. From the MCP client, call frege_status and confirm it matches frege doctor.
-
-The browser app may live at https://brain.frege.dev. That is fine. MCP only needs the Frege API base above.`;
+5. Connect with the real key I provide:
+   frege connect https://frege.dev --token <valid-frg-live-key>
+6. Do not put the key in MCP JSON, docs, screenshots, shell startup files, or chat summaries. Do not repeat it back.
+7. Run frege doctor and show me only the org, orgStatus, role, and key prefix.
+8. If frege connect or frege doctor fails, stop. The key may be invalid, revoked, expired, or attached to an inactive org.
+9. Register MCP with this agent/client using frege mcp serve.
+10. If available, run frege agent install codex or frege agent install claude.
+11. Otherwise configure MCP with command "frege" and args ["mcp", "serve"].
+12. From the MCP client, call frege_status and confirm it matches frege doctor.`;
 
 export const metadata: Metadata = {
   title: "Frege Docs",
@@ -154,7 +155,8 @@ export default function DocsPage() {
           Every agent connects with a per-identity API key issued from the control plane.
           Keys inherit the role of the user they belong to, so an agent sees exactly what
           that person is allowed to see. Assign the key to a human owner and a role, then
-          copy the raw key once.
+          copy the raw key once. The org must be active and the key must verify before MCP
+          tools can read or write Frege context.
         </p>
         <ol>
           <li>Open <a className="lnk" href="/login?next=/admin">the control plane</a>.</li>
@@ -172,15 +174,16 @@ export default function DocsPage() {
       <section id="agent-install">
         <h2>Install with an agent</h2>
         <p>
-          The customer should not hand-edit MCP JSON or paste secrets into browser-generated
-          config. Give the agent a scoped API key and the prompt below. The agent installs
-          the CLI locally, stores the key in <code>~/.frege/mcp/config.json</code>, then registers
-          <code> frege mcp serve</code> with the MCP client.
+          Give this prompt to the customer&apos;s coding agent after the customer has a valid
+          Frege API key for an active org. The agent can install the CLI without a key, but
+          it cannot connect, register usable MCP tools, or read Frege context until
+          <code> frege connect</code> verifies that key.
         </p>
         <pre><code>{agentInstallPrompt}</code></pre>
         <p className="docs__note">
-          Browser traffic may land on <code>brain.frege.dev</code>. MCP does not depend on that
-          subdomain; it uses the configured API base URL for <code>/api/v1</code> calls.
+          Browser traffic may land on <code>brain.frege.dev</code>. MCP does not depend on
+          that subdomain; it uses the configured API base URL for <code>/api/v1</code> calls.
+          Use <code>https://frege.dev</code> unless Frege support provides a different API base.
         </p>
       </section>
 
@@ -224,15 +227,15 @@ frege help`}</code></pre>
       <section id="mcp-register">
         <h2>Connect and register MCP</h2>
         <p>
-          One command does everything. <code>frege connect</code> saves your key, verifies it
-          against Frege, and automatically registers <code>frege mcp serve</code> with any MCP
-          client it finds (Claude Code, Codex). After it prints your org and role, you are ready
-          to use Frege from that agent.
+          One command does everything. <code>frege connect</code> verifies that the key belongs to
+          an active org, saves local config, and automatically registers
+          <code> frege mcp serve</code> with any MCP client it finds (Claude Code, Codex). After it
+          prints your org, active status, and role, you are ready to use Frege from that agent.
         </p>
-        <pre><code>{`frege connect https://frege.dev --token frg_live_...`}</code></pre>
+        <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>`}</code></pre>
         <p>Expected output:</p>
         <pre><code>{`Frege config saved to ~/.frege/mcp/config.json
-Connected: org acme, role reader, key abc123
+Connected: org acme (active), role reader, key abc123
 
 Registering Frege with Claude Code... done
 Registering Frege with Codex... done
@@ -241,6 +244,10 @@ You're set. Restart your MCP client if it was already running.`}</code></pre>
         <p>
           That is the whole setup. Restart your agent client if it was already running, and the
           Frege tools are available.
+        </p>
+        <p className="docs__note">
+          If <code>frege connect</code> or <code>frege doctor</code> fails, MCP setup is not complete.
+          Use a valid, unrevoked key from an active org.
         </p>
         <h3>If a client is not detected</h3>
         <p>
@@ -311,9 +318,10 @@ frege context "how does Frege signup work?"`}</code></pre>
 - Install the Frege CLI:
   npm install -g @frege-dev/cli
 - Make sure the shell can call frege directly: command -v frege.
-- Run frege connect with the base URL and API key I provide.
-  It verifies the key and auto-registers this client; show me the
-  org, role, and key prefix it prints.
+- Run frege connect with the base URL and valid API key I provide.
+  It verifies the key and auto-registers this client. If verification
+  fails, stop and ask me for a valid key from an active org. Show me
+  only the org, orgStatus, role, and key prefix it prints.
 - To load approved markdown, run frege docs push for one file or
   frege docs sync frege.docs.yml for a manifest. Dry-run first if
   pushing a directory.
@@ -369,11 +377,11 @@ npm install -g @frege-dev/cli`}</code></pre>
         <pre><code>{`node --version`}</code></pre>
         <p>Install Node.js 20 or newer, then reinstall the CLI.</p>
         <h3><code>frege doctor</code> says the API key is missing or invalid</h3>
-        <pre><code>{`frege connect https://frege.dev --token frg_live_...
+        <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>
 frege doctor`}</code></pre>
         <p>
-          If the org or role is wrong, create a new key in the control plane with the correct
-          role, then reconnect.
+          If this fails, the key may be invalid, revoked, expired, or attached to an inactive
+          org. Create a new key in the control plane with the correct role, then reconnect.
         </p>
         <h3>The MCP client cannot find <code>frege</code></h3>
         <p>

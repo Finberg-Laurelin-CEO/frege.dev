@@ -50,20 +50,21 @@ If a GUI MCP client cannot find `frege`, use the absolute path from `command -v 
 ## Connect (one command)
 
 ```bash
-frege connect https://frege.dev --token frg_live_...
+frege connect https://frege.dev --token <valid-frg-live-key>
 ```
 
-`frege connect` does three things:
+`frege connect` does four things:
 
-1. Saves local config to `~/.frege/mcp/config.json`.
-2. Verifies the key against Frege and prints your org, role, and key prefix.
-3. Auto-registers `frege mcp serve` with any MCP client it finds (Claude Code, Codex).
+1. Verifies that the API key is valid for an active Frege org.
+2. Saves local config to `~/.frege/mcp/config.json`.
+3. Prints your org, active org status, role, and key prefix.
+4. Auto-registers `frege mcp serve` with any MCP client it finds (Claude Code, Codex).
 
 Expected output:
 
 ```text
 Frege config saved to ~/.frege/mcp/config.json
-Connected: org acme, role reader, key abc123
+Connected: org acme (active), role reader, key abc123
 
 Registering Frege with Claude Code... done
 Registering Frege with Codex... done
@@ -71,7 +72,7 @@ Registering Frege with Codex... done
 You're set. Restart your MCP client if it was already running.
 ```
 
-That is the whole setup. The config file contains the Frege base URL and API key; it is local machine state and must not be committed. `FREGE_BASE_URL` and `FREGE_API_KEY` override this file for automation.
+That is the whole setup. If verification fails, Frege MCP is not connected; use a valid key for an active org and run `frege connect` again. The config file contains the Frege base URL and API key; it is local machine state and must not be committed. `FREGE_BASE_URL` and `FREGE_API_KEY` override this file for automation.
 
 ## Register MCP manually
 
@@ -198,11 +199,11 @@ node --version
 ### `frege doctor` says the API key is missing or invalid
 
 ```bash
-frege connect https://frege.dev --token frg_live_...
+frege connect https://frege.dev --token <valid-frg-live-key>
 frege doctor
 ```
 
-If the org or role is wrong, create a new API key in Frege admin with the correct role, then reconnect.
+If this fails, the key may be invalid, revoked, expired, or attached to an inactive org. If the org or role is wrong, create a new API key in Frege admin with the correct role, then reconnect.
 
 ## Security
 

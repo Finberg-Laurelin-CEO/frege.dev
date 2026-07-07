@@ -416,7 +416,7 @@ function isTransientNetworkError(err) {
 }
 
 async function frege(pathname, options = {}) {
-  const { baseUrl, apiKey } = await runtimeConfig();
+  const { baseUrl, apiKey } = options.config ?? (await runtimeConfig());
   if (!apiKey) {
     throw new Error(`FREGE_API_KEY is not set and ${CONFIG_PATH} has no apiKey. Run frege connect first.`);
   }
@@ -939,7 +939,7 @@ async function handle(message) {
     result(message.id, {
       protocolVersion: message.params?.protocolVersion ?? "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "frege-mcp", version: "0.1.0" },
+      serverInfo: { name: "frege-mcp", version: "0.1.1" },
     });
     return;
   }
@@ -1060,9 +1060,19 @@ function registerMcpClient(client) {
   return result.status === 0;
 }
 
-async function verifyConnection() {
+async function verifyConnection(config) {
   try {
-    const me = await frege("/api/v1/me");
+    const me = await frege("/api/v1/me", config ? { config } : {});
+    if (me.organization?.status !== "active") {
+      return {
+        ok: false,
+        error: JSON.stringify({
+          status: 403,
+          error: "org_inactive",
+          org_status: me.organization?.status ?? "unknown",
+        }),
+      };
+    }
     return { ok: true, me };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -1073,7 +1083,16 @@ async function connect(args) {
   const baseUrl = normalizeBaseUrl(args["base-url"] || args._[1] || DEFAULT_BASE_URL);
   const apiKey = args.token || args["api-key"] || process.env.FREGE_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing token. Use: frege connect https://frege.dev --token frg_live_...");
+    throw new Error("Missing token. Use: frege connect https://frege.dev --token <valid-frg-live-key>");
+  }
+
+  const verification = await verifyConnection({ baseUrl, apiKey });
+  if (!verification.ok) {
+    console.log("Frege connection failed. Config was not saved and MCP was not registered.");
+    console.log(`  ${verification.error}`);
+    console.log("Use a valid Frege API key for an active org, then run frege connect again.");
+    process.exitCode = 1;
+    return;
   }
 
   await writeConfig({
@@ -1083,18 +1102,10 @@ async function connect(args) {
   });
   console.log(`Frege config saved to ${CONFIG_PATH}`);
 
-  const verification = await verifyConnection();
-  if (!verification.ok) {
-    console.log("");
-    console.log("Saved the key, but verifying it failed:");
-    console.log(`  ${verification.error}`);
-    console.log("Check the base URL and token, then run: frege doctor");
-    process.exitCode = 1;
-    return;
-  }
-
   const { me } = verification;
-  console.log(`Connected: org ${me.organization?.slug ?? "unknown"}, role ${me.role?.slug ?? "unknown"}, key ${me.key?.prefix ?? "unknown"}`);
+  console.log(
+    `Connected: org ${me.organization?.slug ?? "unknown"} (${me.organization?.status ?? "unknown"}), role ${me.role?.slug ?? "unknown"}, key ${me.key?.prefix ?? "unknown"}`,
+  );
 
   if (args["no-register"]) {
     console.log("");
@@ -1129,8 +1140,13 @@ async function doctor() {
   console.log(`apiKey: ${apiKey ? "set" : "missing"}`);
   const me = await frege("/api/v1/me");
   console.log(`org: ${me.organization?.slug ?? "unknown"}`);
+  console.log(`orgStatus: ${me.organization?.status ?? "unknown"}`);
   console.log(`role: ${me.role?.slug ?? "unknown"}`);
   console.log(`key: ${me.key?.prefix ?? "unknown"}`);
+  if (me.organization?.status !== "active") {
+    console.log("Frege MCP requires an active org. Complete billing/activation or use a key from an active org.");
+    process.exitCode = 1;
+  }
 }
 
 async function status() {
@@ -1290,7 +1306,7 @@ function printHelp() {
   console.log(`frege
 
 Usage:
-  frege connect <base-url> --token <frg_live_...>   connect + verify + auto-register MCP clients
+  frege connect <base-url> --token <valid-frg-live-key>   connect + verify + auto-register MCP clients
   frege connect ... --no-register                   connect without registering MCP clients
   frege doctor                                       check stored config and connectivity
   frege status
@@ -1308,7 +1324,7 @@ Usage:
 Compatibility:
   frege-mcp serve
   frege-mcp doctor
-  frege-mcp connect <base-url> --token <frg_live_...>
+  frege-mcp connect <base-url> --token <valid-frg-live-key>
 
 Env:
   FREGE_BASE_URL   overrides stored baseUrl

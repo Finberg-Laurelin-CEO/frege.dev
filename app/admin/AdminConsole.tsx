@@ -718,7 +718,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
                   <h3>Generate per-user API keys</h3>
                   <p>
                     Keys belong to this org and a human owner. Frege derives org, user, role, and telemetry identity
-                    from the key, so agents never provide trusted identity in requests.
+                    from a valid key, so agents never provide trusted identity in requests.
                   </p>
                   <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => setTab("keys")}>
                     api keys
@@ -746,7 +746,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 
-frege connect https://frege.dev --token frg_live_...
+frege connect https://frege.dev --token <valid-frg-live-key>
 frege doctor
 
 frege docs sync frege.docs.yml --dry-run
@@ -755,9 +755,10 @@ frege docs sync frege.docs.yml
 claude mcp add frege -- frege mcp serve
 codex mcp add frege -- frege mcp serve`}</pre>
                 <p className={styles.meta}>
-                  Use the API key created in the keys tab. Browser app traffic may use brain.frege.dev,
-                  but MCP should use the canonical API base https://frege.dev unless support gives a
-                  different API base. `frege connect` stores local config at ~/.frege/mcp/config.json.
+                  Use a valid, unrevoked API key from an active org in the keys tab. Browser app traffic
+                  may use brain.frege.dev, but MCP should use the canonical API base https://frege.dev
+                  unless support gives a different API base. If `frege connect` or `frege doctor` fails,
+                  MCP setup is not complete.
                 </p>
               </div>
 
