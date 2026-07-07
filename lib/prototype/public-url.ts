@@ -8,3 +8,12 @@ export function customerBaseUrl(): string {
   const configured = process.env.FREGE_PUBLIC_BASE_URL?.trim();
   return (configured && configured.replace(/\/+$/, "")) || "https://frege.dev";
 }
+
+export function customerAppBaseUrl(): string {
+  const configured = process.env.FREGE_APP_BASE_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
+
+  const publicBase = customerBaseUrl();
+  if (publicBase === "https://frege.dev") return "https://brain.frege.dev";
+  return publicBase;
+}

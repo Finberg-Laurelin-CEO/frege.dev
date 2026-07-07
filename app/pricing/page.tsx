@@ -63,7 +63,7 @@ export default function PricingPage() {
               ))}
             </ul>
             <div className={styles.cardCta}>
-              <a className="button button--primary" href="/signup">Start solo</a>
+              <a className="button button--primary" href="/signup?plan=solo">Start solo</a>
             </div>
           </article>
 
@@ -81,7 +81,7 @@ export default function PricingPage() {
               ))}
             </ul>
             <div className={styles.cardCta}>
-              <a className="button button--primary" href="/signup">Start team</a>
+              <a className="button button--primary" href="/signup?plan=team-monthly">Start team</a>
             </div>
           </article>
 
@@ -102,7 +102,7 @@ export default function PricingPage() {
           </article>
         </div>
         <p className="docs__note">
-          New here? <a className="lnk" href="/signup">Create an account</a>, then choose a plan in Stripe checkout.
+          New here? <a className="lnk" href="/signup">Create an account</a>, choose a plan, and continue to Stripe checkout.
           Have a Frege code? Enter it in Stripe before paying.
         </p>
       </section>

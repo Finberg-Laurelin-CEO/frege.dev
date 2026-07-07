@@ -1,8 +1,11 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { postHermesEvent } from "@/lib/hermes-webhook";
+import { appBaseUrl, createCheckoutSession, isStripeConfigured } from "@/lib/prototype/billing";
+import { sendSignupWelcomeEmail } from "@/lib/prototype/email";
 import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
 import { hashPassword } from "@/lib/prototype/password";
+import { customerAppBaseUrl } from "@/lib/prototype/public-url";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
 import { assertSafeOrigin } from "@/lib/prototype/request-guards";
 import { createUserSession } from "@/lib/prototype/session";
@@ -117,6 +120,10 @@ function accountExistsResponse(): Response {
     },
     { status: 409 },
   );
+}
+
+function billingResumeUrl(): string {
+  return `${customerAppBaseUrl()}/console?view=billing`;
 }
 
 export async function POST(req: Request) {
@@ -301,6 +308,54 @@ export async function POST(req: Request) {
       await sendHermesSignupWebhook(signup);
     }
 
+    let checkoutUrl: string | null = null;
+    let checkoutCreated = false;
+    if (org.status !== "active" && isStripeConfigured()) {
+      try {
+        const checkout = await createCheckoutSession({
+          organization: org,
+          user: { email },
+          planKey: data.plan,
+          seats: data.seats,
+          baseUrl: appBaseUrl(req),
+        });
+        checkoutCreated = true;
+        checkoutUrl = checkout.session.url ?? null;
+
+        await sql`
+          insert into org_billing (org_id, plan, billing_interval, seats, updated_at)
+          values (${org.id}, ${checkout.plan.plan}, ${checkout.plan.interval}, ${checkout.seats}, now())
+          on conflict (org_id) do update set
+            plan = excluded.plan,
+            billing_interval = excluded.billing_interval,
+            seats = excluded.seats,
+            updated_at = now()
+        `;
+      } catch (err) {
+        console.error("signup checkout creation failed", {
+          code: (err as { code?: string })?.code,
+          message: (err as Error)?.message,
+        });
+      }
+    }
+
+    let welcomeEmailSent = false;
+    try {
+      const emailResult = await sendSignupWelcomeEmail({
+        to: email,
+        name: data.name,
+        orgName: org.name,
+        billingUrl: billingResumeUrl(),
+        checkoutUrl,
+      });
+      welcomeEmailSent = emailResult.sent;
+    } catch (err) {
+      console.error("signup welcome email failed", {
+        code: (err as { code?: string })?.code,
+        message: (err as Error)?.message,
+      });
+    }
+
     const session = await createUserSession(user.id, req.headers.get("host"));
     await logTelemetryEvent({
       actor: { type: "system", orgId: org.id },
@@ -314,6 +369,9 @@ export async function POST(req: Request) {
         org_slug: org.slug,
         signup_id: signup?.id ?? null,
         reused_invite: Boolean(existingSignup?.invite_id),
+        checkout_created: checkoutCreated,
+        welcome_email_sent: welcomeEmailSent,
+        plan: data.plan,
       },
     });
 
@@ -322,6 +380,8 @@ export async function POST(req: Request) {
         id: signup?.id,
         user: { id: user.id, email: user.email, name: user.name },
         organization: org,
+        checkout_url: checkoutUrl,
+        email_sent: welcomeEmailSent,
         next_path: org.status === "active" ? "/console" : NEXT_PATH,
       },
       { status: 201, headers: { "Set-Cookie": session.cookie } },

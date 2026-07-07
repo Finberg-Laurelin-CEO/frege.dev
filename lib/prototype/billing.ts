@@ -61,7 +61,56 @@ export function getWebhookSecret(): string {
 }
 
 export function appBaseUrl(req: Request): string {
-  return process.env.FREGE_PUBLIC_BASE_URL ?? new URL(req.url).origin;
+  const configuredApp = process.env.FREGE_APP_BASE_URL?.trim();
+  if (configuredApp) return configuredApp.replace(/\/+$/, "");
+
+  const configuredPublic = process.env.FREGE_PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
+  if (configuredPublic === "https://frege.dev") return "https://brain.frege.dev";
+
+  return (configuredPublic ?? new URL(req.url).origin).replace(/\/+$/, "");
+}
+
+export type CheckoutSessionInput = {
+  organization: { id: string; slug: string };
+  user: { email: string };
+  planKey: PlanKey;
+  seats?: number;
+  baseUrl: string;
+};
+
+export async function createCheckoutSession(input: CheckoutSessionInput): Promise<{
+  session: Stripe.Checkout.Session;
+  plan: PlanConfig;
+  seats: number;
+}> {
+  const plan = planConfigs()[input.planKey];
+  if (!plan.priceId) {
+    throw new Error("price_not_configured");
+  }
+
+  const seats = plan.perSeat ? input.seats ?? 1 : 1;
+  const metadata = {
+    org_id: input.organization.id,
+    org_slug: input.organization.slug,
+    plan: plan.plan,
+    billing_interval: plan.interval,
+    seats: String(seats),
+  };
+
+  const stripe = getStripe();
+  const session = await stripe.checkout.sessions.create({
+    mode: "subscription",
+    allow_promotion_codes: true,
+    line_items: [{ price: plan.priceId, quantity: seats }],
+    client_reference_id: input.organization.id,
+    customer_email: input.user.email,
+    success_url: `${input.baseUrl}/billing?status=success&org=${encodeURIComponent(input.organization.slug)}`,
+    cancel_url: `${input.baseUrl}/billing?status=cancelled&org=${encodeURIComponent(input.organization.slug)}`,
+    metadata,
+    subscription_data: { metadata },
+  });
+
+  return { session, plan, seats };
 }
 
 export type StripeRecurringRevenue = {

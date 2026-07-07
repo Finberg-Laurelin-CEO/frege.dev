@@ -56,6 +56,8 @@ export const DECISION_TIMELINES = [
   "Researching",
 ] as const;
 
+export const SELF_SERVE_PLAN_KEYS = ["solo", "team-monthly", "team-annual"] as const;
+
 /** Willingness to pay — what they'd pay for Frege, per month, per org. */
 export const WILLING_TO_PAY = [
   "Not sure yet",
@@ -116,9 +118,21 @@ export const accountFields = {
   confirm_password: z.string().min(1, "Confirm your password.").max(256),
 };
 
+export const billingFields = {
+  plan: z.enum(SELF_SERVE_PLAN_KEYS).default("solo"),
+  seats: z.coerce
+    .number({ invalid_type_error: "Enter a seat count." })
+    .int("Enter a whole number.")
+    .min(1, "Use at least 1 seat.")
+    .max(500, "Contact us for more than 500 seats.")
+    .optional()
+    .default(1),
+};
+
 export const clientFields = {
   ...signupFields,
   ...accountFields,
+  ...billingFields,
 };
 
 /** If "Other" is among the selected tools, `other_tool` must be filled in. */

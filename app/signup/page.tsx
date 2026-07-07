@@ -5,11 +5,15 @@ import { useRouter } from "next/navigation";
 import { COMPANY_SIZES, clientFields, clientSchema } from "@/lib/signup-schema";
 import "./signup.css";
 
+type PlanKey = "solo" | "team-monthly" | "team-annual";
+
 type Values = {
   name: string;
   work_email: string;
   password: string;
   confirm_password: string;
+  plan: PlanKey;
+  seats: string;
   company: string;
   role: string;
   company_size: string;
@@ -40,6 +44,8 @@ const EMPTY: Values = {
   work_email: "",
   password: "",
   confirm_password: "",
+  plan: "solo",
+  seats: "1",
   company: "",
   role: "",
   company_size: "",
@@ -59,6 +65,8 @@ const LABELS: Record<keyof Values, string> = {
   work_email: "Work email",
   password: "Password",
   confirm_password: "Confirm password",
+  plan: "Plan",
+  seats: "Seats",
   company: "Company",
   role: "Role / title",
   company_size: "Org size",
@@ -78,11 +86,43 @@ const VISIBLE_FIELDS: (keyof Values)[] = [
   "work_email",
   "password",
   "confirm_password",
+  "plan",
+  "seats",
   "company",
   "role",
   "company_size",
   "main_pain_point",
 ];
+
+const PLAN_OPTIONS: Array<{
+  key: PlanKey;
+  name: string;
+  price: string;
+  detail: string;
+}> = [
+  {
+    key: "solo",
+    name: "Solo",
+    price: "$20 / month",
+    detail: "One user, hosted brain, MCP access, governed memory.",
+  },
+  {
+    key: "team-monthly",
+    name: "Team monthly",
+    price: "$20 / user / month",
+    detail: "Shared org brain with roles, audit, and monthly billing.",
+  },
+  {
+    key: "team-annual",
+    name: "Team annual",
+    price: "$15 / user / month",
+    detail: "Team plan billed yearly at $180 per user.",
+  },
+];
+
+function isPlanKey(value: string | null): value is PlanKey {
+  return PLAN_OPTIONS.some((option) => option.key === value);
+}
 
 function formatRequestDate(value: string | null): string | null {
   if (!value) return null;
@@ -117,6 +157,19 @@ function safeNextPath(value: unknown): string {
   }
 }
 
+function safeCheckoutUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return null;
+    if (url.hostname !== "checkout.stripe.com" && !url.hostname.endsWith(".stripe.com")) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 export default function Signup() {
   const router = useRouter();
   const [values, setValues] = useState<Values>(EMPTY);
@@ -130,6 +183,14 @@ export default function Signup() {
 
   useEffect(() => {
     startedAt.current = Date.now();
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    if (isPlanKey(plan)) {
+      setValues((v) => ({
+        ...v,
+        plan,
+        seats: plan === "solo" ? "1" : v.seats === "1" ? "2" : v.seats,
+      }));
+    }
   }, []);
 
   const errors = useMemo(() => {
@@ -150,6 +211,14 @@ export default function Signup() {
 
   function set<K extends keyof Values>(key: K, val: Values[K]) {
     setValues((v) => ({ ...v, [key]: val }));
+  }
+
+  function setPlan(plan: PlanKey) {
+    setValues((v) => ({
+      ...v,
+      plan,
+      seats: plan === "solo" ? "1" : v.seats === "1" ? "2" : v.seats,
+    }));
   }
 
   function markTouched(key: keyof Values) {
@@ -217,7 +286,12 @@ export default function Signup() {
       });
 
       if (res.ok) {
-        const payload = await res.json().catch(() => null) as { next_path?: unknown } | null;
+        const payload = await res.json().catch(() => null) as { checkout_url?: unknown; next_path?: unknown } | null;
+        const checkoutUrl = safeCheckoutUrl(payload?.checkout_url);
+        if (checkoutUrl) {
+          window.location.href = checkoutUrl;
+          return;
+        }
         const nextPath = safeNextPath(payload?.next_path);
         if (nextPath.startsWith("/console")) {
           window.location.href = `${appOrigin()}${nextPath}`;
@@ -252,6 +326,7 @@ export default function Signup() {
   }
 
   const requestDate = formatRequestDate(recovery?.requested_at ?? null);
+  const selectedPlan = PLAN_OPTIONS.find((option) => option.key === values.plan) ?? PLAN_OPTIONS[0];
 
   return (
     <main id="main" className="screen">
@@ -259,14 +334,14 @@ export default function Signup() {
         <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege signup --start</span></p>
         <h1 className="hero-tag" style={{ marginTop: "8px" }}>create your Frege account</h1>
         <p className="out wrap">
-          Create an org, choose a plan, and activate through Stripe checkout. If you have a Frege code, enter it in Stripe.
+          Create an org, choose a plan, get a setup email, and continue through Stripe checkout. If you have a Frege code, enter it in Stripe.
         </p>
 
         <div className="pilot-get" aria-label="What you get">
           <p className="pilot-get__head"># what happens next</p>
           <ul className="pilot-get__list">
             <li>Your org is created immediately</li>
-            <li>You choose Solo, Team monthly, or Team annual</li>
+            <li>Your setup email includes a billing resume link</li>
             <li>Stripe checkout accepts Frege promotion codes</li>
             <li>The webhook activates your org after payment</li>
             <li>You can create MCP keys from the console</li>
@@ -480,9 +555,62 @@ export default function Signup() {
             </div>
           </fieldset>
 
+          <fieldset>
+            <legend># plan</legend>
+            <div className={fieldClass("plan")} id="field-plan">
+              <div className="plan-grid" role="radiogroup" aria-label="Billing plan">
+                {PLAN_OPTIONS.map((option) => (
+                  <label
+                    key={option.key}
+                    className={`plan-option${values.plan === option.key ? " plan-option--selected" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="plan"
+                      value={option.key}
+                      checked={values.plan === option.key}
+                      onChange={() => {
+                        setPlan(option.key);
+                        markTouched("plan");
+                      }}
+                    />
+                    <span className="plan-option__top">
+                      <span className="plan-option__name">{option.name}</span>
+                      <span className="plan-option__price">{option.price}</span>
+                    </span>
+                    <span className="plan-option__detail">{option.detail}</span>
+                  </label>
+                ))}
+              </div>
+              {errFor("plan")}
+            </div>
+
+            {values.plan !== "solo" && (
+              <div className={fieldClass("seats")} id="field-seats">
+                <label htmlFor="seats">{LABELS.seats} <span className="req">*</span></label>
+                <input
+                  id="seats"
+                  type="number"
+                  min={1}
+                  max={500}
+                  inputMode="numeric"
+                  value={values.seats}
+                  onChange={(e) => set("seats", e.target.value)}
+                  onBlur={() => markTouched("seats")}
+                  aria-invalid={!!(errors.seats && (touched.seats || showSummary))}
+                  aria-describedby={errors.seats ? "err-seats" : undefined}
+                />
+                {errFor("seats")}
+              </div>
+            )}
+            <p className="out muted checkout-note">
+              Selected: {selectedPlan.name} ({selectedPlan.price}). Stripe opens next and accepts Frege promotion codes.
+            </p>
+          </fieldset>
+
           <p className="line cta-big" style={{ marginBottom: "6px" }}>
             <button className="submit" type="submit" disabled={!isValid || submitting}>
-              {submitting ? "creating…" : "create account →"}
+              {submitting ? "opening Stripe..." : "create account and continue to Stripe ->"}
             </button>
           </p>
           <p className="out muted">
