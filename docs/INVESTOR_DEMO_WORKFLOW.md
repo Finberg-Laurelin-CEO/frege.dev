@@ -47,7 +47,7 @@ Screen layout: browser on the left, terminal/agent on the right.
 1. Open `brain.frege.dev/console` as `joe@frege.dev`.
 2. Show the Frege org overview: live activity, context builds, denied reads, agents.
 3. Switch to the knowledge view and show the Frege product brain: signup, billing, webhooks, MCP, deployment.
-4. In the terminal, have the agent install/configure Frege using a dedicated demo API key.
+4. In the terminal, give the agent the install prompt from `https://frege.dev/docs#agent-install` and a dedicated demo API key.
 5. Show the agent validating the install with `frege_status`.
 6. Ask the agent to retrieve the current self-serve signup flow using `frege_build_context`.
 7. Show in the browser that the context packet cites signup, billing, and webhook docs.
@@ -64,13 +64,13 @@ The ideal setup moment is not a manual docs walkthrough. It should look like:
 1. User signs in or signs up.
 2. User creates or reveals a scoped demo API key.
 3. User asks their coding agent to install Frege.
-4. Agent reads the short install instructions, updates MCP config, validates the connection, and runs `frege docs sync frege.docs.yml`.
+4. Agent reads the short install instructions, uses `FREGE_BASE_URL=https://frege.dev`, updates MCP config, validates the connection, and runs `frege docs sync frege.docs.yml`.
 5. Agent asks Frege for project context from the newly pushed Frege docs.
 6. Browser updates show the new document writes, agent activity, and audit events.
 
 Required product/docs improvements before a polished Loom:
 
-- A shorter "Install with your agent" doc with copy/paste-safe commands.
+- A shorter "Install with your agent" doc with copy/paste-safe commands. Done at `https://frege.dev/docs#agent-install`.
 - A simple MCP config snippet for Cursor/Codex/Claude Desktop style clients.
 - Clear first query examples: `status`, `search`, `build context`, `propose memory update`.
 - A visible verification step in the console after the first agent connection.
@@ -87,6 +87,10 @@ Required product/docs improvements before a polished Loom:
 - `frege_audit_events`
 
 Use a fresh demo API key. Do not show the raw key in the video. Revoke or rotate the key after recording if it appears on screen.
+
+## Domain Note
+
+The browser/user app is shown on `https://brain.frege.dev`. MCP setup should still use the canonical hosted API base `https://frege.dev` unless Frege support gives a customer-specific API base. The MCP server is local (`frege mcp serve`) and only needs an API host for `/api/v1` calls.
 
 ## Auth And Access Follow-Up
 

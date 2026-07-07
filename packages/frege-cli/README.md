@@ -4,6 +4,8 @@ Frege CLI and MCP thin client.
 
 Frege CLI is agent-side glue. It never touches the database. It stores a Frege API key locally, starts a stdio MCP server when asked, and calls Frege REST APIs for every command or tool call.
 
+The browser app may run on `https://brain.frege.dev`. MCP does not care about that subdomain; connect the CLI to the canonical API base, usually `https://frege.dev`.
+
 ## Requirements
 
 - Node.js 20 or newer

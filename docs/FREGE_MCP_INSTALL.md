@@ -2,6 +2,8 @@
 
 Frege MCP is installed from the agent machine or the user's shell. Do not configure it by copying API keys into browser-generated JSON. Install the CLI, connect once, then register `frege mcp serve` with the MCP client.
 
+The browser app may live at `https://brain.frege.dev`, but MCP does not depend on that subdomain. The CLI only needs an API base URL that serves Frege's `/api/v1` routes. Use `https://frege.dev` as the canonical hosted API base unless Frege support gives you a different one.
+
 ## Requirements
 
 - macOS or Linux
@@ -18,6 +20,34 @@ npm --version
 ```
 
 If Node is older than 20, install a newer Node first, then reinstall Frege.
+
+## Install with an agent
+
+Give this to the user's coding agent instead of asking the user to hand-edit MCP config:
+
+```text
+Install Frege for this machine.
+
+Use this API base unless Frege support gives us a different one:
+FREGE_BASE_URL=https://frege.dev
+
+I will provide the Frege API key separately. It starts with frg_live_.
+Do not print the full key after you receive it.
+
+Do this directly:
+1. Confirm Node.js 20+ and npm are available.
+2. Run npm install -g @frege-dev/cli.
+3. Run command -v frege and frege help.
+4. If npm reports EEXIST or frege is not found, use the troubleshooting steps at https://frege.dev/docs.
+5. Run frege connect "$FREGE_BASE_URL" --token "$FREGE_API_KEY".
+6. Run frege doctor and show me only the org, role, and key prefix.
+7. Register MCP with this agent/client using frege mcp serve.
+8. If available, run frege agent install codex or frege agent install claude.
+9. Otherwise configure MCP with command "frege" and args ["mcp", "serve"].
+10. From the MCP client, call frege_status and confirm it matches frege doctor.
+
+The browser app may live at https://brain.frege.dev. That is fine. MCP only needs the Frege API base above.
+```
 
 ## Install the CLI
 

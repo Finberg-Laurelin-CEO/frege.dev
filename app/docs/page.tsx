@@ -6,21 +6,22 @@ const toc: [string, string, string][] = [
   ["01", "overview", "Overview"],
   ["02", "org-setup", "Organization setup"],
   ["03", "api-keys", "API keys"],
-  ["04", "cli-install", "Install the CLI"],
-  ["05", "zsh-path", "zsh terminal setup"],
-  ["06", "mcp-register", "Register MCP"],
-  ["07", "docs-push", "Push documents"],
-  ["08", "agent-instructions", "Agent instructions"],
-  ["09", "tools", "Available tools"],
-  ["10", "troubleshooting", "Troubleshooting"],
-  ["11", "security", "Security"],
+  ["04", "agent-install", "Install with an agent"],
+  ["05", "cli-install", "Install the CLI"],
+  ["06", "zsh-path", "zsh terminal setup"],
+  ["07", "mcp-register", "Register MCP"],
+  ["08", "docs-push", "Push documents"],
+  ["09", "agent-instructions", "Agent instructions"],
+  ["10", "tools", "Available tools"],
+  ["11", "troubleshooting", "Troubleshooting"],
+  ["12", "security", "Security"],
 ];
 
 const setupSteps: [string, string][] = [
   ["Sign in", "Open the protected Frege control plane and choose or create your organization."],
   ["Create roles", "Define what an agent can read, whether it can write sessions, and whether it can propose memory."],
   ["Generate a key", "Create a per-user API key for the agent. Frege shows the raw key once."],
-  ["Install CLI", "Install the Frege CLI with npm, make sure zsh can find it, and connect the key."],
+  ["Give agent prompt", "Ask the user's agent to install the CLI, connect the key, and register MCP."],
   ["Register MCP", "Point Claude Code, Codex, or another MCP client at frege mcp serve."],
   ["Push docs", "Have the agent push approved markdown with frege docs push or frege docs sync."],
   ["Review memory", "Agent discoveries become proposals. Admins accept or reject them before they become canonical pages."],
@@ -46,6 +47,28 @@ const mcpTools: [string, string][] = [
   ["frege_run_agent", "Queue hosted agent work when the key has execution permission."],
   ["frege_get_agent_run", "Read status and output for a hosted agent run."],
 ];
+
+const agentInstallPrompt = `Install Frege for this machine.
+
+Use this API base unless Frege support gives us a different one:
+FREGE_BASE_URL=https://frege.dev
+
+I will provide the Frege API key separately. It starts with frg_live_.
+Do not print the full key after you receive it.
+
+Do this directly:
+1. Confirm Node.js 20+ and npm are available.
+2. Run npm install -g @frege-dev/cli.
+3. Run command -v frege and frege help.
+4. If npm reports EEXIST or frege is not found, use the troubleshooting steps at https://frege.dev/docs.
+5. Run frege connect "$FREGE_BASE_URL" --token "$FREGE_API_KEY".
+6. Run frege doctor and show me only the org, role, and key prefix.
+7. Register MCP with this agent/client using frege mcp serve.
+8. If available, run frege agent install codex or frege agent install claude.
+9. Otherwise configure MCP with command "frege" and args ["mcp", "serve"].
+10. From the MCP client, call frege_status and confirm it matches frege doctor.
+
+The browser app may live at https://brain.frege.dev. That is fine. MCP only needs the Frege API base above.`;
 
 export const metadata: Metadata = {
   title: "Frege Docs",
@@ -143,6 +166,21 @@ export default function DocsPage() {
         <p className="docs__note">
           Keys are secrets. Session and proposal writes redact raw keys, passwords, and
           provider tokens, but treat the key itself like any production credential.
+        </p>
+      </section>
+
+      <section id="agent-install">
+        <h2>Install with an agent</h2>
+        <p>
+          The customer should not hand-edit MCP JSON or paste secrets into browser-generated
+          config. Give the agent a scoped API key and the prompt below. The agent installs
+          the CLI locally, stores the key in <code>~/.frege/mcp/config.json</code>, then registers
+          <code> frege mcp serve</code> with the MCP client.
+        </p>
+        <pre><code>{agentInstallPrompt}</code></pre>
+        <p className="docs__note">
+          Browser traffic may land on <code>brain.frege.dev</code>. MCP does not depend on that
+          subdomain; it uses the configured API base URL for <code>/api/v1</code> calls.
         </p>
       </section>
 

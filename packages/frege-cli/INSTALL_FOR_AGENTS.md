@@ -2,6 +2,8 @@
 
 Read this file, then install the Frege CLI for the user. Do not ask the user to paste API keys into browser JSON. Install the CLI, make sure the shell can call `frege`, connect once, run `frege doctor`, then register `frege mcp serve` with the MCP client.
 
+The browser app may live at `https://brain.frege.dev`, but MCP does not depend on that subdomain. The CLI only needs an API base URL that serves Frege's `/api/v1` routes. Use `https://frege.dev` as the canonical hosted API base unless Frege support gives the user a different one.
+
 ## Step 1: Get the Frege connection details
 
 Ask the user for:

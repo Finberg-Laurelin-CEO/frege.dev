@@ -5,8 +5,6 @@ import styles from "./admin.module.css";
 
 type Tab = "setup" | "overview" | "keys" | "models" | "context" | "brain" | "agents" | "telemetry" | "audit";
 
-const GITHUB_URL = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
-
 const adminTabs: { id: Tab; label: string }[] = [
   { id: "setup", label: "setup docs" },
   { id: "overview", label: "orgs & roles" },
@@ -691,7 +689,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
                   <span className={styles.kicker}>Setup</span>
                   <h2 className={styles.heroTitle}>Connect this org to agent memory.</h2>
                   <p className={styles.sectionLead}>
-                    Create the org shape, issue a scoped API key, then let the agent install Frege MCP from GitHub.
+                    Create the org shape, issue a scoped API key, then let the agent install Frege MCP from npm.
                     Agents pull governed context and write reviewable memory proposals; they do not get direct database access.
                   </p>
                 </div>
@@ -734,8 +732,8 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
                     The user or agent installs the CLI with npm, connects the key once, then registers
                     `frege mcp serve` with Claude, Codex, Hermes, or another MCP-aware client.
                   </p>
-                  <a className={`${styles.button} ${styles.buttonSecondary}`} href={GITHUB_URL}>
-                    GitHub repo
+                  <a className={`${styles.button} ${styles.buttonSecondary}`} href="/docs#agent-install">
+                    agent install prompt
                   </a>
                 </section>
               </div>
@@ -757,8 +755,9 @@ frege docs sync frege.docs.yml
 claude mcp add frege -- frege mcp serve
 codex mcp add frege -- frege mcp serve`}</pre>
                 <p className={styles.meta}>
-                  Use the API key created in the keys tab. `frege connect` stores local config at
-                  {" "}~/.frege/mcp/config.json and avoids putting secrets in browser instructions.
+                  Use the API key created in the keys tab. Browser app traffic may use brain.frege.dev,
+                  but MCP should use the canonical API base https://frege.dev unless support gives a
+                  different API base. `frege connect` stores local config at ~/.frege/mcp/config.json.
                 </p>
               </div>
 
