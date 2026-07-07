@@ -42,16 +42,8 @@ Frege requires Node.js 20 or newer. If Node is too old, stop and tell the user t
 
 ## Step 3: Install the CLI
 
-Preferred public npm package:
-
 ```bash
 npm install -g @frege/cli
-```
-
-Until `@frege/cli` is public, use the GitHub npm fallback:
-
-```bash
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 ```
 
 Local repo development path:
@@ -153,7 +145,42 @@ frege_append_session_event
 frege_list_agents
 frege_run_agent
 frege_get_agent_run
+frege_create_document
+frege_read_document
+frege_search_documents
 ```
+
+## Step 8: Push user-approved markdown
+
+If the user asks you to load docs into Frege, prefer the CLI so the action is visible in terminal and audited by Frege.
+
+Push one file:
+
+```bash
+frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
+  --sensitivity internal \
+  --tag demo \
+  --tag frege
+```
+
+Preview a directory first:
+
+```bash
+frege docs push docs \
+  --include "**/*.md" \
+  --exclude "**/HANDOFF.md" \
+  --sensitivity internal \
+  --dry-run
+```
+
+Use a manifest when the repo provides one:
+
+```bash
+frege docs sync frege.docs.yml --dry-run
+frege docs sync frege.docs.yml
+```
+
+Markdown wikilinks such as `[[hosted brain architecture]]` are okay to preserve in pushed documents. For canonical wikilinked brain pages and graph traversal, submit a reviewable page proposal with `frege_write_page_proposal` rather than silently changing canonical memory.
 
 ## Operating protocol
 
@@ -175,8 +202,6 @@ frege_get_agent_run
 
 ```bash
 npm install -g @frege/cli
-# or, until public npm publishing is complete:
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -241,9 +266,6 @@ Use npm now. Add Homebrew later.
 ```bash
 # Now
 npm install -g @frege/cli
-
-# Fallback until @frege/cli is public
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
 # Later
 brew tap frege-dev/tap

@@ -743,8 +743,6 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
               <div className={styles.section}>
                 <h2 className={styles.sectionTitle}>agent install commands</h2>
                 <pre className={styles.codeBlock}>{`npm install -g @frege/cli
-# Until @frege/cli is public:
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
 # zsh PATH fallback if frege is not found:
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
@@ -752,6 +750,9 @@ source ~/.zshrc
 
 frege connect https://frege.dev --token frg_live_...
 frege doctor
+
+frege docs sync frege.docs.yml --dry-run
+frege docs sync frege.docs.yml
 
 claude mcp add frege -- frege mcp serve
 codex mcp add frege -- frege mcp serve`}</pre>

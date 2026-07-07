@@ -1,0 +1,28 @@
+base: .
+defaults:
+  sensitivity: internal
+  status: published
+  tags: [frege, product]
+documents:
+  - path: README.md
+    slug: frege-overview
+    title: Frege Overview
+    tags: [frege, overview]
+  - path: docs/INVESTOR_DEMO_WORKFLOW.md
+    tags: [frege, demo, investors]
+  - path: docs/HOSTED_BRAIN_ARCHITECTURE.md
+    tags: [frege, architecture, mcp]
+  - path: docs/FREGE_MCP_INSTALL.md
+    tags: [frege, cli, mcp, install]
+  - path: packages/frege-cli/README.md
+    slug: frege-cli-readme
+    title: Frege CLI Readme
+    tags: [frege, cli, install]
+  - path: packages/frege-cli/INSTALL_FOR_AGENTS.md
+    slug: frege-cli-install-for-agents
+    title: Frege CLI Install For Agents
+    tags: [frege, agents, install]
+  - path: docs/STRIPE_CHANGELOG.md
+    tags: [frege, billing, stripe]
+  - path: docs/PROTOTYPE_OPERATIONS.md
+    tags: [frege, operations]

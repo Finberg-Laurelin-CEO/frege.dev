@@ -17,16 +17,8 @@ npm --version
 
 ## Install
 
-The target public package is `@frege/cli`:
-
 ```bash
 npm install -g @frege/cli
-```
-
-Until `@frege/cli` is public, install from GitHub with npm:
-
-```bash
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 ```
 
 Verify:
@@ -119,6 +111,8 @@ frege mcp serve
 
 ```bash
 frege status
+frege docs list
+frege docs read hosted-brain-architecture
 frege search "refund policy"
 frege context "customer escalation steps"
 frege mcp serve
@@ -126,14 +120,55 @@ frege agent install claude
 frege agent install codex
 ```
 
+## Push Markdown Documents
+
+Use the CLI to push markdown into the Frege document store. Markdown is preserved, including normal links and wikilinks such as `[[self-serve signup]]`.
+
+```bash
+frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
+  --sensitivity internal \
+  --tag frege-demo \
+  --tag operations
+```
+
+Push a directory with include/exclude filters:
+
+```bash
+frege docs push docs \
+  --include "**/*.md" \
+  --exclude "**/HANDOFF.md" \
+  --sensitivity internal \
+  --dry-run
+```
+
+Use a manifest for repeatable agent-led ingestion:
+
+```yaml
+base: .
+defaults:
+  sensitivity: internal
+  tags: [frege, product]
+documents:
+  - path: docs/INVESTOR_DEMO_WORKFLOW.md
+  - path: docs/HOSTED_BRAIN_ARCHITECTURE.md
+  - path: docs/FREGE_MCP_INSTALL.md
+```
+
+Then sync it:
+
+```bash
+frege docs sync frege.docs.yml
+frege context "how does Frege signup work?"
+```
+
+For canonical brain pages and graph traversal, have the agent propose wikilinked pages with `frege_write_page_proposal`; a human can review and accept the proposal in Frege.
+
 ## Troubleshooting
 
 ### `frege: command not found`
 
 ```bash
 npm install -g @frege/cli
-# or, until public npm publishing is complete:
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -172,9 +207,6 @@ Use npm now because the CLI is Node-based and already exposes npm binaries. Add 
 ```bash
 # Now
 npm install -g @frege/cli
-
-# Fallback until @frege/cli is public
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
 # Later
 brew tap frege-dev/tap

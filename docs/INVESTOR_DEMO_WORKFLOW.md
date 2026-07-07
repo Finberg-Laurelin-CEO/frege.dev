@@ -64,8 +64,9 @@ The ideal setup moment is not a manual docs walkthrough. It should look like:
 1. User signs in or signs up.
 2. User creates or reveals a scoped demo API key.
 3. User asks their coding agent to install Frege.
-4. Agent reads the short install instructions, updates MCP config, validates the connection, and asks Frege for project context.
-5. Browser updates show the new agent activity and audit events.
+4. Agent reads the short install instructions, updates MCP config, validates the connection, and runs `frege docs sync frege.docs.yml`.
+5. Agent asks Frege for project context from the newly pushed Frege docs.
+6. Browser updates show the new document writes, agent activity, and audit events.
 
 Required product/docs improvements before a polished Loom:
 
@@ -73,6 +74,7 @@ Required product/docs improvements before a polished Loom:
 - A simple MCP config snippet for Cursor/Codex/Claude Desktop style clients.
 - Clear first query examples: `status`, `search`, `build context`, `propose memory update`.
 - A visible verification step in the console after the first agent connection.
+- A visible imported-documents view after `frege docs sync frege.docs.yml`.
 - A warning never to paste raw secrets into Loom-visible prompts or docs.
 
 ## MCP Commands To Demonstrate

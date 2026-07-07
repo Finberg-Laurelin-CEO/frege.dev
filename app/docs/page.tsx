@@ -9,10 +9,11 @@ const toc: [string, string, string][] = [
   ["04", "cli-install", "Install the CLI"],
   ["05", "zsh-path", "zsh terminal setup"],
   ["06", "mcp-register", "Register MCP"],
-  ["07", "agent-instructions", "Agent instructions"],
-  ["08", "tools", "Available tools"],
-  ["09", "troubleshooting", "Troubleshooting"],
-  ["10", "security", "Security"],
+  ["07", "docs-push", "Push documents"],
+  ["08", "agent-instructions", "Agent instructions"],
+  ["09", "tools", "Available tools"],
+  ["10", "troubleshooting", "Troubleshooting"],
+  ["11", "security", "Security"],
 ];
 
 const setupSteps: [string, string][] = [
@@ -21,6 +22,7 @@ const setupSteps: [string, string][] = [
   ["Generate a key", "Create a per-user API key for the agent. Frege shows the raw key once."],
   ["Install CLI", "Install the Frege CLI with npm, make sure zsh can find it, and connect the key."],
   ["Register MCP", "Point Claude Code, Codex, or another MCP client at frege mcp serve."],
+  ["Push docs", "Have the agent push approved markdown with frege docs push or frege docs sync."],
   ["Review memory", "Agent discoveries become proposals. Admins accept or reject them before they become canonical pages."],
 ];
 
@@ -35,6 +37,9 @@ const mcpTools: [string, string][] = [
   ["frege_append_session_event", "Record task activity onto the active session."],
   ["frege_get_session", "Read an existing session and its redacted events."],
   ["frege_search_sessions", "Find past sessions by title, client, or goal."],
+  ["frege_create_document", "Create a document from user-approved markdown."],
+  ["frege_read_document", "Read a visible document by slug."],
+  ["frege_search_documents", "Search visible documents by text, title, path, or tag."],
   ["frege_write_page_proposal", "Submit a reviewable update instead of editing canonical knowledge."],
   ["frege_add_source_proposal", "Propose a new source for human review."],
   ["frege_list_agents", "List Frege-hosted agents available to this org and role."],
@@ -147,14 +152,14 @@ export default function DocsPage() {
           The CLI is a Node.js executable (Node 20+). Install it globally with npm, then verify
           the <code>frege</code> command is on your path.
         </p>
-        <pre><code>{`# Install (works today)
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
+        <pre><code>{`# Install
+npm install -g @frege/cli
 
 # Verify
 frege --help`}</code></pre>
         <p className="docs__note">
-          A published <code>@frege/cli</code> npm package and a Homebrew tap are planned. Until then,
-          the GitHub install above is the supported channel.
+          Frege MCP stays local: <code>frege mcp serve</code> runs on the agent machine and calls
+          Frege-hosted APIs with the locally stored API key.
         </p>
       </section>
 
@@ -225,6 +230,37 @@ frege agent install codex`}</code></pre>
         </p>
       </section>
 
+      <section id="docs-push">
+        <h2>Push markdown documents</h2>
+        <p>
+          Agents should load user-approved markdown through the CLI. The terminal shows exactly
+          what was pushed, and Frege records the write through the same org, role, and audit
+          controls as MCP.
+        </p>
+        <h3>One file</h3>
+        <pre><code>{`frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \\
+  --sensitivity internal \\
+  --tag frege-demo \\
+  --tag operations`}</code></pre>
+        <h3>Directory preview</h3>
+        <pre><code>{`frege docs push docs \\
+  --include "**/*.md" \\
+  --exclude "**/HANDOFF.md" \\
+  --sensitivity internal \\
+  --dry-run`}</code></pre>
+        <h3>Manifest sync</h3>
+        <pre><code>{`frege docs sync frege.docs.yml --dry-run
+frege docs sync frege.docs.yml
+frege docs list
+frege docs read hosted-brain-architecture
+frege context "how does Frege signup work?"`}</code></pre>
+        <p className="docs__note">
+          Markdown wikilinks such as <code>[[hosted brain architecture]]</code> are preserved in
+          pushed documents. For canonical graph-connected brain pages, ask the agent to submit a
+          reviewable wikilinked page proposal with <code>frege_write_page_proposal</code>.
+        </p>
+      </section>
+
       <section id="agent-instructions">
         <h2>Agent instructions</h2>
         <p>
@@ -235,11 +271,15 @@ frege agent install codex`}</code></pre>
 
 - Confirm Node.js 20+ is installed.
 - Install the Frege CLI:
-  npm install -g github:Finberg-Laurelin-CEO/frege.dev
+  npm install -g @frege/cli
 - Make sure the shell can call frege directly: command -v frege.
 - Run frege connect with the base URL and API key I provide.
   It verifies the key and auto-registers this client; show me the
   org, role, and key prefix it prints.
+- To load approved markdown, run frege docs push for one file or
+  frege docs sync frege.docs.yml for a manifest. Dry-run first if
+  pushing a directory.
+- Preserve wikilinks like [[hosted brain architecture]] in markdown.
 - Before answering from memory, call frege_build_context so you
   start from scoped, cited company knowledge.
 - Search with frege_search_pages; read specifics with
@@ -250,7 +290,8 @@ frege agent install codex`}</code></pre>
   and record activity with frege_append_session_event.
 - When you learn something durable and correct, do not edit pages
   directly. Submit it with frege_write_page_proposal so a human
-  can review before it becomes canonical.`}</code></pre>
+  can review before it becomes canonical. Use wikilinks in durable
+  page proposals when pages should be graph-connected.`}</code></pre>
       </section>
 
       <section id="tools">
@@ -274,8 +315,6 @@ frege agent install codex`}</code></pre>
         <h2>Troubleshooting</h2>
         <h3><code>frege: command not found</code></h3>
         <pre><code>{`npm install -g @frege/cli
-# or, until public npm publishing is complete:
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -308,15 +347,12 @@ frege doctor`}</code></pre>
         </ul>
         <h3>npm now, Homebrew later</h3>
         <p>
-          Frege should support npm first because the CLI is Node-based and the package already
-          exposes <code>frege</code> and <code>frege-mcp</code> binaries. Homebrew is a good later
-          macOS convenience once releases, checksums, and a tap are stable.
+          Frege supports npm first because the CLI is Node-based and exposes
+          <code> frege</code> and <code>frege-mcp</code> binaries. Homebrew is a good later macOS
+          convenience once releases, checksums, and a tap are stable.
         </p>
-        <pre><code>{`# Works today (until @frege/cli is published to npm)
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
-
-# Coming soon: published npm package
-npm install -g @frege/cli
+        <pre><code>{`npm install -g @frege/cli
+npm update -g @frege/cli
 
 # Planned: Homebrew tap
 brew tap frege-dev/tap

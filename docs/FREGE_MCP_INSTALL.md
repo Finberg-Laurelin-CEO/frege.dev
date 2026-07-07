@@ -21,16 +21,8 @@ If Node is older than 20, install a newer Node first, then reinstall Frege.
 
 ## Install the CLI
 
-The target public package is `@frege/cli`:
-
 ```bash
 npm install -g @frege/cli
-```
-
-Until `@frege/cli` is public, install directly from GitHub with npm:
-
-```bash
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 ```
 
 Verify the terminal can run Frege:
@@ -142,12 +134,47 @@ frege mcp serve
 
 ```bash
 frege status
+frege docs list
+frege docs read hosted-brain-architecture
 frege search "refund policy"
 frege context "customer escalation steps"
 frege mcp serve
 frege agent install claude
 frege agent install codex
 ```
+
+## Push Markdown Documents
+
+Agents should use the CLI for user-approved document ingestion so the terminal shows exactly what was loaded and Frege audits every write.
+
+Push one file:
+
+```bash
+frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
+  --sensitivity internal \
+  --tag frege-demo \
+  --tag operations
+```
+
+Preview a directory before writing:
+
+```bash
+frege docs push docs \
+  --include "**/*.md" \
+  --exclude "**/HANDOFF.md" \
+  --sensitivity internal \
+  --dry-run
+```
+
+Use a manifest for repeatable setup:
+
+```bash
+frege docs sync frege.docs.yml --dry-run
+frege docs sync frege.docs.yml
+frege context "how does Frege signup work?"
+```
+
+Markdown wikilinks such as `[[hosted brain architecture]]` are preserved in pushed documents. For canonical graph-connected brain pages, agents should submit reviewable wikilinked page proposals with `frege_write_page_proposal`.
 
 ## Hosted agent tools
 
@@ -167,8 +194,6 @@ frege_get_agent_run
 
 ```bash
 npm install -g @frege/cli
-# or, until public npm publishing is complete:
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -233,12 +258,6 @@ Why npm now:
 ```bash
 npm install -g @frege/cli
 npm update -g @frege/cli
-```
-
-Until npm publishing is complete:
-
-```bash
-npm install -g github:Finberg-Laurelin-CEO/frege.dev
 ```
 
 Homebrew is a good future macOS convenience once the CLI has stable releases, tarballs, checksums, and a tap:

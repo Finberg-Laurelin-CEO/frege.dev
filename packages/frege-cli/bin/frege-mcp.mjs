@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { appendFileSync } from "node:fs";
 import { constants } from "node:fs";
 import { spawnSync } from "node:child_process";
@@ -293,6 +293,7 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
+        slug: { type: "string" },
         path: { type: "string" },
         title: { type: "string" },
         sensitivity: { type: "string", enum: ["public", "internal", "restricted"] },
@@ -351,6 +352,16 @@ const tools = [
 
 function parseArgs(argv) {
   const args = { _: [] };
+  const setArg = (key, value) => {
+    if (args[key] === undefined) {
+      args[key] = value;
+    } else if (Array.isArray(args[key])) {
+      args[key].push(value);
+    } else {
+      args[key] = [args[key], value];
+    }
+  };
+
   for (let index = 0; index < argv.length; index += 1) {
     const item = argv[index];
     if (!item.startsWith("--")) {
@@ -361,11 +372,11 @@ function parseArgs(argv) {
     const key = item.slice(2);
     const next = argv[index + 1];
     if (!next || next.startsWith("--")) {
-      args[key] = true;
+      setArg(key, true);
       continue;
     }
 
-    args[key] = next;
+    setArg(key, next);
     index += 1;
   }
   return args;
@@ -460,6 +471,267 @@ function queryString(params) {
   }
   const output = search.toString();
   return output ? `?${output}` : "";
+}
+
+function asArray(value) {
+  if (value === undefined || value === null || value === false) return [];
+  if (Array.isArray(value)) return value.flatMap(asArray);
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function firstValue(value, fallback = undefined) {
+  if (Array.isArray(value)) return value.at(-1) ?? fallback;
+  return value ?? fallback;
+}
+
+function normalizeRelPath(value) {
+  return String(value).replace(/\\/g, "/").replace(/^\.\//, "");
+}
+
+function escapeRegex(value) {
+  return value.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+}
+
+function globToRegExp(pattern) {
+  const glob = normalizeRelPath(pattern);
+  let regex = "";
+  for (let index = 0; index < glob.length; index += 1) {
+    const char = glob[index];
+    const next = glob[index + 1];
+    const afterNext = glob[index + 2];
+
+    if (char === "*" && next === "*" && afterNext === "/") {
+      regex += "(?:.*/)?";
+      index += 2;
+      continue;
+    }
+    if (char === "*" && next === "*") {
+      regex += ".*";
+      index += 1;
+      continue;
+    }
+    if (char === "*") {
+      regex += "[^/]*";
+      continue;
+    }
+    if (char === "?") {
+      regex += "[^/]";
+      continue;
+    }
+    regex += escapeRegex(char);
+  }
+  return new RegExp(`^${regex}$`);
+}
+
+function matchesAny(relPath, patterns) {
+  const normalized = normalizeRelPath(relPath);
+  return patterns.some((pattern) => globToRegExp(pattern).test(normalized));
+}
+
+function slugify(value) {
+  const slug = String(value)
+    .toLowerCase()
+    .replace(/\.md$/i, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "document";
+}
+
+function normalizeTag(value) {
+  return slugify(value).slice(0, 48);
+}
+
+function uniqueTags(values) {
+  return [...new Set(values.map(normalizeTag).filter(Boolean))];
+}
+
+function titleFromMarkdown(body, fallback) {
+  const heading = body.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  return heading || fallback;
+}
+
+function summaryFromMarkdown(body) {
+  return body
+    .replace(/^#+\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+}
+
+function documentSlugFromInput(input) {
+  if (input.slug) return input.slug;
+  const filename = String(input.path || "")
+    .split("/")
+    .filter(Boolean)
+    .at(-1);
+  return slugify(filename ?? input.title);
+}
+
+async function walkFiles(root) {
+  const output = [];
+  const entries = await readdir(root, { withFileTypes: true });
+  for (const entry of entries) {
+    const entryPath = path.join(root, entry.name);
+    if (entry.name === "node_modules" || entry.name === ".git" || entry.name === ".next") continue;
+    if (entry.isDirectory()) {
+      output.push(...(await walkFiles(entryPath)));
+    } else if (entry.isFile()) {
+      output.push(entryPath);
+    }
+  }
+  return output;
+}
+
+async function collectDocumentFiles(targetPath, options = {}) {
+  const baseDir = path.resolve(options.base ?? process.cwd());
+  const absoluteTarget = path.resolve(baseDir, targetPath);
+  const info = await stat(absoluteTarget);
+
+  if (info.isFile()) {
+    return [absoluteTarget];
+  }
+  if (!info.isDirectory()) {
+    throw new Error(`Not a file or directory: ${targetPath}`);
+  }
+
+  const include = options.include?.length ? options.include : ["**/*.md"];
+  const exclude = options.exclude ?? [];
+  const files = await walkFiles(absoluteTarget);
+  return files.filter((file) => {
+    const relToTarget = normalizeRelPath(path.relative(absoluteTarget, file));
+    const relToBase = normalizeRelPath(path.relative(baseDir, file));
+    return (
+      (matchesAny(relToTarget, include) || matchesAny(relToBase, include)) &&
+      !matchesAny(relToTarget, exclude) &&
+      !matchesAny(relToBase, exclude)
+    );
+  });
+}
+
+async function documentInputFromFile(file, options = {}) {
+  const baseDir = path.resolve(options.base ?? process.cwd());
+  const relPath = normalizeRelPath(path.relative(baseDir, file));
+  const body = await readFile(file, "utf8");
+  const fallbackTitle = path.basename(file).replace(/\.md$/i, "").replace(/[-_]+/g, " ");
+  const title = options.title ?? titleFromMarkdown(body, fallbackTitle);
+  const input = {
+    slug: options.slug,
+    path: options.path ?? relPath,
+    title,
+    sensitivity: options.sensitivity ?? "internal",
+    status: options.status ?? "published",
+    tags: uniqueTags(options.tags ?? []),
+    summary: options.summary ?? summaryFromMarkdown(body),
+    body_md: body,
+  };
+  if (!input.slug) delete input.slug;
+  return input;
+}
+
+function httpStatusFromError(err) {
+  try {
+    const parsed = JSON.parse(err?.message ?? "{}");
+    return Number(parsed.status) || null;
+  } catch {
+    return null;
+  }
+}
+
+async function writeDocument(input, options = {}) {
+  if (options.dryRun) {
+    return { action: "planned", document: { slug: documentSlugFromInput(input), ...input } };
+  }
+
+  try {
+    const created = await frege("/api/v1/documents", { method: "POST", body: input });
+    return { action: "created", document: created.document };
+  } catch (err) {
+    if (options.createOnly || httpStatusFromError(err) !== 409) throw err;
+  }
+
+  const slug = documentSlugFromInput(input);
+  const updated = await frege(`/api/v1/documents/${encodeURIComponent(slug)}`, {
+    method: "PUT",
+    body: {
+      title: input.title,
+      sensitivity: input.sensitivity,
+      status: input.status,
+      tags: input.tags,
+      summary: input.summary,
+      body_md: input.body_md,
+    },
+  });
+  return { action: "updated", document: updated.document };
+}
+
+function formatDocumentWrite(result) {
+  const doc = result.document ?? {};
+  const revision = doc.revision_number ? ` rev ${doc.revision_number}` : "";
+  return `${result.action}: ${doc.slug ?? "-"} (${doc.path ?? "-"})${revision}`;
+}
+
+function parseScalar(value) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return "";
+  if (trimmed === "true") return true;
+  if (trimmed === "false") return false;
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    return trimmed
+      .slice(1, -1)
+      .split(",")
+      .map((item) => item.trim().replace(/^["']|["']$/g, ""))
+      .filter(Boolean);
+  }
+  return trimmed.replace(/^["']|["']$/g, "");
+}
+
+function parseSimpleManifest(text, filename) {
+  if (/\.json$/i.test(filename)) return JSON.parse(text);
+
+  const manifest = { defaults: {}, documents: [] };
+  let section = null;
+  let currentDocument = null;
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const withoutComment = rawLine.replace(/\s+#.*$/, "");
+    if (!withoutComment.trim()) continue;
+
+    const topLevel = withoutComment.match(/^([a-zA-Z0-9_-]+):\s*(.*)$/);
+    if (topLevel) {
+      const [, key, value] = topLevel;
+      if (key === "defaults" || key === "documents") {
+        section = key;
+        currentDocument = null;
+        continue;
+      }
+      manifest[key] = parseScalar(value);
+      section = null;
+      currentDocument = null;
+      continue;
+    }
+
+    if (section === "defaults") {
+      const field = withoutComment.match(/^\s+([a-zA-Z0-9_-]+):\s*(.*)$/);
+      if (field) manifest.defaults[field[1]] = parseScalar(field[2]);
+      continue;
+    }
+
+    if (section === "documents") {
+      const item = withoutComment.match(/^\s*-\s+([a-zA-Z0-9_-]+):\s*(.*)$/);
+      if (item) {
+        currentDocument = { [item[1]]: parseScalar(item[2]) };
+        manifest.documents.push(currentDocument);
+        continue;
+      }
+      const field = withoutComment.match(/^\s+([a-zA-Z0-9_-]+):\s*(.*)$/);
+      if (field && currentDocument) currentDocument[field[1]] = parseScalar(field[2]);
+    }
+  }
+
+  return manifest;
 }
 
 async function callTool(name, input = {}) {
@@ -589,6 +861,7 @@ async function callTool(name, input = {}) {
     return frege("/api/v1/documents", {
       method: "POST",
       body: {
+        slug: input.slug,
         path: input.path,
         title: input.title,
         sensitivity: input.sensitivity,
@@ -870,9 +1143,27 @@ async function listDocuments(args) {
   console.log(JSON.stringify(docs, null, 2));
 }
 
+async function readDocumentCli(args) {
+  const slug = args._[2] || args.slug || "";
+  if (!slug) throw new Error("Missing slug. Use: frege docs read <slug>");
+  const doc = await frege(`/api/v1/documents/${encodeURIComponent(slug)}`);
+  if (args.body) {
+    console.log(doc.document?.body_md ?? "");
+    return;
+  }
+  console.log(JSON.stringify(doc, null, 2));
+}
+
 async function searchDocuments(args) {
   const query = args._.slice(1).join(" ") || args.query || args.q;
   if (!query) throw new Error('Missing query. Use: frege search "refund policy"');
+  const docs = await frege(`/api/v1/documents/search${queryString({ q: query, limit: args.limit })}`);
+  console.log(JSON.stringify(docs, null, 2));
+}
+
+async function searchDocumentsFromDocsCommand(args) {
+  const query = args._.slice(2).join(" ") || args.query || args.q;
+  if (!query) throw new Error('Missing query. Use: frege docs search "refund policy"');
   const docs = await frege(`/api/v1/documents/search${queryString({ q: query, limit: args.limit })}`);
   console.log(JSON.stringify(docs, null, 2));
 }
@@ -888,6 +1179,91 @@ async function buildContextCli(args) {
     },
   });
   console.log(JSON.stringify(packet, null, 2));
+}
+
+async function pushDocumentsCli(args) {
+  const target = args._[2];
+  if (!target) throw new Error("Missing path. Use: frege docs push <file-or-dir>");
+
+  const base = firstValue(args.base, process.cwd());
+  const files = await collectDocumentFiles(target, {
+    base,
+    include: asArray(args.include),
+    exclude: asArray(args.exclude),
+  });
+  if (files.length === 0) {
+    console.log("No matching markdown files.");
+    return;
+  }
+
+  const common = {
+    base,
+    sensitivity: firstValue(args.sensitivity, "internal"),
+    status: firstValue(args.status, "published"),
+    tags: asArray(args.tag).concat(asArray(args.tags)),
+    summary: firstValue(args.summary),
+  };
+  const dryRun = Boolean(args["dry-run"]);
+  const results = [];
+
+  for (const file of files) {
+    const perFile = files.length === 1
+      ? {
+          title: firstValue(args.title),
+          slug: firstValue(args.slug),
+          path: firstValue(args.path),
+        }
+      : {};
+    const input = await documentInputFromFile(file, { ...common, ...perFile });
+    const result = await writeDocument(input, {
+      dryRun,
+      createOnly: Boolean(args["create-only"]),
+    });
+    results.push(result);
+    console.log(formatDocumentWrite(result));
+  }
+
+  if (args.json) console.log(JSON.stringify({ documents: results }, null, 2));
+}
+
+async function syncDocumentsCli(args) {
+  const manifestPath = args._[2] || "frege.docs.yml";
+  const manifestFile = path.resolve(process.cwd(), manifestPath);
+  const manifest = parseSimpleManifest(await readFile(manifestFile, "utf8"), manifestFile);
+  const base = path.resolve(path.dirname(manifestFile), manifest.base ?? ".");
+  const defaults = manifest.defaults ?? {};
+  const documents = Array.isArray(manifest.documents) ? manifest.documents : [];
+  if (documents.length === 0) throw new Error(`No documents in ${manifestPath}`);
+
+  const dryRun = Boolean(args["dry-run"]);
+  const results = [];
+  for (const entry of documents) {
+    if (!entry.path) throw new Error(`Document entry is missing path in ${manifestPath}`);
+    const files = await collectDocumentFiles(entry.path, {
+      base,
+      include: asArray(entry.include ?? defaults.include),
+      exclude: asArray(entry.exclude ?? defaults.exclude),
+    });
+    for (const file of files) {
+      const input = await documentInputFromFile(file, {
+        base,
+        sensitivity: entry.sensitivity ?? defaults.sensitivity ?? "internal",
+        status: entry.status ?? defaults.status ?? "published",
+        tags: asArray(defaults.tags).concat(asArray(entry.tags)),
+        title: entry.title,
+        slug: entry.slug,
+        summary: entry.summary,
+      });
+      const result = await writeDocument(input, {
+        dryRun,
+        createOnly: Boolean(args["create-only"] || entry.create_only),
+      });
+      results.push(result);
+      console.log(formatDocumentWrite(result));
+    }
+  }
+
+  if (args.json) console.log(JSON.stringify({ documents: results }, null, 2));
 }
 
 async function installAgent(args) {
@@ -918,7 +1294,12 @@ Usage:
   frege connect ... --no-register                   connect without registering MCP clients
   frege doctor                                       check stored config and connectivity
   frege status
-  frege docs
+  frege docs list
+  frege docs read <slug> [--body]
+  frege docs search "query"
+  frege docs push <file-or-dir> --sensitivity internal --tag product
+  frege docs push docs --include "**/*.md" --exclude "**/HANDOFF.md" --dry-run
+  frege docs sync frege.docs.yml [--dry-run]
   frege search "query"
   frege context "query"
   frege mcp serve
@@ -963,8 +1344,27 @@ async function main() {
     return;
   }
   if (command === "docs" || command === "documents") {
-    await listDocuments(args);
-    return;
+    if (!subcommand || subcommand === "list") {
+      await listDocuments(args);
+      return;
+    }
+    if (subcommand === "read") {
+      await readDocumentCli(args);
+      return;
+    }
+    if (subcommand === "search") {
+      await searchDocumentsFromDocsCommand(args);
+      return;
+    }
+    if (subcommand === "push") {
+      await pushDocumentsCli(args);
+      return;
+    }
+    if (subcommand === "sync") {
+      await syncDocumentsCli(args);
+      return;
+    }
+    throw new Error(`Unknown docs command: ${subcommand}`);
   }
   if (command === "search") {
     await searchDocuments(args);
