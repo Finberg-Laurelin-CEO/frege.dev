@@ -742,7 +742,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
 
               <div className={styles.section}>
                 <h2 className={styles.sectionTitle}>agent install commands</h2>
-                <pre className={styles.codeBlock}>{`npm install -g @frege/cli
+                <pre className={styles.codeBlock}>{`npm install -g @frege-dev/cli
 
 # zsh PATH fallback if frege is not found:
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc

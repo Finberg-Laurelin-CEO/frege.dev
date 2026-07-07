@@ -1,4 +1,4 @@
-# @frege/cli
+# @frege-dev/cli
 
 Frege CLI and MCP thin client.
 
@@ -18,7 +18,7 @@ npm --version
 ## Install
 
 ```bash
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 ```
 
 Verify:
@@ -168,7 +168,7 @@ For canonical brain pages and graph traversal, have the agent propose wikilinked
 ### `frege: command not found`
 
 ```bash
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -206,7 +206,7 @@ Use npm now because the CLI is Node-based and already exposes npm binaries. Add 
 
 ```bash
 # Now
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 
 # Later
 brew tap frege-dev/tap

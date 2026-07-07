@@ -153,7 +153,7 @@ export default function DocsPage() {
           the <code>frege</code> command is on your path.
         </p>
         <pre><code>{`# Install
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 
 # Verify
 frege --help`}</code></pre>
@@ -271,7 +271,7 @@ frege context "how does Frege signup work?"`}</code></pre>
 
 - Confirm Node.js 20+ is installed.
 - Install the Frege CLI:
-  npm install -g @frege/cli
+  npm install -g @frege-dev/cli
 - Make sure the shell can call frege directly: command -v frege.
 - Run frege connect with the base URL and API key I provide.
   It verifies the key and auto-registers this client; show me the
@@ -314,7 +314,7 @@ frege context "how does Frege signup work?"`}</code></pre>
       <section id="troubleshooting">
         <h2>Troubleshooting</h2>
         <h3><code>frege: command not found</code></h3>
-        <pre><code>{`npm install -g @frege/cli
+        <pre><code>{`npm install -g @frege-dev/cli
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -351,8 +351,8 @@ frege doctor`}</code></pre>
           <code> frege</code> and <code>frege-mcp</code> binaries. Homebrew is a good later macOS
           convenience once releases, checksums, and a tap are stable.
         </p>
-        <pre><code>{`npm install -g @frege/cli
-npm update -g @frege/cli
+        <pre><code>{`npm install -g @frege-dev/cli
+npm update -g @frege-dev/cli
 
 # Planned: Homebrew tap
 brew tap frege-dev/tap

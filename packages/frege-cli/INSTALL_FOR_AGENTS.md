@@ -43,7 +43,7 @@ Frege requires Node.js 20 or newer. If Node is too old, stop and tell the user t
 ## Step 3: Install the CLI
 
 ```bash
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 ```
 
 Local repo development path:
@@ -201,7 +201,7 @@ Markdown wikilinks such as `[[hosted brain architecture]]` are okay to preserve 
 ### `frege: command not found`
 
 ```bash
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -265,7 +265,7 @@ Use npm now. Add Homebrew later.
 
 ```bash
 # Now
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 
 # Later
 brew tap frege-dev/tap

@@ -22,7 +22,7 @@ If Node is older than 20, install a newer Node first, then reinstall Frege.
 ## Install the CLI
 
 ```bash
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 ```
 
 Verify the terminal can run Frege:
@@ -193,7 +193,7 @@ frege_get_agent_run
 ### `frege: command not found`
 
 ```bash
-npm install -g @frege/cli
+npm install -g @frege-dev/cli
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -256,8 +256,8 @@ Why npm now:
 - Pilot users can install and update quickly.
 
 ```bash
-npm install -g @frege/cli
-npm update -g @frege/cli
+npm install -g @frege-dev/cli
+npm update -g @frege-dev/cli
 ```
 
 Homebrew is a good future macOS convenience once the CLI has stable releases, tarballs, checksums, and a tap:
