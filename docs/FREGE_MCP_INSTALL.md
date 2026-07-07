@@ -29,7 +29,7 @@ Verify the terminal can run Frege:
 
 ```bash
 command -v frege
-frege --help
+frege help
 ```
 
 ## zsh setup for direct `frege` calls
@@ -44,7 +44,7 @@ source ~/.zshrc
 hash -r
 
 command -v frege
-frege --help
+frege help
 ```
 
 Some npm versions support `npm bin -g`. If yours does, it should point at the same global bin directory.
@@ -198,6 +198,16 @@ npm install -g @frege-dev/cli
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 command -v frege
+```
+
+### `EEXIST: file already exists`
+
+This means an older local or GitHub install already created `frege` or `frege-mcp` on your PATH. Remove the old Frege package and stale wrappers, then reinstall:
+
+```bash
+npm uninstall -g @frege/cli @frege-dev/cli
+rm -f ~/.local/bin/frege ~/.local/bin/frege-mcp
+npm install -g @frege-dev/cli
 ```
 
 ### Node version error

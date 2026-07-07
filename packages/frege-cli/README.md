@@ -25,7 +25,7 @@ Verify:
 
 ```bash
 command -v frege
-frege --help
+frege help
 ```
 
 ## zsh PATH setup
@@ -40,7 +40,7 @@ source ~/.zshrc
 hash -r
 
 command -v frege
-frege --help
+frege help
 ```
 
 If a GUI MCP client cannot find `frege`, use the absolute path from `command -v frege` in that client's MCP config.
@@ -173,6 +173,16 @@ npm install -g @frege-dev/cli
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 command -v frege
+```
+
+### `EEXIST: file already exists`
+
+This usually means an older local or GitHub install already created `frege` or `frege-mcp` on your PATH. Remove the old Frege package and any stale wrappers, then reinstall:
+
+```bash
+npm uninstall -g @frege/cli @frege-dev/cli
+rm -f ~/.local/bin/frege ~/.local/bin/frege-mcp
+npm install -g @frege-dev/cli
 ```
 
 ### Node version error

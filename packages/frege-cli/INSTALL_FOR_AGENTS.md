@@ -57,7 +57,7 @@ Verify:
 
 ```bash
 command -v frege
-frege --help
+frege help
 ```
 
 ## Step 4: Make zsh able to call `frege`
@@ -72,7 +72,7 @@ source ~/.zshrc
 hash -r
 
 command -v frege
-frege --help
+frege help
 ```
 
 If the MCP client is launched from a GUI and still cannot find `frege`, use the absolute path from `command -v frege` in the client config.
@@ -206,6 +206,16 @@ npm install -g @frege-dev/cli
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 command -v frege
+```
+
+### `EEXIST: file already exists`
+
+An older local or GitHub install may already own `frege` or `frege-mcp`. Remove old Frege installs and stale wrappers, then reinstall:
+
+```bash
+npm uninstall -g @frege/cli @frege-dev/cli
+rm -f ~/.local/bin/frege ~/.local/bin/frege-mcp
+npm install -g @frege-dev/cli
 ```
 
 ### Node version error

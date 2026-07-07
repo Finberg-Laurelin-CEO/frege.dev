@@ -1321,6 +1321,10 @@ Local config:
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.help || args.h || args._[0] === "help" || args._[0] === "--help" || args._[0] === "-h") {
+    printHelp();
+    return;
+  }
   const command = args._[0] ?? "serve";
   const subcommand = args._[1];
   if (command === "mcp" && subcommand === "serve") {
@@ -1376,10 +1380,6 @@ async function main() {
   }
   if (command === "agent" && subcommand === "install") {
     await installAgent(args);
-    return;
-  }
-  if (command === "help" || command === "--help" || command === "-h") {
-    printHelp();
     return;
   }
   throw new Error(`Unknown command: ${command}`);

@@ -156,7 +156,7 @@ export default function DocsPage() {
 npm install -g @frege-dev/cli
 
 # Verify
-frege --help`}</code></pre>
+frege help`}</code></pre>
         <p className="docs__note">
           Frege MCP stays local: <code>frege mcp serve</code> runs on the agent machine and calls
           Frege-hosted APIs with the locally stored API key.
@@ -176,7 +176,7 @@ source ~/.zshrc
 hash -r
 
 command -v frege
-frege --help`}</code></pre>
+frege help`}</code></pre>
         <p className="docs__note">
           Some npm versions support <code>npm bin -g</code>. If yours does, it should point at
           the same bin directory that zsh needs in <code>PATH</code>.
@@ -319,6 +319,14 @@ frege context "how does Frege signup work?"`}</code></pre>
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 command -v frege`}</code></pre>
+        <h3><code>EEXIST: file already exists</code></h3>
+        <p>
+          An older local or GitHub install may already own <code>frege</code> or{" "}
+          <code>frege-mcp</code>. Remove old Frege installs and stale wrappers, then reinstall.
+        </p>
+        <pre><code>{`npm uninstall -g @frege/cli @frege-dev/cli
+rm -f ~/.local/bin/frege ~/.local/bin/frege-mcp
+npm install -g @frege-dev/cli`}</code></pre>
         <h3>Node version error</h3>
         <pre><code>{`node --version`}</code></pre>
         <p>Install Node.js 20 or newer, then reinstall the CLI.</p>

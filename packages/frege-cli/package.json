@@ -1,6 +1,6 @@
 {
   "name": "@frege-dev/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Frege CLI and MCP thin client for agent-side org memory access.",
   "type": "module",
   "license": "UNLICENSED",
