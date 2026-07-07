@@ -10,7 +10,7 @@ The browser app may live at `https://brain.frege.dev`, but MCP does not depend o
 - zsh, bash, or another POSIX-style shell
 - Node.js 20 or newer
 - npm
-- A Frege API key that starts with `frg_live_`
+- A Frege API key that starts with `frg_live_` before connection or MCP use
 
 Check your runtime:
 
@@ -21,33 +21,48 @@ npm --version
 
 If Node is older than 20, install a newer Node first, then reinstall Frege.
 
+## Fast path
+
+1. The user signs up, pays or enters a Frege code in Stripe, then opens the control plane.
+2. An admin creates a scoped API key for an active org and role.
+3. The user gives the key to a local agent through a private channel.
+4. The agent installs `@frege-dev/cli`, runs `frege connect`, registers MCP, and verifies `frege_status`.
+
+The CLI can install without an API key, but Frege is not connected until `frege connect` verifies a valid key from an active org.
+
 ## Install with an agent
 
 Give this to the user's coding agent after the user has a valid Frege API key for an active org. The agent can install the CLI without a key, but it cannot connect, register usable MCP tools, or read Frege context until `frege connect` verifies that key.
 
 ```text
-Set up Frege MCP for this machine.
+Install Frege MCP for this machine.
 
-Prerequisite: I must provide a valid Frege API key from an active org.
-If I do not provide one, install the CLI only, then stop and ask me to create or copy a key from Frege.
+Inputs:
+- API base: https://frege.dev
+- I will provide FREGE_API_KEY separately. It starts with frg_live_.
 
-API base: https://frege.dev
-The browser app may open on https://brain.frege.dev. That does not change MCP setup.
+Important:
+- The browser app may open on https://brain.frege.dev. That is fine.
+- MCP uses the API base above for /api/v1 calls.
+- You may install the CLI without a key.
+- Do not treat MCP as ready until frege connect and frege doctor both succeed.
+- Do not print the full key or put it in MCP JSON, docs, screenshots, shell startup files, or chat summaries.
 
-Do this directly:
+Steps:
 1. Confirm Node.js 20+ and npm are available.
-2. Run npm install -g @frege-dev/cli.
-3. Run command -v frege and frege help.
-4. If npm reports EEXIST or frege is not found, use the troubleshooting steps at https://frege.dev/docs.
-5. Connect with the real key I provide:
-   frege connect https://frege.dev --token <valid-frg-live-key>
-6. Do not put the key in MCP JSON, docs, screenshots, shell startup files, or chat summaries. Do not repeat it back.
-7. Run frege doctor and show me only the org, orgStatus, role, and key prefix.
-8. If frege connect or frege doctor fails, stop. The key may be invalid, revoked, expired, or attached to an inactive org.
-9. Register MCP with this agent/client using frege mcp serve.
-10. If available, run frege agent install codex or frege agent install claude.
-11. Otherwise configure MCP with command "frege" and args ["mcp", "serve"].
-12. From the MCP client, call frege_status and confirm it matches frege doctor.
+2. Run: npm install -g @frege-dev/cli
+3. Verify: command -v frege && frege help
+4. If npm reports EEXIST or frege is not found, use https://frege.dev/docs troubleshooting.
+5. Connect with the key I provide:
+   frege connect https://frege.dev --token "$FREGE_API_KEY"
+6. Run: frege doctor
+7. Show me only org, orgStatus, role, and key prefix.
+8. If connect or doctor fails, stop and ask for a valid key from an active org.
+9. Register MCP:
+   frege agent install codex
+   frege agent install claude
+   If neither is available, configure command "frege" with args ["mcp", "serve"].
+10. From the MCP client, call frege_status and confirm it matches frege doctor.
 ```
 
 ## Install the CLI

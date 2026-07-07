@@ -4,6 +4,18 @@ Read this file, then install the Frege CLI for the user. Do not ask the user to 
 
 The browser app may live at `https://brain.frege.dev`, but MCP does not depend on that subdomain. The CLI only needs an API base URL that serves Frege's `/api/v1` routes. Use `https://frege.dev` as the canonical hosted API base unless Frege support gives the user a different one.
 
+## Fast path
+
+1. Confirm Node.js 20+ and npm.
+2. Install `@frege-dev/cli`.
+3. Verify `command -v frege` and `frege help`.
+4. Connect with the user's valid `frg_live_...` key.
+5. Run `frege doctor`.
+6. Register MCP with `frege agent install codex`, `frege agent install claude`, or command `frege` with args `["mcp", "serve"]`.
+7. From the MCP client, call `frege_status` and confirm it matches `frege doctor`.
+
+The CLI can install without an API key, but Frege is not connected until `frege connect` verifies a valid key from an active org.
+
 ## Step 1: Get the Frege connection details
 
 Ask the user for:

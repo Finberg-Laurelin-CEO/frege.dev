@@ -3,104 +3,130 @@ import type { Metadata } from "next";
 const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
 
 const toc: [string, string, string][] = [
-  ["01", "overview", "Overview"],
-  ["02", "org-setup", "Organization setup"],
+  ["01", "overview", "Fast path"],
+  ["02", "org-setup", "Who does what"],
   ["03", "api-keys", "API keys"],
-  ["04", "agent-install", "Install with an agent"],
-  ["05", "cli-install", "Install the CLI"],
-  ["06", "zsh-path", "zsh terminal setup"],
+  ["04", "agent-install", "Agent install"],
+  ["05", "cli-install", "CLI install"],
+  ["06", "zsh-path", "Path fixes"],
   ["07", "mcp-register", "Register MCP"],
   ["08", "docs-push", "Push documents"],
-  ["09", "agent-instructions", "Agent instructions"],
-  ["10", "tools", "Available tools"],
+  ["09", "agent-instructions", "Agent rules"],
+  ["10", "tools", "MCP tools"],
   ["11", "troubleshooting", "Troubleshooting"],
   ["12", "security", "Security"],
 ];
 
-const setupSteps: [string, string][] = [
-  ["Sign in", "Open the protected Frege control plane and choose or create your organization."],
-  ["Create roles", "Define what an agent can read, whether it can write sessions, and whether it can propose memory."],
-  ["Generate a valid key", "Create a per-user API key for an active org. Frege shows the raw key once."],
-  ["Give agent prompt", "Ask the user's agent to install the CLI, connect the key, and register MCP."],
-  ["Register MCP", "Point Claude Code, Codex, or another MCP client at frege mcp serve."],
-  ["Push docs", "Have the agent push approved markdown with frege docs push or frege docs sync."],
-  ["Review memory", "Agent discoveries become proposals. Admins accept or reject them before they become canonical pages."],
+const quickFacts: [string, string, string][] = [
+  ["Human app", "https://brain.frege.dev", "Where users sign in, manage orgs, billing, roles, API keys, and memory review."],
+  ["API base", "https://frege.dev", "What the CLI and MCP server call for /api/v1 routes unless Frege support gives another base."],
+  ["CLI package", "@frege-dev/cli", "Public npm package that installs the frege and frege-mcp commands."],
+  ["MCP command", "frege mcp serve", "Local stdio server used by Codex, Claude Code, and other MCP clients."],
+];
+
+const fastPath: [string, string, string][] = [
+  ["1", "Create the account", "The user signs up, pays or enters a Frege code in Stripe, then opens the Frege control plane."],
+  ["2", "Create an API key", "An admin creates a scoped key for an active org and a specific role. The raw key is shown once."],
+  ["3", "Hand setup to an agent", "Give the agent the prompt below plus the key through a private channel. The agent installs the CLI and verifies the key."],
+  ["4", "Use Frege from MCP", "The MCP client calls frege_status first, then searches, reads, builds context, and pushes approved docs."],
+];
+
+const responsibilityRows: [string, string, string][] = [
+  ["User/admin", "Create account, choose plan, create roles, generate keys, review memory proposals.", "Browser app"],
+  ["Local agent", "Install @frege-dev/cli, run frege connect, register frege mcp serve, push approved markdown.", "Terminal"],
+  ["Frege", "Validate the key, enforce org and role scope, audit reads and writes, reject inactive orgs.", "Hosted API"],
 ];
 
 const mcpTools: [string, string][] = [
   ["frege_status", "Confirm org, role, key prefix, and connectivity."],
   ["frege_brain_status", "Inspect hosted brain status, indexed pages, and source counts."],
-  ["frege_list_sources", "List source collections the connected key can see."],
   ["frege_search_pages", "Search brain pages the caller is allowed to see."],
   ["frege_get_page", "Read a specific page and its revisions."],
   ["frege_build_context", "Assemble scoped, cited context for a task before answering."],
-  ["frege_start_session", "Open a session ledger for a substantial workflow."],
-  ["frege_append_session_event", "Record task activity onto the active session."],
-  ["frege_get_session", "Read an existing session and its redacted events."],
-  ["frege_search_sessions", "Find past sessions by title, client, or goal."],
   ["frege_create_document", "Create a document from user-approved markdown."],
   ["frege_read_document", "Read a visible document by slug."],
   ["frege_search_documents", "Search visible documents by text, title, path, or tag."],
   ["frege_write_page_proposal", "Submit a reviewable update instead of editing canonical knowledge."],
-  ["frege_add_source_proposal", "Propose a new source for human review."],
+  ["frege_start_session", "Open a session ledger for a substantial workflow."],
+  ["frege_append_session_event", "Record task activity onto the active session."],
   ["frege_list_agents", "List Frege-hosted agents available to this org and role."],
   ["frege_run_agent", "Queue hosted agent work when the key has execution permission."],
   ["frege_get_agent_run", "Read status and output for a hosted agent run."],
 ];
 
-const agentInstallPrompt = `Set up Frege MCP for this machine.
+const agentInstallPrompt = `Install Frege MCP for this machine.
 
-Prerequisite: I must provide a valid Frege API key from an active org.
-If I do not provide one, install the CLI only, then stop and ask me to create or copy a key from Frege.
+Inputs:
+- API base: https://frege.dev
+- I will provide FREGE_API_KEY separately. It starts with frg_live_.
 
-API base: https://frege.dev
-The browser app may open on https://brain.frege.dev. That does not change MCP setup.
+Important:
+- The browser app may open on https://brain.frege.dev. That is fine.
+- MCP uses the API base above for /api/v1 calls.
+- You may install the CLI without a key.
+- Do not treat MCP as ready until frege connect and frege doctor both succeed.
+- Do not print the full key or put it in MCP JSON, docs, screenshots, shell startup files, or chat summaries.
 
-Do this directly:
+Steps:
 1. Confirm Node.js 20+ and npm are available.
-2. Run npm install -g @frege-dev/cli.
-3. Run command -v frege and frege help.
-4. If npm reports EEXIST or frege is not found, use the troubleshooting steps at https://frege.dev/docs.
-5. Connect with the real key I provide:
-   frege connect https://frege.dev --token <valid-frg-live-key>
-6. Do not put the key in MCP JSON, docs, screenshots, shell startup files, or chat summaries. Do not repeat it back.
-7. Run frege doctor and show me only the org, orgStatus, role, and key prefix.
-8. If frege connect or frege doctor fails, stop. The key may be invalid, revoked, expired, or attached to an inactive org.
-9. Register MCP with this agent/client using frege mcp serve.
-10. If available, run frege agent install codex or frege agent install claude.
-11. Otherwise configure MCP with command "frege" and args ["mcp", "serve"].
-12. From the MCP client, call frege_status and confirm it matches frege doctor.`;
+2. Run: npm install -g @frege-dev/cli
+3. Verify: command -v frege && frege help
+4. If npm reports EEXIST or frege is not found, use https://frege.dev/docs troubleshooting.
+5. Connect with the key I provide:
+   frege connect https://frege.dev --token "$FREGE_API_KEY"
+6. Run: frege doctor
+7. Show me only org, orgStatus, role, and key prefix.
+8. If connect or doctor fails, stop and ask for a valid key from an active org.
+9. Register MCP:
+   frege agent install codex
+   frege agent install claude
+   If neither is available, configure command "frege" with args ["mcp", "serve"].
+10. From the MCP client, call frege_status and confirm it matches frege doctor.`;
 
 export const metadata: Metadata = {
   title: "Frege Docs",
   description:
-    "Setup documentation for Frege orgs, API keys, MCP clients, zsh terminal setup, and governed agent memory.",
+    "Setup documentation for Frege orgs, API keys, MCP clients, CLI installation, and governed agent memory.",
   alternates: { canonical: "https://frege.dev/docs" },
   openGraph: {
     title: "Frege Docs",
     description:
-      "Setup documentation for Frege orgs, API keys, MCP clients, zsh terminal setup, and governed agent memory.",
+      "Setup documentation for Frege orgs, API keys, MCP clients, CLI installation, and governed agent memory.",
     url: "https://frege.dev/docs",
   },
 };
 
 export default function DocsPage() {
   return (
-    <main id="main" className="docs docs--withSidebar">
-      <header className="docs__head">
-        <p className="eyebrow">Documentation</p>
-        <h1>Set up Frege for your agents.</h1>
-        <p>
-          Frege is a hosted brain and control plane. Humans manage organizations, roles,
-          keys, and review queues. Agents connect over MCP and only receive context allowed
-          by their org, role, and trust zone.
-        </p>
-        <div className="hero__actions">
-          <a className="button button--primary" href="/login?next=/admin">Open control plane</a>
-          <a className="button" href="/architecture">Architecture</a>
-          <a className="button" href="/pricing">Pricing</a>
-          <a className="button" href={githubUrl}>View GitHub</a>
+    <main id="main" className="docs docs--withSidebar docs--install">
+      <header className="docs__head docs__head--install">
+        <div>
+          <p className="eyebrow">Documentation</p>
+          <h1>Set up Frege for agents.</h1>
+          <p className="docs__lead">
+            Frege is hosted. Users manage the browser app; agents install a small local CLI.
+            The only MCP server customers run is <code>frege mcp serve</code>, and it only
+            calls Frege APIs with a verified key.
+          </p>
+          <div className="hero__actions">
+            <a className="button button--primary" href="/signup">Start now</a>
+            <a className="button" href="/login?next=/admin">Open control plane</a>
+            <a className="button" href="/architecture">Architecture</a>
+            <a className="button" href={githubUrl}>GitHub</a>
+          </div>
         </div>
+
+        <dl className="docs__facts" aria-label="Frege install facts">
+          {quickFacts.map(([label, value, copy]) => (
+            <div key={label} className="docs__fact">
+              <dt>{label}</dt>
+              <dd>
+                <code>{value}</code>
+                <span>{copy}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
       </header>
 
       <div className="docs__layout">
@@ -111,106 +137,127 @@ export default function DocsPage() {
         </nav>
 
         <div className="docs__main">
-      <section id="overview">
-        <h2>Overview</h2>
-        <p>
-          A Frege brain stores institutional knowledge as versioned pages with sources,
-          links, and trust zones. Agents never read raw files. Instead they request scoped
-          context, and Frege resolves org, role, and source permissions before returning
-          anything. The shortest path from a new org to a working MCP agent:
-        </p>
-        <ol>
-          {setupSteps.map(([title, copy]) => (
-            <li key={title}><b>{title}</b>: {copy}</li>
-          ))}
-        </ol>
-      </section>
+          <section id="overview" className="docs__sectionTop">
+            <h2>Fast path</h2>
+            <p>
+              The simplest successful setup is: create an account, create a valid API key,
+              give the agent the install prompt, then verify MCP with <code>frege_status</code>.
+              No one should hand-edit secrets into MCP JSON.
+            </p>
 
-      <section id="org-setup">
-        <h2>Organization setup</h2>
-        <p>
-          Admins manage the org from the protected control plane (sign in at{" "}
-          <a className="lnk" href="/login?next=/admin">/login</a>). New organizations are
-          provisioned for customers. <a className="lnk" href="/signup">Create an account</a>{" "}
-          to get one. From the web app you create an org, invite members, define agent roles,
-          generate API keys, configure model providers, inspect sessions, and review memory
-          proposals.
-        </p>
-        <h3>What an org holds</h3>
-        <ul>
-          <li><b>Orgs</b>: create and switch organizations from the admin overview.</li>
-          <li><b>Roles</b>: readable labels, session permissions, memory-proposal rights, and agent execution rights.</li>
-          <li><b>API keys</b>: assigned to a human owner and role. Store the raw key immediately because it is shown once.</li>
-          <li><b>Telemetry</b>: reads, denied context, model calls, key activity, latency, and cost signals.</li>
-        </ul>
-        <p className="docs__note">
-          Org is always derived from the session or API key, never from client input, so an
-          agent can only ever see its own organization&apos;s knowledge.
-        </p>
-      </section>
+            <div className="docs__path" aria-label="Frege install path">
+              {fastPath.map(([n, title, copy]) => (
+                <article key={title} className="docs__pathItem">
+                  <span>{n}</span>
+                  <h3>{title}</h3>
+                  <p>{copy}</p>
+                </article>
+              ))}
+            </div>
 
-      <section id="api-keys">
-        <h2>API keys</h2>
-        <p>
-          Every agent connects with a per-identity API key issued from the control plane.
-          Keys inherit the role of the user they belong to, so an agent sees exactly what
-          that person is allowed to see. Assign the key to a human owner and a role, then
-          copy the raw key once. The org must be active and the key must verify before MCP
-          tools can read or write Frege context.
-        </p>
-        <ol>
-          <li>Open <a className="lnk" href="/login?next=/admin">the control plane</a>.</li>
-          <li>Choose the org.</li>
-          <li>Create or select an agent role.</li>
-          <li>Create an API key for that role and owner.</li>
-          <li>Copy the raw <code>frg_live_...</code> key immediately.</li>
-        </ol>
-        <p className="docs__note">
-          Keys are secrets. Session and proposal writes redact raw keys, passwords, and
-          provider tokens, but treat the key itself like any production credential.
-        </p>
-      </section>
+            <p className="docs__note">
+              The CLI can install without an API key, but Frege is not connected until
+              <code> frege connect</code> verifies a valid key from an active org.
+            </p>
+          </section>
 
-      <section id="agent-install">
-        <h2>Install with an agent</h2>
-        <p>
-          Give this prompt to the customer&apos;s coding agent after the customer has a valid
-          Frege API key for an active org. The agent can install the CLI without a key, but
-          it cannot connect, register usable MCP tools, or read Frege context until
-          <code> frege connect</code> verifies that key.
-        </p>
-        <pre><code>{agentInstallPrompt}</code></pre>
-        <p className="docs__note">
-          Browser traffic may land on <code>brain.frege.dev</code>. MCP does not depend on
-          that subdomain; it uses the configured API base URL for <code>/api/v1</code> calls.
-          Use <code>https://frege.dev</code> unless Frege support provides a different API base.
-        </p>
-      </section>
+          <section id="org-setup">
+            <h2>Who does what</h2>
+            <p>
+              Installation is clearer when the browser work and terminal work are kept
+              separate. The user owns billing, org setup, and keys. The agent owns local CLI
+              setup after the user provides a key.
+            </p>
+            <div className="docs__matrix">
+              {responsibilityRows.map(([role, work, surface]) => (
+                <div key={role} className="docs__matrixRow">
+                  <strong>{role}</strong>
+                  <span>{work}</span>
+                  <code>{surface}</code>
+                </div>
+              ))}
+            </div>
+            <p>
+              Admins use the protected <a className="lnk" href="/login?next=/admin">control plane</a>{" "}
+              to create organizations, invite members, define roles, generate API keys,
+              inspect sessions, and review memory proposals.
+            </p>
+          </section>
 
-      <section id="cli-install">
-        <h2>Install the CLI</h2>
-        <p>
-          The CLI is a Node.js executable (Node 20+). Install it globally with npm, then verify
-          the <code>frege</code> command is on your path.
-        </p>
-        <pre><code>{`# Install
-npm install -g @frege-dev/cli
+          <section id="api-keys">
+            <h2>API keys</h2>
+            <p>
+              Every agent connects with a per-identity API key issued from the control plane.
+              Keys inherit the role of the user they belong to, so an agent sees exactly what
+              that role is allowed to see.
+            </p>
+            <ol className="docs__checklist">
+              <li>Open <a className="lnk" href="/login?next=/admin">the control plane</a>.</li>
+              <li>Choose the organization.</li>
+              <li>Create or select an agent role.</li>
+              <li>Create an API key for that role and owner.</li>
+              <li>Copy the raw <code>frg_live_...</code> key immediately. It is shown once.</li>
+            </ol>
+            <p className="docs__note">
+              The org must be active, the key must be unrevoked, and <code>frege connect</code>
+              must verify it before MCP tools can read or write Frege context.
+            </p>
+          </section>
 
-# Verify
+          <section id="agent-install">
+            <h2>Install with an agent</h2>
+            <p>
+              This is the recommended customer workflow. Paste the prompt into Codex, Claude
+              Code, or another local coding agent. Provide the API key separately and tell the
+              agent not to echo it.
+            </p>
+            <div className="docs__codeShell">
+              <div className="docs__codeHead">
+                <span>copy into agent</span>
+                <code>Frege MCP install prompt</code>
+              </div>
+              <pre><code>{agentInstallPrompt}</code></pre>
+            </div>
+            <p className="docs__note">
+              Browser traffic may land on <code>brain.frege.dev</code>. MCP does not depend on
+              that subdomain. It uses <code>https://frege.dev</code> for <code>/api/v1</code> calls
+              unless Frege support gives a customer-specific API base.
+            </p>
+          </section>
+
+          <section id="cli-install">
+            <h2>Install the CLI</h2>
+            <p>
+              If you are doing the setup yourself instead of through an agent, install the
+              public npm package and verify the command is on your path.
+            </p>
+            <div className="docs__twoCol">
+              <div className="docs__panel">
+                <h3>Install</h3>
+                <pre><code>{`npm install -g @frege-dev/cli
+command -v frege
 frege help`}</code></pre>
-        <p className="docs__note">
-          Frege MCP stays local: <code>frege mcp serve</code> runs on the agent machine and calls
-          Frege-hosted APIs with the locally stored API key.
-        </p>
-      </section>
+              </div>
+              <div className="docs__panel">
+                <h3>Connect</h3>
+                <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>
+frege doctor`}</code></pre>
+              </div>
+            </div>
+            <p>
+              <code>frege connect</code> verifies the key, saves local config at
+              <code> ~/.frege/mcp/config.json</code>, prints org status, and tries to register
+              MCP clients it can detect.
+            </p>
+          </section>
 
-      <section id="zsh-path">
-        <h2>Make <code>frege</code> available in zsh</h2>
-        <p>
-          If zsh says <code>frege: command not found</code>, add npm&apos;s global bin directory to
-          your shell path.
-        </p>
-        <pre><code>{`npm config get prefix
+          <section id="zsh-path">
+            <h2>Path fixes</h2>
+            <p>
+              If zsh says <code>frege: command not found</code>, add npm&apos;s global bin
+              directory to your shell path.
+            </p>
+            <pre><code>{`npm config get prefix
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
@@ -218,49 +265,27 @@ hash -r
 
 command -v frege
 frege help`}</code></pre>
-        <p className="docs__note">
-          Some npm versions support <code>npm bin -g</code>. If yours does, it should point at
-          the same bin directory that zsh needs in <code>PATH</code>.
-        </p>
-      </section>
+            <p>
+              GUI-launched MCP clients may still miss your shell path. In that case, use the
+              full path from <code>command -v frege</code> as the MCP command.
+            </p>
+          </section>
 
-      <section id="mcp-register">
-        <h2>Connect and register MCP</h2>
-        <p>
-          One command does everything. <code>frege connect</code> verifies that the key belongs to
-          an active org, saves local config, and automatically registers
-          <code> frege mcp serve</code> with any MCP client it finds (Claude Code, Codex). After it
-          prints your org, active status, and role, you are ready to use Frege from that agent.
-        </p>
-        <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>`}</code></pre>
-        <p>Expected output:</p>
-        <pre><code>{`Frege config saved to ~/.frege/mcp/config.json
-Connected: org acme (active), role reader, key abc123
-
-Registering Frege with Claude Code... done
-Registering Frege with Codex... done
-
-You're set. Restart your MCP client if it was already running.`}</code></pre>
-        <p>
-          That is the whole setup. Restart your agent client if it was already running, and the
-          Frege tools are available.
-        </p>
-        <p className="docs__note">
-          If <code>frege connect</code> or <code>frege doctor</code> fails, MCP setup is not complete.
-          Use a valid, unrevoked key from an active org.
-        </p>
-        <h3>If a client is not detected</h3>
-        <p>
-          Install the client CLI, then register it explicitly. This is the same command
-          <code> frege connect</code> runs for you:
-        </p>
-        <pre><code>{`frege agent install claude
-frege agent install codex`}</code></pre>
-        <h3>Manual / generic MCP JSON</h3>
-        <p>
-          Use <code>--no-register</code> to skip auto-registration, or configure a client by hand:
-        </p>
-        <pre><code>{`{
+          <section id="mcp-register">
+            <h2>Register MCP</h2>
+            <p>
+              Usually <code>frege connect</code> handles this for you. If a client was not
+              detected, register it explicitly after <code>frege doctor</code> succeeds.
+            </p>
+            <div className="docs__twoCol">
+              <div className="docs__panel">
+                <h3>Preferred</h3>
+                <pre><code>{`frege agent install codex
+frege agent install claude`}</code></pre>
+              </div>
+              <div className="docs__panel">
+                <h3>Generic MCP JSON</h3>
+                <pre><code>{`{
   "mcpServers": {
     "frege": {
       "command": "frege",
@@ -268,150 +293,118 @@ frege agent install codex`}</code></pre>
     }
   }
 }`}</code></pre>
-        <p className="docs__note">
-          The API key lives only in <code>~/.frege/mcp/config.json</code>, so MCP client JSON never
-          needs to contain it. <code>FREGE_BASE_URL</code> and <code>FREGE_API_KEY</code> override
-          local config for automation.
-        </p>
-      </section>
+              </div>
+            </div>
+            <p className="docs__note">
+              The API key belongs in <code>~/.frege/mcp/config.json</code>, not MCP client JSON.
+              If <code>frege_status</code> does not match <code>frege doctor</code>, the setup is
+              not complete.
+            </p>
+          </section>
 
-      <section id="docs-push">
-        <h2>Push markdown documents</h2>
-        <p>
-          Agents should load user-approved markdown through the CLI. The terminal shows exactly
-          what was pushed, and Frege records the write through the same org, role, and audit
-          controls as MCP.
-        </p>
-        <h3>One file</h3>
-        <pre><code>{`frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \\
+          <section id="docs-push">
+            <h2>Push markdown documents</h2>
+            <p>
+              Agents should load user-approved markdown through the CLI. The terminal shows
+              exactly what was pushed, and Frege records the write through the same org, role,
+              and audit controls as MCP.
+            </p>
+            <div className="docs__codeShell">
+              <div className="docs__codeHead">
+                <span>demo workflow</span>
+                <code>push docs into Frege</code>
+              </div>
+              <pre><code>{`# One file
+frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \\
   --sensitivity internal \\
   --tag frege-demo \\
-  --tag operations`}</code></pre>
-        <h3>Directory preview</h3>
-        <pre><code>{`frege docs push docs \\
+  --tag operations
+
+# Preview a directory before writing
+frege docs push docs \\
   --include "**/*.md" \\
   --exclude "**/HANDOFF.md" \\
   --sensitivity internal \\
-  --dry-run`}</code></pre>
-        <h3>Manifest sync</h3>
-        <pre><code>{`frege docs sync frege.docs.yml --dry-run
+  --dry-run
+
+# Repeatable manifest sync
+frege docs sync frege.docs.yml --dry-run
 frege docs sync frege.docs.yml
 frege docs list
-frege docs read hosted-brain-architecture
 frege context "how does Frege signup work?"`}</code></pre>
-        <p className="docs__note">
-          Markdown wikilinks such as <code>[[hosted brain architecture]]</code> are preserved in
-          pushed documents. For canonical graph-connected brain pages, ask the agent to submit a
-          reviewable wikilinked page proposal with <code>frege_write_page_proposal</code>.
-        </p>
-      </section>
+            </div>
+            <p className="docs__note">
+              Markdown wikilinks such as <code>[[hosted brain architecture]]</code> are
+              preserved. For canonical graph-connected brain pages, ask the agent to submit a
+              reviewable wikilinked page proposal with <code>frege_write_page_proposal</code>.
+            </p>
+          </section>
 
-      <section id="agent-instructions">
-        <h2>Agent instructions</h2>
-        <p>
-          Give this to an agent that is installing Frege. It keeps day-to-day task activity in
-          the session ledger while durable changes flow through review:
-        </p>
-        <pre><code>{`# Using the Frege company brain
+          <section id="agent-instructions">
+            <h2>Agent rules</h2>
+            <p>
+              Give these rules to an agent after Frege is connected. They keep day-to-day task
+              activity in sessions while durable knowledge changes go through review.
+            </p>
+            <ul className="docs__rules">
+              <li>Before answering from company memory, call <code>frege_build_context</code>.</li>
+              <li>Search with <code>frege_search_pages</code> and read specifics with <code>frege_get_page</code>.</li>
+              <li>Cite document or page slugs when using Frege context.</li>
+              <li>Start a session for substantial work and append important events.</li>
+              <li>Preserve wikilinks like <code>[[self-serve signup]]</code> in approved markdown.</li>
+              <li>Submit durable changes with <code>frege_write_page_proposal</code>; do not silently rewrite canonical memory.</li>
+              <li>If Frege reports denied context, do not guess around it.</li>
+            </ul>
+          </section>
 
-- Confirm Node.js 20+ is installed.
-- Install the Frege CLI:
-  npm install -g @frege-dev/cli
-- Make sure the shell can call frege directly: command -v frege.
-- Run frege connect with the base URL and valid API key I provide.
-  It verifies the key and auto-registers this client. If verification
-  fails, stop and ask me for a valid key from an active org. Show me
-  only the org, orgStatus, role, and key prefix it prints.
-- To load approved markdown, run frege docs push for one file or
-  frege docs sync frege.docs.yml for a manifest. Dry-run first if
-  pushing a directory.
-- Preserve wikilinks like [[hosted brain architecture]] in markdown.
-- Before answering from memory, call frege_build_context so you
-  start from scoped, cited company knowledge.
-- Search with frege_search_pages; read specifics with
-  frege_get_page. Cite the pages you used.
-- Treat denied or hidden sources as out of scope. Do not guess
-  around them.
-- Start a session with frege_start_session for substantial work
-  and record activity with frege_append_session_event.
-- When you learn something durable and correct, do not edit pages
-  directly. Submit it with frege_write_page_proposal so a human
-  can review before it becomes canonical. Use wikilinks in durable
-  page proposals when pages should be graph-connected.`}</code></pre>
-      </section>
+          <section id="tools">
+            <h2>MCP tools</h2>
+            <p>
+              The MCP server calls Frege-hosted APIs with the scoped API key. It never reads
+              the database directly.
+            </p>
+            <div className="docs__toolGrid">
+              {mcpTools.map(([name, desc]) => (
+                <div key={name} className="docs__tool">
+                  <code>{name}</code>
+                  <span>{desc}</span>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      <section id="tools">
-        <h2>Available tools</h2>
-        <p>
-          The MCP server calls Frege-hosted APIs with the scoped API key. It never reads the
-          database directly. Common tools:
-        </p>
-        <ul>
-          {mcpTools.map(([name, desc]) => (
-            <li key={name}><code>{name}</code>: {desc}</li>
-          ))}
-        </ul>
-        <p className="docs__note">
-          Every tool enforces the caller&apos;s permissions server-side. There is no path for an
-          agent to reach knowledge outside its role and organization.
-        </p>
-      </section>
-
-      <section id="troubleshooting">
-        <h2>Troubleshooting</h2>
-        <h3><code>frege: command not found</code></h3>
-        <pre><code>{`npm install -g @frege-dev/cli
-
-echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
-source ~/.zshrc
-command -v frege`}</code></pre>
-        <h3><code>EEXIST: file already exists</code></h3>
-        <p>
-          An older local or GitHub install may already own <code>frege</code> or{" "}
-          <code>frege-mcp</code>. Remove old Frege installs and stale wrappers, then reinstall.
-        </p>
-        <pre><code>{`npm uninstall -g @frege/cli @frege-dev/cli
+          <section id="troubleshooting">
+            <h2>Troubleshooting</h2>
+            <div className="docs__twoCol">
+              <div className="docs__panel">
+                <h3><code>EEXIST</code> during npm install</h3>
+                <pre><code>{`npm uninstall -g @frege/cli @frege-dev/cli
 rm -f ~/.local/bin/frege ~/.local/bin/frege-mcp
 npm install -g @frege-dev/cli`}</code></pre>
-        <h3>Node version error</h3>
-        <pre><code>{`node --version`}</code></pre>
-        <p>Install Node.js 20 or newer, then reinstall the CLI.</p>
-        <h3><code>frege doctor</code> says the API key is missing or invalid</h3>
-        <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>
+              </div>
+              <div className="docs__panel">
+                <h3>Invalid key</h3>
+                <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>
 frege doctor`}</code></pre>
-        <p>
-          If this fails, the key may be invalid, revoked, expired, or attached to an inactive
-          org. Create a new key in the control plane with the correct role, then reconnect.
-        </p>
-        <h3>The MCP client cannot find <code>frege</code></h3>
-        <p>
-          GUI-launched clients may not inherit your zsh path. Use the full path from{" "}
-          <code>command -v frege</code> in that client&apos;s MCP config, or launch the client from a
-          terminal after sourcing <code>~/.zshrc</code>.
-        </p>
-      </section>
+              </div>
+            </div>
+            <p>
+              If <code>frege doctor</code> fails, the key may be invalid, revoked, expired, or
+              attached to an inactive org. Create a new key in the control plane with the
+              correct role, then reconnect. If Node is too old, install Node.js 20 or newer.
+            </p>
+          </section>
 
-      <section id="security">
-        <h2>Security and install channels</h2>
-        <ul>
-          <li><code>~/.frege/mcp/config.json</code> is local secret state. Do not commit it.</li>
-          <li>Rotate the API key in Frege admin if it appears in logs, chat, screenshots, or shell history.</li>
-          <li>Prefer <code>frege connect</code> over embedding <code>FREGE_API_KEY</code> in MCP JSON.</li>
-          <li>Admins can revoke keys from the control plane at any time.</li>
-        </ul>
-        <h3>npm now, Homebrew later</h3>
-        <p>
-          Frege supports npm first because the CLI is Node-based and exposes
-          <code> frege</code> and <code>frege-mcp</code> binaries. Homebrew is a good later macOS
-          convenience once releases, checksums, and a tap are stable.
-        </p>
-        <pre><code>{`npm install -g @frege-dev/cli
-npm update -g @frege-dev/cli
-
-# Planned: Homebrew tap
-brew tap frege-dev/tap
-brew install frege`}</code></pre>
-      </section>
+          <section id="security">
+            <h2>Security</h2>
+            <ul className="docs__rules">
+              <li><code>~/.frege/mcp/config.json</code> is local secret state. Do not commit it.</li>
+              <li>Prefer <code>frege connect</code> over storing <code>FREGE_API_KEY</code> in MCP JSON.</li>
+              <li>Rotate the API key in Frege admin if it appears in logs, shell history, screenshots, chat, or committed files.</li>
+              <li>Admins can revoke keys from the control plane at any time.</li>
+              <li>Use npm now. Homebrew can come later when release tarballs, checksums, and a tap are stable.</li>
+            </ul>
+          </section>
         </div>
       </div>
     </main>
