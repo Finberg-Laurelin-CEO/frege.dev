@@ -10,6 +10,10 @@ documents:
     tags: [frege, overview]
   - path: docs/INVESTOR_DEMO_WORKFLOW.md
     tags: [frege, demo, investors]
+  - path: docs/LOOM_INVESTOR_DEMO_SCRIPT.md
+    slug: frege-investor-loom-demo-script
+    title: Frege Investor Loom Demo Script
+    tags: [frege, demo, investors, loom]
   - path: docs/HOSTED_BRAIN_ARCHITECTURE.md
     tags: [frege, architecture, mcp]
   - path: docs/FREGE_MCP_INSTALL.md
