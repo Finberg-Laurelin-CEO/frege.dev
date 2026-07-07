@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { COMPANY_SIZES, clientSchema, signupFields } from "@/lib/signup-schema";
+import { COMPANY_SIZES, clientFields, clientSchema } from "@/lib/signup-schema";
 import "./signup.css";
 
 type Values = {
   name: string;
   work_email: string;
+  password: string;
+  confirm_password: string;
   company: string;
   role: string;
   company_size: string;
@@ -36,6 +38,8 @@ const NOT_PROVIDED = "Not provided";
 const EMPTY: Values = {
   name: "",
   work_email: "",
+  password: "",
+  confirm_password: "",
   company: "",
   role: "",
   company_size: "",
@@ -53,6 +57,8 @@ const EMPTY: Values = {
 const LABELS: Record<keyof Values, string> = {
   name: "Full name",
   work_email: "Work email",
+  password: "Password",
+  confirm_password: "Confirm password",
   company: "Company",
   role: "Role / title",
   company_size: "Org size",
@@ -70,16 +76,13 @@ const LABELS: Record<keyof Values, string> = {
 const VISIBLE_FIELDS: (keyof Values)[] = [
   "name",
   "work_email",
+  "password",
+  "confirm_password",
   "company",
   "role",
   "company_size",
   "main_pain_point",
 ];
-
-function fieldError(key: keyof Values, values: Values): string | null {
-  const result = signupFields[key].safeParse(values[key]);
-  return result.success ? null : result.error.issues[0]?.message ?? "Invalid.";
-}
 
 function formatRequestDate(value: string | null): string | null {
   if (!value) return null;
@@ -93,6 +96,25 @@ function formatRequestDate(value: string | null): string | null {
 
 function isRecoveryAction(value: unknown): value is RecoveryAction {
   return value === "sign_in" || value === "resend_invite_available" || value === "already_requested";
+}
+
+function appOrigin(): string {
+  const { hostname, origin } = window.location;
+  if (hostname === "frege.dev") return "https://brain.frege.dev";
+  return origin;
+}
+
+function safeNextPath(value: unknown): string {
+  const fallback = "/console?view=billing";
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//")) return fallback;
+
+  try {
+    const nextUrl = new URL(value, window.location.origin);
+    if (nextUrl.origin !== window.location.origin) return fallback;
+    return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+  } catch {
+    return fallback;
+  }
 }
 
 export default function Signup() {
@@ -111,9 +133,13 @@ export default function Signup() {
   }, []);
 
   const errors = useMemo(() => {
+    const parsed = clientSchema.safeParse(values);
+    if (parsed.success) return {};
+
     const e: Partial<Record<keyof Values, string>> = {};
-    (Object.keys(signupFields) as (keyof Values)[]).forEach((k) => {
-      const msg = fieldError(k, values);
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    (Object.keys(clientFields) as (keyof Values)[]).forEach((k) => {
+      const msg = fieldErrors[k]?.[0];
       if (msg) e[k] = msg;
     });
     return e;
@@ -191,16 +217,23 @@ export default function Signup() {
       });
 
       if (res.ok) {
-        router.push("/thanks");
+        const payload = await res.json().catch(() => null) as { next_path?: unknown } | null;
+        const nextPath = safeNextPath(payload?.next_path);
+        if (nextPath.startsWith("/console")) {
+          window.location.href = `${appOrigin()}${nextPath}`;
+        } else {
+          router.push(nextPath);
+        }
         return;
       }
       if (res.status === 409) {
         const payload = await res.json().catch(() => null) as {
+          error?: unknown;
           recovery?: { action?: unknown; requested_at?: string | null };
         } | null;
         const action = payload?.recovery?.action;
         setRecovery({
-          action: isRecoveryAction(action) ? action : "already_requested",
+          action: payload?.error === "account_exists" ? "sign_in" : isRecoveryAction(action) ? action : "already_requested",
           requested_at: payload?.recovery?.requested_at ?? null,
           email: parsed.data.work_email,
           resendStatus: "idle",
@@ -222,21 +255,21 @@ export default function Signup() {
 
   return (
     <main id="main" className="screen">
-      <section aria-label="Request pilot access">
-        <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege pilot --request</span></p>
-        <h1 className="hero-tag" style={{ marginTop: "8px" }}>request pilot access</h1>
+      <section aria-label="Create a Frege account">
+        <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege signup --start</span></p>
+        <h1 className="hero-tag" style={{ marginTop: "8px" }}>create your Frege account</h1>
         <p className="out wrap">
-          Short form. We use this to confirm fit and provision a pilot org.
+          Create an org, choose a plan, and activate through Stripe checkout. If you have a Frege code, enter it in Stripe.
         </p>
 
-        <div className="pilot-get" aria-label="What you get in the pilot">
-          <p className="pilot-get__head"># what you get in the pilot</p>
+        <div className="pilot-get" aria-label="What you get">
+          <p className="pilot-get__head"># what happens next</p>
           <ul className="pilot-get__list">
-            <li>A hosted brain provisioned for your org</li>
-            <li>Your first per-user MCP keys</li>
-            <li>Trust-zone setup, done with you</li>
-            <li>Hands-on onboarding to connect your first sources</li>
-            <li>A reply within two business days</li>
+            <li>Your org is created immediately</li>
+            <li>You choose Solo, Team monthly, or Team annual</li>
+            <li>Stripe checkout accepts Frege promotion codes</li>
+            <li>The webhook activates your org after payment</li>
+            <li>You can create MCP keys from the console</li>
           </ul>
         </div>
 
@@ -263,7 +296,7 @@ export default function Signup() {
           <div className="summary" role="alert" aria-live="assertive">
             {recovery.action === "sign_in" && (
               <>
-                <p>This email already has an account. Sign in to continue.</p>
+                <p>This email already has a Frege account. Sign in to continue.</p>
                 {requestDate && <p className="summary-meta">Original request: {requestDate}.</p>}
                 <p className="summary-actions"><a className="lnk" href="/login">Sign in</a></p>
               </>
@@ -295,7 +328,7 @@ export default function Signup() {
             )}
             {recovery.action === "already_requested" && (
               <>
-                <p>We already have a request for this email. We'll follow up after review.</p>
+                <p>We already have this email on file. Sign in if you have an account, or contact us if you need help.</p>
                 {requestDate && <p className="summary-meta">Original request: {requestDate}.</p>}
               </>
             )}
@@ -316,7 +349,7 @@ export default function Signup() {
           </div>
 
           <fieldset>
-            <legend># pilot request</legend>
+            <legend># account</legend>
 
             <div className="compact-grid">
               <div className={fieldClass("name")} id="field-name">
@@ -348,6 +381,38 @@ export default function Signup() {
                   aria-describedby={errors.work_email ? "err-work_email" : undefined}
                 />
                 {errFor("work_email")}
+              </div>
+
+              <div className={fieldClass("password")} id="field-password">
+                <label htmlFor="password">{LABELS.password} <span className="req">*</span></label>
+                <input
+                  id="password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  value={values.password}
+                  onChange={(e) => set("password", e.target.value)}
+                  onBlur={() => markTouched("password")}
+                  aria-invalid={!!(errors.password && (touched.password || showSummary))}
+                  aria-describedby={errors.password ? "err-password" : undefined}
+                />
+                {errFor("password")}
+              </div>
+
+              <div className={fieldClass("confirm_password")} id="field-confirm_password">
+                <label htmlFor="confirm_password">{LABELS.confirm_password} <span className="req">*</span></label>
+                <input
+                  id="confirm_password"
+                  type="password"
+                  autoComplete="new-password"
+                  minLength={12}
+                  value={values.confirm_password}
+                  onChange={(e) => set("confirm_password", e.target.value)}
+                  onBlur={() => markTouched("confirm_password")}
+                  aria-invalid={!!(errors.confirm_password && (touched.confirm_password || showSummary))}
+                  aria-describedby={errors.confirm_password ? "err-confirm_password" : undefined}
+                />
+                {errFor("confirm_password")}
               </div>
 
               <div className={fieldClass("company")} id="field-company">
@@ -417,11 +482,11 @@ export default function Signup() {
 
           <p className="line cta-big" style={{ marginBottom: "6px" }}>
             <button className="submit" type="submit" disabled={!isValid || submitting}>
-              {submitting ? "submitting…" : "request access →"}
+              {submitting ? "creating…" : "create account →"}
             </button>
           </p>
           <p className="out muted">
-            By submitting, you agree that we may email you about Frege pilot access. See our <a className="lnk" href="/privacy">privacy policy</a> and <a className="lnk" href="/terms">terms</a>.
+            By signing up, you agree to the <a className="lnk" href="/privacy">privacy policy</a> and <a className="lnk" href="/terms">terms</a>.
           </p>
         </form>
       </section>

@@ -5,7 +5,7 @@ const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
 export const metadata: Metadata = {
   title: "Contact — Frege",
   description:
-    "Talk to the Frege team about enterprise plans, team onboarding, security review, or pilot access.",
+    "Talk to the Frege team about enterprise plans, team onboarding, security review, or support.",
   alternates: {
     canonical: "https://frege.dev/contact",
   },
@@ -23,7 +23,7 @@ export default function ContactPage() {
         </p>
         <div className="hero__actions">
           <a className="button button--primary" href="mailto:hello@frege.dev">Email hello@frege.dev</a>
-          <a className="button" href="/signup">Request pilot access</a>
+          <a className="button" href="/signup">Create account</a>
           <a className="button" href={githubUrl}>GitHub</a>
         </div>
       </header>
@@ -38,8 +38,8 @@ export default function ContactPage() {
         </ul>
         <p className="docs__note">
           Prefer email: <a className="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a>.
-          For pilot access you can also use the{" "}
-          <a className="lnk" href="/signup">request form</a>.
+          To start self-serve, use the{" "}
+          <a className="lnk" href="/signup">signup form</a>.
         </p>
       </section>
 
@@ -50,7 +50,7 @@ export default function ContactPage() {
           <span className="foot__links">
             <a href="/pricing">pricing</a>
             <a href="/docs">docs</a>
-            <a href="/signup">request access</a>
+            <a href="/signup">sign up</a>
             <a href="mailto:hello@frege.dev">hello@frege.dev</a>
           </span>
         </div>

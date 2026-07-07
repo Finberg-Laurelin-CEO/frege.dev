@@ -108,7 +108,7 @@ export default async function OpenGraphImage() {
           }}
         >
           <span style={{ color: "#0033cc" }}>frege.dev</span>
-          <span>request pilot access →</span>
+          <span>create account →</span>
         </div>
       </div>
     ),

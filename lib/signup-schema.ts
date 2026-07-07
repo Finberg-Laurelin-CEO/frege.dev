@@ -66,7 +66,7 @@ export const WILLING_TO_PAY = [
   "$10,000+ / mo",
 ] as const;
 
-/** Stored signup fields. Some qualification fields default to "Not provided" for the short access-request form. */
+/** Stored signup fields. Some qualification fields default to "Not provided" for the short signup form. */
 export const signupFields = {
   name: z.string().trim().min(1, "Your name is required.").max(200),
   work_email: z
@@ -111,6 +111,16 @@ export const signupFields = {
   }),
 };
 
+export const accountFields = {
+  password: z.string().min(12, "Use at least 12 characters.").max(256),
+  confirm_password: z.string().min(1, "Confirm your password.").max(256),
+};
+
+export const clientFields = {
+  ...signupFields,
+  ...accountFields,
+};
+
 /** If "Other" is among the selected tools, `other_tool` must be filled in. */
 function requireOtherTool(
   val: { current_agent_tools: readonly string[]; other_tool?: string },
@@ -128,21 +138,38 @@ function requireOtherTool(
   }
 }
 
+function requireMatchingPasswords(
+  val: { password?: string; confirm_password?: string },
+  ctx: z.RefinementCtx,
+) {
+  if (val.password && val.confirm_password && val.password !== val.confirm_password) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["confirm_password"],
+      message: "Passwords must match.",
+    });
+  }
+}
+
 /** What the client form validates. */
-export const clientSchema = z.object(signupFields).superRefine(requireOtherTool);
+export const clientSchema = z
+  .object(clientFields)
+  .superRefine(requireOtherTool)
+  .superRefine(requireMatchingPasswords);
 
 /** Full payload the server validates — adds anti-spam fields. */
 export const signupSchema = z
   .object({
-    ...signupFields,
+    ...clientFields,
     // Honeypot: hidden from real users; bots tend to fill every field. Accept any
     // string at the schema layer (so it always parses) — the route inspects it and
     // silently drops a non-empty value instead of returning a validation error.
     company_url: z.string().optional().default(""),
-    // Client epoch ms captured on form mount; server enforces a min dwell time.
+    // Client epoch ms captured on form mount; retained for telemetry/abuse analysis.
     started_at: z.coerce.number().int().nonnegative(),
   })
-  .superRefine(requireOtherTool);
+  .superRefine(requireOtherTool)
+  .superRefine(requireMatchingPasswords);
 
 export type SignupInput = z.infer<typeof clientSchema>;
 export type SignupPayload = z.infer<typeof signupSchema>;

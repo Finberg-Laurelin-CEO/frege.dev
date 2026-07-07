@@ -63,7 +63,7 @@ export default function PricingPage() {
               ))}
             </ul>
             <div className={styles.cardCta}>
-              <a className="button button--primary" href="/signup">Request pilot access</a>
+              <a className="button button--primary" href="/signup">Start solo</a>
             </div>
           </article>
 
@@ -81,7 +81,7 @@ export default function PricingPage() {
               ))}
             </ul>
             <div className={styles.cardCta}>
-              <a className="button button--primary" href="/signup">Request pilot access</a>
+              <a className="button button--primary" href="/signup">Start team</a>
             </div>
           </article>
 
@@ -102,8 +102,8 @@ export default function PricingPage() {
           </article>
         </div>
         <p className="docs__note">
-          New here? <a className="lnk" href="/signup">Apply for the pilot</a> first. Already approved?{" "}
-          <a className="lnk" href="/billing">Activate your organization</a>.
+          New here? <a className="lnk" href="/signup">Create an account</a>, then choose a plan in Stripe checkout.
+          Have a Frege code? Enter it in Stripe before paying.
         </p>
       </section>
 
@@ -143,8 +143,7 @@ export default function PricingPage() {
           </div>
         </dl>
         <p className="docs__note">
-          Pricing is set for the founding pilot and may change as the product matures. Pilot
-          terms are confirmed during onboarding.
+          Pricing may change as the product matures. Promotion codes are applied in Stripe checkout.
         </p>
       </section>
 
@@ -155,7 +154,7 @@ export default function PricingPage() {
           <span className="foot__links">
             <a href="/docs">docs</a>
             <a href="/contact">contact</a>
-            <a href="/signup">request access</a>
+            <a href="/signup">sign up</a>
             <a href="/login?next=/admin">sign in</a>
           </span>
         </div>

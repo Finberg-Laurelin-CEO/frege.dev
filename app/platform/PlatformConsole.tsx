@@ -9,7 +9,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "queue", label: "Queue" },
   { id: "orgs", label: "Organizations" },
   { id: "users", label: "Users" },
-  { id: "signups", label: "Approvals" },
+  { id: "signups", label: "Signups" },
   { id: "stripe-coupons", label: "Stripe coupons" },
   { id: "usage", label: "Usage" },
   { id: "payments", label: "Payments" },
@@ -157,6 +157,7 @@ type SignupRow = {
   invited_org_slug: string | null;
   invited_org_status: string | null;
   paid_at: string | null;
+  owner_user_email: string | null;
 };
 
 type UsageOrgRow = {
@@ -739,7 +740,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   }
 
   // --- Derived summary / count values (from already-loaded data) ---
-  const pendingApprovals = signups.filter((s) => !s.invite_id).length;
+  const pendingApprovals = signups.filter((s) => !s.invite_id && !s.owner_user_email).length;
   const activeStripePromoCodes = stripePromoCodes.filter((c) => c.status === "active").length;
   const activeOrgs = orgs.filter((o) => o.status === "active").length;
   const highQueue = queue.filter((q) => q.severity === "high").length;
@@ -774,7 +775,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     },
     {
       key: "approvals",
-      label: "Pending approvals",
+      label: "Manual approvals",
       value: num(pendingApprovals),
       hint: pendingApprovals > 0 ? "awaiting invite" : "none waiting",
       alert: pendingApprovals > 0,
@@ -866,7 +867,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               {orgs.length === 0 ? (
                 <div className={styles.empty}>
                   <strong>No organizations{search ? " match your search" : ""}.</strong>
-                  <span>{search ? "Try a different query." : "Orgs appear here once an approved pilot is created."}</span>
+                  <span>{search ? "Try a different query." : "Orgs appear here once a customer signs up or a manual org is created."}</span>
                 </div>
               ) : (
               <div className={styles.tableScroll}>
@@ -1073,7 +1074,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               {users.length === 0 ? (
                 <div className={styles.empty}>
                   <strong>No users{search ? " match your search" : ""}.</strong>
-                  <span>{search ? "Try a different query." : "Users appear here after they accept an invite."}</span>
+                  <span>{search ? "Try a different query." : "Users appear here after signup or invite acceptance."}</span>
                 </div>
               ) : (
               <div className={styles.tableScroll}>
@@ -1100,11 +1101,11 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
           {tab === "signups" ? (
             <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>Pilot applications ({signups.length})</h2>
+              <h2 className={styles.sectionTitle}>Signups ({signups.length})</h2>
               {signups.length === 0 ? (
                 <div className={styles.empty}>
-                  <strong>No pilot applications yet.</strong>
-                  <span>New applications from the signup form land here for review.</span>
+                  <strong>No signups yet.</strong>
+                  <span>Self-serve signups and manual applications land here.</span>
                 </div>
               ) : (
               <>
@@ -1122,7 +1123,12 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       <td>{s.willing_to_pay ?? "—"}</td>
                       <td>{s.paid_at ? shortDay(s.paid_at) : "—"}</td>
                       <td>
-                        {!s.invite_id ? (
+                        {!s.invite_id && s.owner_user_email ? (
+                          <div className={styles.rowActions}>
+                            <Badge tone="ok" label="self-serve" />
+                            {s.paid_at ? <Badge tone="ok" label="paid" /> : <Badge tone="warn" label="awaiting payment" />}
+                          </div>
+                        ) : !s.invite_id ? (
                           <div className={styles.rowActions}>
                             <button type="button" className={styles.button} disabled={busy} onClick={() => sendSignupInviteWithPromo(s.id, 1)}>
                               invite + 1mo code
@@ -1180,7 +1186,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                 </tbody>
               </table>
               </div>
-              <p className={styles.sectionLead}>Approving creates an inactive org + owner invite. The org activates after payment.</p>
+              <p className={styles.sectionLead}>Manual approval creates an inactive org + owner invite. Self-serve signups create their org and account immediately, then activate after payment.</p>
               </>
               )}
             </div>

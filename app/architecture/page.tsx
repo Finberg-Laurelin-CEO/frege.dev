@@ -287,7 +287,7 @@ export default function ArchitecturePage() {
         <div className="hero__actions">
           <a className="button button--primary" href="/docs">Set up the CLI</a>
           <a className="button" href="/pricing">See pricing</a>
-          <a className="button" href="/signup">Request pilot access</a>
+          <a className="button" href="/signup">Create account</a>
         </div>
       </section>
         </div>

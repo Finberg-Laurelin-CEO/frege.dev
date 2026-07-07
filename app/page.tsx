@@ -11,7 +11,7 @@ const FREGE_ART = `
 
 const PILOT_ART = `
   ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐ ┌─┐
-  │ │ │ │ │ │ │ │ │ │ │ │   founding pilot
+  │ │ │ │ │ │ │ │ │ │ │ │   self-serve setup
   └─┘ └─┘ └─┘ └─┘ └─┘ └─┘
 `;
 
@@ -73,7 +73,7 @@ export default function Home() {
           audit, and reviewable writes built in.
         </p>
         <div className="hero__actions" aria-label="Primary actions">
-          <a className="button button--primary" href="/signup">Request pilot access</a>
+          <a className="button button--primary" href="/signup">Start now</a>
           <a className="button" href="#demo">See it work</a>
         </div>
         <p className="hero__meta" aria-label="Product shape">
@@ -109,7 +109,7 @@ export default function Home() {
           </pre>
         </div>
         <p className="term__caption">
-          Illustrative transcript. Sources, roles, and trust zones are configured during pilot onboarding.
+          Illustrative transcript. Sources, roles, and trust zones are configured in the Frege console.
         </p>
       </section>
 
@@ -175,16 +175,16 @@ export default function Home() {
         </dl>
       </section>
 
-      <section className="cta" id="pilot" aria-labelledby="pilot-title">
+      <section className="cta" id="start" aria-labelledby="start-title">
         <pre className="cta__art" aria-hidden="true">{PILOT_ART}</pre>
-        <p className="eyebrow">Founding pilot</p>
-        <h2 id="pilot-title">Bring your agents. Frege brings the governed memory layer.</h2>
+        <p className="eyebrow">Start today</p>
+        <h2 id="start-title">Bring your agents. Frege brings the governed memory layer.</h2>
         <p>
-          Frege is ready for hands-on pilot teams. We provision your hosted brain, set up trust
-          zones with you, and issue your first MCP keys during onboarding.
+          Create your account, choose a plan, and activate through Stripe checkout. Have a Frege
+          code? Enter it in Stripe before you pay.
         </p>
         <div className="hero__actions">
-          <a className="button button--primary" href="/signup">Request pilot access</a>
+          <a className="button button--primary" href="/signup">Create account</a>
           <a className="button" href="/pricing">See pricing</a>
           <a className="button" href="/architecture">How it&apos;s built</a>
         </div>
@@ -199,7 +199,7 @@ export default function Home() {
             <a href="/architecture">architecture</a>
             <a href="/pricing">pricing</a>
             <a href="/contact">contact</a>
-            <a href="/signup">request access</a>
+            <a href="/signup">sign up</a>
             <a href="/login?next=/admin">sign in</a>
             <a href={githubUrl}>github</a>
             <a href="mailto:hello@frege.dev">hello@frege.dev</a>

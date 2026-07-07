@@ -2,7 +2,8 @@
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { readdirSync } from "node:fs";
-import { Pool } from "@neondatabase/serverless";
+import { Pool as NeonPool } from "@neondatabase/serverless";
+import pg from "pg";
 
 const dbDir = join(process.cwd(), "db");
 const mode = process.argv.includes("--status") ? "status" : process.argv.includes("--verify") ? "verify" : "migrate";
@@ -16,6 +17,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+const Pool = process.env.LOCAL_PG === "1" ? pg.Pool : NeonPool;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const migrations = readdirSync(dbDir)
   .filter((file) => /^\d+_.+\.sql$/.test(file))

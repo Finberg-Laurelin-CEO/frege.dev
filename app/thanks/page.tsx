@@ -10,15 +10,15 @@ export default function Thanks() {
     <>
       <main id="main" className="screen">
         <section aria-label="Thanks">
-          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">echo "submitted"</span></p>
-          <p className="out wrap">Thanks — we&apos;ll reply within two business days. — Frege team.</p>
+          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">echo "received"</span></p>
+          <p className="out wrap">Thanks. If you meant to create an account, continue from signup or sign in.</p>
           <p className="out wrap muted"># what happens next</p>
           <ol className="out wrap" style={{ paddingLeft: "1.4em", margin: "4px 0 20px" }}>
-            <li>We review your request and confirm pilot fit.</li>
-            <li>We book a short onboarding call to set trust zones and pick your first sources.</li>
-            <li>We provision your hosted brain and issue your first MCP key.</li>
+            <li>Create your Frege account.</li>
+            <li>Choose a plan and enter any Frege code in Stripe checkout.</li>
+            <li>Use the console to configure your org and MCP keys.</li>
           </ol>
-          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <a className="lnk" href="/">cd ~</a><span className="cursor" aria-hidden="true">█</span></p>
+          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <a className="lnk" href="/signup">signup</a> <a className="lnk" href="/login">login</a><span className="cursor" aria-hidden="true">█</span></p>
         </section>
       </main>
     </>

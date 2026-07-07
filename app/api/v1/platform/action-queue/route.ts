@@ -29,6 +29,7 @@ export async function GET(req: Request) {
       from signups
       where status <> 'disqualified'
         and invite_id is null
+        and owner_user_id is null
       order by created_at asc
       limit 50
     `;
@@ -79,6 +80,48 @@ export async function GET(req: Request) {
         severity: "high",
         title: "Approved signup unpaid after 3 days",
         detail: `${s.work_email} for ${s.org_name ?? s.org_slug}, invited ${String(s.invited_at).slice(0, 10)}${status}`,
+        target_type: "signup",
+        target_id: s.id,
+      });
+    }
+
+    // Self-serve signups whose org is still inactive after 3 days.
+    const selfServeUnpaid = await sql`
+      select
+        s.id,
+        s.work_email,
+        s.created_at,
+        o.id as org_id,
+        o.slug as org_slug,
+        o.name as org_name,
+        b.subscription_status
+      from signups s
+      join organization_memberships m on m.user_id = s.owner_user_id
+      join organizations o on o.id = m.org_id
+      left join org_billing b on b.org_id = o.id
+      where s.owner_user_id is not null
+        and s.invite_id is null
+        and s.created_at <= now() - interval '3 days'
+        and s.paid_at is null
+        and o.status = 'inactive'
+      order by s.created_at asc
+      limit 50
+    `;
+    for (const s of selfServeUnpaid as Array<{
+      id: string;
+      work_email: string;
+      created_at: string;
+      org_id: string;
+      org_slug: string;
+      org_name: string;
+      subscription_status: string | null;
+    }>) {
+      const status = s.subscription_status ? `, subscription ${s.subscription_status}` : "";
+      items.push({
+        kind: "signup_self_serve_unpaid",
+        severity: "medium",
+        title: "Self-serve signup unpaid after 3 days",
+        detail: `${s.work_email} for ${s.org_name ?? s.org_slug}, created ${String(s.created_at).slice(0, 10)}${status}`,
         target_type: "signup",
         target_id: s.id,
       });

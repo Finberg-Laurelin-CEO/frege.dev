@@ -1,12 +1,17 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { postHermesEvent } from "@/lib/hermes-webhook";
+import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
+import { hashPassword } from "@/lib/prototype/password";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
+import { assertSafeOrigin } from "@/lib/prototype/request-guards";
+import { createUserSession } from "@/lib/prototype/session";
+import { logTelemetryEvent } from "@/lib/prototype/telemetry";
 import { signupSchema } from "@/lib/signup-schema";
-import { signupRecoveryFromRow } from "@/lib/signup-recovery";
 
 export const runtime = "nodejs";
 
-const MIN_DWELL_MS = 3000;
+const NEXT_PATH = "/console?view=billing";
 
 type SignupWebhookRow = {
   id: string;
@@ -26,11 +31,15 @@ type SignupWebhookRow = {
   other_comments: string;
 };
 
-type DuplicateSignupRow = {
-  created_at: Date | string;
-  user_status: string | null;
-  last_login_at: Date | string | null;
+type ExistingSignupRow = {
+  signup_id: string;
+  invite_id: string | null;
   invite_status: string | null;
+  invite_role: "owner" | "admin" | "member" | "viewer" | null;
+  org_id: string | null;
+  org_slug: string | null;
+  org_name: string | null;
+  org_status: "inactive" | "active" | "suspended" | null;
 };
 
 function toIsoString(value: Date | string): string {
@@ -74,32 +83,6 @@ async function sendHermesSignupWebhook(signup: SignupWebhookRow): Promise<void> 
   });
 }
 
-async function duplicateSignupResponse(email: string): Promise<Response> {
-  const sql = getSql();
-  const [row] = await sql`
-    select
-      s.created_at,
-      u.status as user_status,
-      u.last_login_at,
-      i.status as invite_status
-    from signups s
-    left join users u
-      on lower(u.email) = lower(s.work_email)
-      and u.status = 'active'
-    left join organization_invites i on i.id = s.invite_id
-    where lower(s.work_email) = lower(${email})
-    limit 1
-  ` as DuplicateSignupRow[];
-
-  return Response.json(
-    {
-      error: "duplicate_signup",
-      recovery: signupRecoveryFromRow(row),
-    },
-    { status: 409 },
-  );
-}
-
 /** Hash the client IP with a day-rotating salt so we never store a raw IP. */
 function hashIp(ip: string): string {
   const day = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
@@ -116,7 +99,31 @@ function clientIp(req: Request): string {
   return req.headers.get("x-real-ip") ?? "unknown";
 }
 
+async function uniqueOrgSlug(sql: ReturnType<typeof getSql>, base: string): Promise<string> {
+  const root = slugifyOrg(base);
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const candidate = attempt === 0 ? root : `${root}-${attempt + 1}`;
+    const [existing] = await sql`select 1 from organizations where slug = ${candidate} limit 1`;
+    if (!existing) return candidate;
+  }
+  return `${root}-${randomBytes(3).toString("hex")}`;
+}
+
+function accountExistsResponse(): Response {
+  return Response.json(
+    {
+      error: "account_exists",
+      recovery: { action: "sign_in", requested_at: null },
+    },
+    { status: 409 },
+  );
+}
+
 export async function POST(req: Request) {
+  const originError = assertSafeOrigin(req);
+  if (originError) return originError;
+
+  const startedAt = Date.now();
   let body: unknown;
   try {
     body = await req.json();
@@ -136,52 +143,194 @@ export async function POST(req: Request) {
   // ── Spam controls: respond 200 with a null id so bots can't probe. ──
   // Honeypot: a real user never fills the hidden company_url field.
   if (data.company_url && data.company_url.length > 0) {
-    return Response.json({ id: null }, { status: 200 });
-  }
-  // Timing: submissions faster than the dwell threshold are almost always bots.
-  if (Date.now() - data.started_at < MIN_DWELL_MS) {
-    return Response.json({ id: null }, { status: 200 });
+    return Response.json({ id: null, next_path: "/thanks" }, { status: 200 });
   }
 
+  const email = normalizeEmail(data.work_email);
   const ip_hash = hashIp(clientIp(req));
   const user_agent = req.headers.get("user-agent") ?? null;
 
   try {
     const sql = getSql();
-    const rows = await sql`
-      insert into signups (
-        ip_hash, user_agent,
-        name, work_email, company, role, company_size,
-        expected_users, current_agent_tools, other_tool, monthly_ai_spend,
-        willing_to_pay, decision_timeline, main_pain_point, other_comments,
-        permission_to_contact
-      ) values (
-        ${ip_hash}, ${user_agent},
-        ${data.name}, ${data.work_email}, ${data.company}, ${data.role}, ${data.company_size},
-        ${data.expected_users}, ${data.current_agent_tools}, ${data.other_tool}, ${data.monthly_ai_spend},
-        ${data.willing_to_pay}, ${data.decision_timeline}, ${data.main_pain_point}, ${data.other_comments},
-        ${data.permission_to_contact}
-      )
-      returning
-        id, created_at,
-        name, work_email, company, role, company_size,
-        expected_users, current_agent_tools, other_tool, monthly_ai_spend,
-        willing_to_pay, decision_timeline, main_pain_point, other_comments
+
+    const emailLimit = await checkRateLimit(req, {
+      action: "auth.signup.email",
+      limit: 5,
+      windowSeconds: 60 * 60,
+      keyParts: [email],
+    });
+    if (!emailLimit.allowed) return rateLimitedResponse(emailLimit);
+
+    const ipLimit = await checkRateLimit(req, {
+      action: "auth.signup.ip",
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
+    if (!ipLimit.allowed) return rateLimitedResponse(ipLimit);
+
+    const [existingUser] = await sql`
+      select id
+      from users
+      where email = ${email}
+      limit 1
     `;
-    const signup = rows[0] as SignupWebhookRow | undefined;
+    if (existingUser) return accountExistsResponse();
+
+    const [existingSignup] = await sql`
+      select
+        s.id as signup_id,
+        s.invite_id,
+        i.status as invite_status,
+        i.role as invite_role,
+        o.id as org_id,
+        o.slug as org_slug,
+        o.name as org_name,
+        o.status as org_status
+      from signups s
+      left join organization_invites i on i.id = s.invite_id
+      left join organizations o on o.id = i.org_id
+      where lower(s.work_email) = lower(${email})
+      limit 1
+    ` as ExistingSignupRow[];
+
+    let org:
+      | { id: string; slug: string; name: string; status: "inactive" | "active" | "suspended" }
+      | undefined;
+    if (existingSignup?.org_id && existingSignup.org_slug && existingSignup.org_name && existingSignup.org_status) {
+      org = {
+        id: existingSignup.org_id,
+        slug: existingSignup.org_slug,
+        name: existingSignup.org_name,
+        status: existingSignup.org_status,
+      };
+    } else {
+      const slug = await uniqueOrgSlug(sql, data.company || data.name || email.split("@")[0] || "org");
+      const [createdOrg] = await sql`
+        insert into organizations (slug, name, status)
+        values (${slug}, ${data.company || data.name}, 'inactive')
+        returning id, slug, name, status
+      `;
+      org = createdOrg as typeof org;
+    }
+    if (!org) throw new Error("org_create_failed");
+
+    await ensureDefaultAgentRoles(org.id);
+
+    const password = await hashPassword(data.password);
+    const [user] = await sql`
+      insert into users (email, name, status, last_login_at)
+      values (${email}, ${data.name.trim()}, 'active', now())
+      returning id, email, name
+    `;
+    await sql`
+      insert into user_password_credentials (user_id, password_hash, password_salt, password_params)
+      values (${user.id}, ${password.passwordHash}, ${password.passwordSalt}, ${JSON.stringify(password.passwordParams)}::jsonb)
+    `;
+    await sql`
+      insert into organization_memberships (org_id, user_id, role, status)
+      values (${org.id}, ${user.id}, ${existingSignup?.invite_role ?? "owner"}, 'active')
+      on conflict (org_id, user_id) do update set
+        role = excluded.role,
+        status = 'active'
+    `;
+
+    if (existingSignup?.invite_id && existingSignup.invite_status === "pending") {
+      await sql`
+        update organization_invites
+        set status = 'accepted', accepted_at = now()
+        where id = ${existingSignup.invite_id}
+      `;
+    }
+
+    const signupRows = existingSignup
+      ? await sql`
+          update signups
+          set
+            ip_hash = ${ip_hash},
+            user_agent = ${user_agent},
+            name = ${data.name},
+            work_email = ${email},
+            company = ${data.company},
+            role = ${data.role},
+            company_size = ${data.company_size},
+            expected_users = ${data.expected_users},
+            current_agent_tools = ${data.current_agent_tools},
+            other_tool = ${data.other_tool},
+            monthly_ai_spend = ${data.monthly_ai_spend},
+            willing_to_pay = ${data.willing_to_pay},
+            decision_timeline = ${data.decision_timeline},
+            main_pain_point = ${data.main_pain_point},
+            other_comments = ${data.other_comments},
+            permission_to_contact = ${data.permission_to_contact},
+            status = 'qualified',
+            qualified_at = coalesce(qualified_at, now()),
+            owner_user_id = ${user.id},
+            invited_at = case when invite_id is not null then coalesce(invited_at, now()) else invited_at end
+          where id = ${existingSignup.signup_id}
+          returning
+            id, created_at,
+            name, work_email, company, role, company_size,
+            expected_users, current_agent_tools, other_tool, monthly_ai_spend,
+            willing_to_pay, decision_timeline, main_pain_point, other_comments
+        `
+      : await sql`
+          insert into signups (
+            ip_hash, user_agent,
+            name, work_email, company, role, company_size,
+            expected_users, current_agent_tools, other_tool, monthly_ai_spend,
+            willing_to_pay, decision_timeline, main_pain_point, other_comments,
+            permission_to_contact,
+            status, qualified_at, owner_user_id
+          ) values (
+            ${ip_hash}, ${user_agent},
+            ${data.name}, ${email}, ${data.company}, ${data.role}, ${data.company_size},
+            ${data.expected_users}, ${data.current_agent_tools}, ${data.other_tool}, ${data.monthly_ai_spend},
+            ${data.willing_to_pay}, ${data.decision_timeline}, ${data.main_pain_point}, ${data.other_comments},
+            ${data.permission_to_contact},
+            'qualified', now(), ${user.id}
+          )
+          returning
+            id, created_at,
+            name, work_email, company, role, company_size,
+            expected_users, current_agent_tools, other_tool, monthly_ai_spend,
+            willing_to_pay, decision_timeline, main_pain_point, other_comments
+        `;
+
+    const signup = signupRows[0] as SignupWebhookRow | undefined;
     if (signup) {
       await sendHermesSignupWebhook(signup);
     }
-    const id = signup?.id;
-    return Response.json({ id }, { status: 200 });
+
+    const session = await createUserSession(user.id, req.headers.get("host"));
+    await logTelemetryEvent({
+      actor: { type: "system", orgId: org.id },
+      req,
+      action: "auth.signup",
+      resourceType: "organization",
+      resourceId: org.id,
+      outcome: "success",
+      latencyMs: Date.now() - startedAt,
+      metadata: {
+        org_slug: org.slug,
+        signup_id: signup?.id ?? null,
+        reused_invite: Boolean(existingSignup?.invite_id),
+      },
+    });
+
+    return Response.json(
+      {
+        id: signup?.id,
+        user: { id: user.id, email: user.email, name: user.name },
+        organization: org,
+        next_path: org.status === "active" ? "/console" : NEXT_PATH,
+      },
+      { status: 201, headers: { "Set-Cookie": session.cookie } },
+    );
   } catch (err: unknown) {
-    // Unique violation on lower(work_email) → duplicate.
     const code = (err as { code?: string })?.code;
-    if (code === "23505") {
-      return duplicateSignupResponse(data.work_email);
-    }
+    if (code === "23505") return accountExistsResponse();
     // Never log PII (name/email/company); log only the error shape.
-    console.error("signup insert failed", { code, message: (err as Error)?.message });
+    console.error("signup failed", { code, message: (err as Error)?.message });
     return Response.json({ error: "internal" }, { status: 500 });
   }
 }

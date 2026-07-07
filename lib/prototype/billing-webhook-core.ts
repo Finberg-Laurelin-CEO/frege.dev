@@ -187,6 +187,21 @@ async function activateOrg(sql: Sql, orgId: string, sub: SubscriptionWrite, crea
             and (${subscriptionId}::text is null or stripe_subscription_id = ${subscriptionId})
         )
     `,
+    sql`
+      update signups s
+      set paid_at = coalesce(s.paid_at, now())
+      from organization_memberships m
+      where s.owner_user_id = m.user_id
+        and m.org_id = ${orgId}
+        and s.paid_at is null
+        and exists (
+          select 1
+          from org_billing
+          where org_id = ${orgId}
+            and last_event_created = ${created}
+            and (${subscriptionId}::text is null or stripe_subscription_id = ${subscriptionId})
+        )
+    `,
   ]);
 }
 

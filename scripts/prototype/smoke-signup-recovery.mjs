@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Static smoke checks for the public duplicate-signup recovery flow.
+// Static smoke checks for the public self-serve signup and invite recovery flows.
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -27,12 +27,14 @@ const resendRoute = read("app/api/signup/recovery/resend/route.ts");
 includesAll(
   signupRoute,
   [
-    "duplicateSignupResponse",
-    "signupRecoveryFromRow",
-    "s.created_at",
-    "u.last_login_at",
+    "createUserSession",
+    "hashPassword",
+    "ensureDefaultAgentRoles",
+    "auth.signup.email",
+    "auth.signup.ip",
+    "account_exists",
+    "next_path",
     "i.status as invite_status",
-    "duplicate_signup",
   ],
   "signup API",
 );
@@ -40,9 +42,11 @@ includesAll(
 includesAll(
   signupPage,
   [
-    "This email already has an account. Sign in to continue.",
+    "This email already has a Frege account. Sign in to continue.",
+    "Create an org, choose a plan, and activate through Stripe checkout.",
+    "Stripe checkout accepts Frege promotion codes",
+    "create account",
     "Resend setup email",
-    "We already have a request for this email. We'll follow up after review.",
     "formatRequestDate",
   ],
   "signup UI",
@@ -61,7 +65,9 @@ includesAll(
 );
 
 assert(!signupPage.includes("submitted today"), "signup UI still contains inaccurate submitted-today copy");
+assert(!signupRoute.includes("MIN_DWELL_MS"), "signup API still silently drops fast human submissions");
+assert(!signupPage.includes("we'll follow up after review"), "signup UI still contains gated-review copy");
 assert(!resendRoute.includes("invite_token"), "public resend route must not expose raw invite tokens");
 assert(!resendRoute.includes("invite_link"), "public resend route must not expose invite links");
 
-console.log("signup recovery smoke ok");
+console.log("self-serve signup smoke ok");

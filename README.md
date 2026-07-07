@@ -52,17 +52,17 @@ Short description:
 
 ## MVP
 
-The MVP should prove demand before building the full platform.
+The MVP is now a self-serve paid signup flow backed by the hosted Frege app.
 
 Initial scope:
 
 - Single-page public landing site at `frege.dev`.
-- Signup form for qualified early-access leads.
-- Postgres-backed signup storage.
-- Lightweight access requests with qualification handled in follow-up.
+- Signup form that creates a user, inactive org, and owner membership.
+- Postgres-backed signup/account storage.
+- Stripe checkout for activation, including promotion-code support.
 - Basic product narrative around secure agent-readable institutional memory.
 
-Product scope after validation:
+Product scope:
 
 - Org and user onboarding.
 - Department and role management.
@@ -82,40 +82,41 @@ These are later capabilities, not the first build:
 - Public-facing content publishing.
 - Broad external MCP orchestration.
 - Full enterprise SSO.
-- Complex approval workflows.
+- Complex enterprise approval workflows.
 - General-purpose agent automation.
 
-The first job is to validate that companies want a managed, permission-aware memory layer for agents.
+The first job is to let customers create an account, pay, and connect agents without waiting on manual approval.
 
 ## Signup Form
 
-The public site should minimize friction and collect only enough data to start a pilot conversation.
+The public site should minimize friction and collect only enough data to create an account and organization.
 
 Required fields:
 
 - Name.
 - Work email.
+- Password.
 - Company.
 - Org size.
 
 Optional fields:
 
 - Role/title.
-- Other pilot context.
+- Other setup context.
 
-Operational qualification details such as agent tools, expected users, spend, and timeline can be collected during follow-up. The form should not collect confidential company documents or API keys.
+Operational details such as agent tools, expected users, spend, and timeline can be collected later in the console or during support. The form should not collect confidential company documents or API keys.
 
 ## Data Pathway
 
 Signup flow:
 
-1. Visitor submits the landing page form.
+1. Visitor submits the signup form.
 2. Frontend validates required fields.
 3. TypeScript backend validates the payload again.
 4. Backend applies basic spam and rate-limit checks.
-5. Backend writes the signup to Postgres.
-6. Qualified pilot requests get setup outreach.
-7. Follow-up notes and aggregate metrics inform onboarding, pricing, product scope, and investor materials.
+5. Backend creates the user, inactive organization, owner membership, and signup row in Postgres.
+6. Backend sets a session and redirects the user to billing.
+7. Stripe checkout activates the organization through webhooks after payment.
 
 Postgres should be the source of truth. Spreadsheet exports are fine for operations, but not as the canonical database.
 
@@ -137,7 +138,7 @@ Expected stack for the first implementation branch:
 
 Frege monitoring is app-side:
 
-- `POST /api/signup` inserts the signup row, then attempts a Hermes webhook.
+- `POST /api/signup` creates the user/org path, writes the signup row, then attempts a Hermes webhook.
 - `GET /api/admin/frege-signup-stats` exposes protected aggregate stats for Hermes polling.
 - Vercel Cron calls `GET /api/cron/frege-signup-stats` every 8 hours, which posts a stats snapshot to Hermes.
 
@@ -150,8 +151,8 @@ Server-only Vercel env vars:
 | `FREGE_ADMIN_STATS_SECRET` | Bearer token for `GET /api/admin/frege-signup-stats`. |
 | `CRON_SECRET` | Bearer token Vercel sends to `GET /api/cron/frege-signup-stats`. |
 
-Webhook failures do not block signup success. If the DB insert succeeds, the
-user still gets the normal success response; webhook failures are logged
+Webhook failures do not block signup success. If account creation succeeds, the
+user still gets the normal billing redirect; webhook failures are logged
 server-side only.
 
 Stats endpoint test:

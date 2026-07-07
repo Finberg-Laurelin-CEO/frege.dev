@@ -1,6 +1,6 @@
 // Admin shell navigation. Rendered on the admin-only deploy (admin.frege.dev)
 // in place of the public marketing SiteNav. It intentionally omits all public
-// links (how, memory, security, pricing, docs, GitHub, request access) and only
+// links (how, memory, security, pricing, docs, GitHub, signup) and only
 // surfaces operations entry points.
 export default function AdminNav({ auth0 }: { auth0: boolean }) {
   return (

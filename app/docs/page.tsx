@@ -102,7 +102,7 @@ export default function DocsPage() {
         <p>
           Admins manage the org from the protected control plane (sign in at{" "}
           <a className="lnk" href="/login?next=/admin">/login</a>). New organizations are
-          provisioned for pilot teams. <a className="lnk" href="/signup">Request access</a>{" "}
+          provisioned for customers. <a className="lnk" href="/signup">Create an account</a>{" "}
           to get one. From the web app you create an org, invite members, define agent roles,
           generate API keys, configure model providers, inspect sessions, and review memory
           proposals.
