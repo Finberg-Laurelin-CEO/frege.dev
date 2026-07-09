@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SiteFooter from "../components/SiteFooter";
 
 const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
 
@@ -43,18 +44,7 @@ export default function ContactPage() {
         </p>
       </section>
 
-      <footer className="foot">
-        <div className="foot__top" aria-hidden="true" />
-        <div className="foot__row">
-          <span>Frege — agent memory, governed.</span>
-          <span className="foot__links">
-            <a href="/pricing">pricing</a>
-            <a href="/docs">docs</a>
-            <a href="/signup">sign up</a>
-            <a href="mailto:hello@frege.dev">hello@frege.dev</a>
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import styles from "./pricing.module.css";
+import SiteFooter from "../components/SiteFooter";
 
 export const metadata: Metadata = {
-  title: "Frege Pricing",
+  title: "Pricing — Frege",
   description:
     "Frege pricing: $20/month for a single user, $20 per user/month for teams ($15 per user/month billed annually), and custom enterprise plans.",
   alternates: {
@@ -147,18 +148,7 @@ export default function PricingPage() {
         </p>
       </section>
 
-      <footer className="foot">
-        <div className="foot__top" aria-hidden="true" />
-        <div className="foot__row">
-          <span>Frege — agent memory, governed.</span>
-          <span className="foot__links">
-            <a href="/docs">docs</a>
-            <a href="/contact">contact</a>
-            <a href="/signup">sign up</a>
-            <a href="/login?next=/admin">sign in</a>
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

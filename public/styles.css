@@ -1436,8 +1436,30 @@ a {
 /* ───────── responsive ───────── */
 
 @media (max-width: 860px) {
+  /* Below ~860px the six nav items can outgrow one row. Switch the bar from
+     fixed to sticky so it can grow with its content, and let the nav wrap
+     onto extra rows instead of pushing "sign up" off-screen. */
+  body {
+    padding-top: 0;
+  }
+
   .bar {
-    gap: 16px;
+    position: sticky;
+    top: 0;
+    height: auto;
+    min-height: var(--bar-h);
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding-top: 9px;
+    padding-bottom: 9px;
+  }
+
+  .bar__nav {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px 14px;
+    white-space: normal;
+    overflow: visible;
   }
 
   .step,
@@ -1469,6 +1491,18 @@ a {
   .bar__brand {
     font-size: 13px;
     letter-spacing: 0.12em;
+  }
+
+  .bar__nav {
+    gap: 2px 12px;
+  }
+
+  .bar__nav .lnk {
+    font-size: 13px;
+  }
+
+  .bar__nav .lnk--cta {
+    padding: 4px 10px;
   }
 
   .hero__actions .button,

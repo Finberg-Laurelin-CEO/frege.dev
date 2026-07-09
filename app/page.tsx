@@ -1,4 +1,4 @@
-const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
+import SiteFooter from "./components/SiteFooter";
 
 const FREGE_ART = `
 ███████╗ ██████╗  ███████╗  ██████╗  ███████╗
@@ -180,8 +180,7 @@ export default function Home() {
         <p className="eyebrow">Start today</p>
         <h2 id="start-title">Bring your agents. Frege brings the governed memory layer.</h2>
         <p>
-          Create your account, choose a plan, and activate through Stripe checkout. Have a Frege
-          code? Enter it in Stripe before you pay.
+          Create your account, choose a plan, and activate through Stripe checkout.
         </p>
         <div className="hero__actions">
           <a className="button button--primary" href="/signup">Create account</a>
@@ -190,24 +189,7 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="foot">
-        <div className="foot__top" aria-hidden="true" />
-        <div className="foot__row">
-          <span>Frege — agent memory, governed.</span>
-          <span className="foot__links">
-            <a href="/docs">docs</a>
-            <a href="/architecture">architecture</a>
-            <a href="/pricing">pricing</a>
-            <a href="/contact">contact</a>
-            <a href="/signup">sign up</a>
-            <a href="/login?next=/admin">sign in</a>
-            <a href={githubUrl}>github</a>
-            <a href="mailto:hello@frege.dev">hello@frege.dev</a>
-            <a href="/privacy">privacy</a>
-            <a href="/terms">terms</a>
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
     </main>
   );
 }

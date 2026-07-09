@@ -1,8 +1,8 @@
 # Frege
 
-The semantic brain for your company. Make institutional knowledge executable.
+Your agents share a company. They should share a brain.
 
-Frege is a secure markdown knowledge layer for companies that need AI agents and employees to use the same trusted context without exposing everything. It gives teams one controlled place to read, write, version, and audit institutional knowledge through role-based access controls and MCP-native tools.
+Frege is one governed brain for your AI agents — agent memory, governed. Teams that need AI agents and employees to use the same trusted context without exposing everything get one controlled place to read, write, version, and audit institutional knowledge through role-based access controls and MCP-native tools.
 
 ## The Problem
 
@@ -36,19 +36,21 @@ The customer-facing product should be model agnostic. A company should be able t
 
 Primary language:
 
-> The semantic brain for your company.
+> Your agents share a company. They should share a brain.
 
 Alternate:
 
-> Make institutional knowledge executable.
+> One governed brain for your AI agents.
+>
+> Agent memory, governed.
 
 Supporting language:
 
-> Stop rebuilding internal context servers for every agent stack. Frege turns markdown files into secure, versioned, permission-aware tools for Codex, Claude Code, OpenRouter, and internal agents.
+> Once a team points several agents at shared company knowledge, ad-hoc CLAUDE.md files drift, leak, and go stale. Frege is one governed memory layer: every agent gets scoped, cited context — with access control, audit, and reviewable writes built in.
 
 Short description:
 
-> A secure markdown knowledge layer that lets companies give agents the right context with role-based access, version history, API keys, audit logs, and usage tracking.
+> A hosted, governed memory layer that gives AI agents scoped, cited company context with role-based access, trust zones, version history, API keys, audit logs, and usage tracking.
 
 ## MVP
 

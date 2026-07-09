@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import LoginPanel from "./LoginPanel";
 
 export const metadata: Metadata = {
-  title: "Frege Login",
+  title: "Login — Frege",
   robots: {
     index: false,
     follow: false,

@@ -15,7 +15,7 @@ export default function Thanks() {
           <p className="out wrap muted"># what happens next</p>
           <ol className="out wrap" style={{ paddingLeft: "1.4em", margin: "4px 0 20px" }}>
             <li>Create your Frege account.</li>
-            <li>Choose a plan and enter any Frege code in Stripe checkout.</li>
+            <li>Choose a plan and activate through Stripe checkout.</li>
             <li>Use the console to configure your org and MCP keys.</li>
           </ol>
           <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <a className="lnk" href="/signup">signup</a> <a className="lnk" href="/login">login</a><span className="cursor" aria-hidden="true">█</span></p>
