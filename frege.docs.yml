@@ -30,3 +30,19 @@ documents:
     tags: [frege, billing, stripe]
   - path: docs/PROTOTYPE_OPERATIONS.md
     tags: [frege, operations]
+  # Red-zone demo docs for the governed-denial beat in the investor Loom.
+  # sensitivity: restricted maps to trust_zone red server-side. Syncing these
+  # entries requires a key whose role carries the `restricted` label (e.g. the
+  # admin demo key) — a green-only key gets 403 forbidden_sensitivity and the
+  # sync aborts. Slugs match what scripts/prototype/import-markdown-dir.mjs
+  # derives when importing demo-data/frege-demo-docs/red directly.
+  - path: demo-data/frege-demo-docs/red/security/provider-key-handling.md
+    slug: security-provider-key-handling
+    title: Provider Key Handling
+    sensitivity: restricted
+    tags: [frege, security, red-zone]
+  - path: demo-data/frege-demo-docs/red/security/red-zone-handling.md
+    slug: security-red-zone-handling
+    title: Restricted Red Zone Handling
+    sensitivity: restricted
+    tags: [frege, security, red-zone]

@@ -1,31 +1,97 @@
 # Frege Prototype Operations
 
-_Last updated: 2026-06-18._
+_Last updated: 2026-07-09._
 
-This is the operator runbook for the API-key-first prototype. It assumes the stacked prototype branches through `feature/prototype-audit-and-admin` are deployed or running locally.
+This is the operator runbook for the API-key-first prototype.
 
 ## Apply migrations
 
+Migrations are applied in order by the ledger-backed runner (`scripts/prototype/migrate-db.mjs`), which records applied files in a `schema_migrations` table and only runs what is pending:
+
 ```bash
 vercel env pull .env.local
-node --env-file=.env.local scripts/migrate.mjs db/002_prototype_core.sql
-node --env-file=.env.local scripts/migrate.mjs db/003_semantic_map.sql
-node --env-file=.env.local scripts/migrate.mjs db/004_document_proposals.sql
-node --env-file=.env.local scripts/migrate.mjs db/005_control_plane_context_telemetry.sql
+DATABASE_URL=... pnpm db:status    # list migrations and applied state
+DATABASE_URL=... pnpm db:migrate   # apply pending migrations in order
+DATABASE_URL=... pnpm db:verify    # verify ledger matches db/ contents
 ```
 
-`005_control_plane_context_telemetry.sql` adds user login, sessions, org memberships, model configs, context builds, trust zones, and telemetry.
+The runner also honors `node --env-file=.env.local scripts/prototype/migrate-db.mjs`. The sequence currently runs `001`–`022`; `015` was deleted and is intentionally absent. Do not apply individual files by hand — the ledger is the source of truth.
 
 ## Required local env
 
 ```bash
 DATABASE_URL=...
 FREGE_API_KEY_SALT=...
+IP_HASH_SALT=...
 FREGE_BOOTSTRAP_TOKEN=...
 FREGE_SECRET_KEY=base64-or-long-random-secret-for-model-config-encryption
 ```
 
-`FREGE_SECRET_KEY` is required only when storing provider API keys for model configs. Ollama configs can omit provider secrets.
+`DATABASE_URL`, `FREGE_API_KEY_SALT`, and `IP_HASH_SALT` are asserted by `lib/core/env-check.ts`. `FREGE_SECRET_KEY` is required only when storing provider API keys for model configs. Ollama configs can omit provider secrets.
+
+## Env var reference (verified against code, 2026-07-09)
+
+Required everywhere (`lib/core/env-check.ts`):
+
+```text
+DATABASE_URL          Postgres connection string
+FREGE_API_KEY_SALT    salt for hashing API keys (lib/core/keys.ts)
+IP_HASH_SALT          salt for hashing client IPs
+```
+
+Stripe (required as a group once STRIPE_SECRET_KEY is set — `assertStripeEnv`):
+
+```text
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
+STRIPE_PRICE_SOLO_MONTHLY
+STRIPE_PRICE_TEAM_MONTHLY
+STRIPE_PRICE_TEAM_ANNUAL
+```
+
+Cron (set on the canonical Vercel project only — `lib/cron-guard.ts`):
+
+```text
+CRON_ENABLED          "true" enables cron execution on this project
+CRON_SECRET           bearer token Vercel sends to /api/cron/* routes
+```
+
+Email (Resend; sends become logged no-ops when RESEND_API_KEY is unset — `lib/core/email.ts`):
+
+```text
+RESEND_API_KEY
+FREGE_EMAIL_FROM      default "Frege <hello@updates.frege.dev>"
+FREGE_EMAIL_REPLY_TO  default hello@frege.dev
+```
+
+App/host configuration:
+
+```text
+FREGE_PUBLIC_BASE_URL         public marketing base URL (lib/core/public-url.ts)
+FREGE_APP_BASE_URL            authenticated app base URL, e.g. https://brain.frege.dev
+FREGE_ADMIN_ONLY              "true" makes the deploy an admin-only operations console (middleware.ts)
+FREGE_ADMIN_SSO_STAFF_EMAIL   staff email mapping for admin SSO (lib/core/admin-sso.ts)
+FREGE_ADMIN_STATS_SECRET      guards the signup-stats cron/endpoint
+```
+
+Auth and control plane:
+
+```text
+FREGE_BOOTSTRAP_TOKEN    first-user bootstrap gate
+FREGE_SECRET_KEY         model-config secret encryption
+FREGE_RUNTIME_TOKEN      guards /api/v1/runtime/* worker endpoints
+AUTH0_DOMAIN / AUTH0_CLIENT_ID / AUTH0_CLIENT_SECRET / AUTH0_SECRET / AUTH0_BASE_URL
+FREGE_AUTH0_REQUIRE_VERIFIED_EMAIL
+```
+
+Tuning and integrations (optional):
+
+```text
+FREGE_MODEL_TIMEOUT_MS, FREGE_DB_TIMEOUT_MS, FREGE_AGENT_MAX_TOKENS
+FREGE_EMBEDDING_PROVIDER, FREGE_EMBEDDING_MODEL
+HERMES_FREGE_WEBHOOK_SECRET, HERMES_FREGE_SIGNUP_WEBHOOK_URL
+LOCAL_PG                 "1" switches the migration runner to node-postgres
+```
 
 ## Vercel project env
 
@@ -86,10 +152,20 @@ node --env-file=.env.local scripts/prototype/create-role.mjs acme-demo writer "W
 node --env-file=.env.local scripts/prototype/create-role.mjs acme-demo admin "Admin" public,internal,restricted true true true
 ```
 
-Role booleans are:
+Roles carry a label allowlist (`can_read_labels`, comma-separated from `public`, `internal`, `restricted`) plus 9 boolean capability flags, passed positionally after the labels:
 
 ```txt
 can_create_docs can_update_docs can_read_audit
+can_read_sessions can_write_sessions can_propose_memory
+can_review_memory_proposals can_manage_sources can_execute_agents
+```
+
+Unpassed flags default to false, except `can_write_sessions`, which defaults to true. Full form:
+
+```bash
+node --env-file=.env.local scripts/prototype/create-role.mjs <org-slug> <role-slug> <role-name> \
+  [labels] [can-create-docs] [can-update-docs] [can-read-audit] [can-read-sessions] \
+  [can-write-sessions] [can-propose-memory] [can-review-memory] [can-manage-sources] [can-execute-agents]
 ```
 
 ## Create API keys
@@ -296,15 +372,15 @@ frege_get_agent_run
 
 Frege MCP should be installed by an agent or shell, not configured from browser-copied JSON.
 
-Current local package path:
+Install the published CLI (canonical channel — see `docs/FREGE_MCP_INSTALL.md`):
 
 ```bash
-cd /Users/Joe/frege/worktrees/feature-prototype-audit-and-admin
-cd packages/frege-cli
-npm link
+npm install -g @frege-dev/cli
 frege connect http://localhost:3000 --token "$READER_KEY"
 frege doctor
 ```
+
+For development against a repo checkout, `cd packages/frege-cli && npm link` still works, but the published package is the supported path.
 
 Then register the local MCP command with the agent:
 

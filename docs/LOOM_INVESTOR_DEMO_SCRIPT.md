@@ -2,7 +2,7 @@
 
 ## Goal
 
-Record a short investor Loom that shows Frege using Frege: a real local agent connects to the hosted Frege API with a scoped key, pushes the project docs into the Frege brain, asks for governed context, and shows the browser console updating with the same activity.
+Record a short investor Loom that shows Frege using Frege: a real local agent connects to the hosted Frege API with a scoped key, pushes the project docs into the Frege brain, asks for governed context, gets refused on a red-zone doc, proposes a memory update that a human approves, and shows the browser console updating with the same activity.
 
 Core line:
 
@@ -17,6 +17,13 @@ Core line:
 - Demo key prefix: `c02d8a99ee7a`
 
 Do not show the raw API key in Loom. If it appears on screen, rotate it after recording.
+
+Identity note (2026-07-09): the org's original bootstrap admin is `joe@laurelin-inc.com`
+(see `docs/LOCAL_WORKLOG.md` and `docs/ADMIN_ACCESS.md`; it is also platform staff).
+The on-screen browser identity for this Loom is `joe@frege.dev`. Before recording,
+sign in as `joe@frege.dev` and confirm it is a member of `frege-local` with the admin
+role; if it is not, invite it from `/admin` (Members → invite) first. Keep
+`joe@laurelin-inc.com` off screen.
 
 ## Screen Setup
 
@@ -44,6 +51,38 @@ orgStatus: active
 role: admin
 key: c02d8a99ee7a
 ```
+
+One-line check: `frege doctor` must show `org: frege-local`, `orgStatus: active`,
+`role: admin`, `key: c02d8a99ee7a`. If `orgStatus` is not `active`, doctor exits
+nonzero and the demo is blocked.
+
+Two more preflight requirements for the governance beats (full recording-day list in
+`docs/DEMO_OPERATOR_CHECKLIST.md`):
+
+1. **Red-zone docs must exist in the org.** `frege.docs.yml` now includes the two
+   restricted demo docs (`security-provider-key-handling`,
+   `security-red-zone-handling`). Syncing them requires a key whose role carries the
+   `restricted` label, so run the full `frege docs sync frege.docs.yml` once with the
+   admin demo key before recording. Operator alternative (direct DB import into the
+   live org, off camera — do not run during the Loom):
+
+   ```bash
+   vercel pull --yes --environment=production --scope laurelin-inc
+   node --env-file=./.vercel/.env.production.local \
+     scripts/prototype/import-markdown-dir.mjs frege-local demo-data/frege-demo-docs/red restricted published
+   node --env-file=./.vercel/.env.production.local \
+     scripts/prototype/index-semantic-map.mjs frege-local
+   rm -rf .vercel
+   ```
+
+2. **A green-only writer key for the denial beat.** The admin demo key carries the
+   `restricted` label, so red-zone reads through it succeed. Create a writer-role key
+   (labels `public,internal` only) in the console, and export it off camera before
+   recording so only the variable name appears on screen:
+
+   ```bash
+   export FREGE_WRITER_KEY=frg_live_...   # hidden prompt, never on screen
+   ```
 
 ## Recording Flow
 
@@ -130,6 +169,11 @@ Current demo docs:
 - `prototype-operations`
 - `frege-investor-loom-demo-script`
 
+Restricted demo docs (synced in preflight, invisible to green-only keys):
+
+- `security-provider-key-handling`
+- `security-red-zone-handling`
+
 ### 5. Prove the docs are readable
 
 Run:
@@ -162,11 +206,42 @@ Say:
 
 > Frege is not just search. The context packet returns cited, scoped material the agent can use before it answers.
 
-### 7. Show governance
+### 7. The denied read
+
+Now ask for something the agent should not have. Run both through the green-only writer key (exported in preflight; only the variable name shows on screen):
+
+```bash
+FREGE_API_KEY="$FREGE_WRITER_KEY" frege docs read security-provider-key-handling
+FREGE_API_KEY="$FREGE_WRITER_KEY" frege context "provider key handling"
+```
+
+Expected: the direct read returns `not_found` — restricted titles and bodies never leak, not even in the error. The context packet returns a nonzero `denied_count` with no red-zone content.
+
+Flip to the browser: console → **access** ("Access & trust zones"). Point at the writer role's labels — `public, internal` — no `restricted`.
+
+Say:
+
+> That doc covers Stripe and provider-key handling. It is red-zone. The agent's key resolves to a role without the restricted label, so Frege refuses — and the access matrix shows exactly why. The agent cannot even confirm the doc exists.
+
+### 8. Propose a memory update
+
+Agents do not rewrite the company brain directly. Ask the coding agent:
+
+```text
+Using the frege_write_page_proposal tool, propose a brain page titled "Investor demo recording notes" summarizing what we set up in this session. Keep it green trust zone.
+```
+
+Flip to the browser: console → **knowledge** (reviewable proposals). Show the pending proposal, then approve it.
+
+Say:
+
+> The agent proposed the memory change; it did not make it. A human reviewed and approved it, and only then did it become canonical org memory. That review step is the difference between shared memory and agents silently rewriting your company's knowledge.
+
+### 9. Show governance
 
 In the browser, show:
 
-- Activity/audit for the key.
+- Activity/audit for the key: what was read, what was denied, what was proposed, and who approved it.
 - Documents updated by the demo key.
 - Any context build record visible in the console.
 - Roles and allowed labels.
@@ -175,7 +250,7 @@ Say:
 
 > This is the point for companies: agents can use shared memory without getting blanket access to every secret, and every read/write is attributable.
 
-### 8. Close with why it matters
+### 10. Close with why it matters
 
 Say:
 
@@ -192,6 +267,8 @@ frege docs list
 frege docs read investor-demo-workflow
 frege docs search "Frege MCP Install"
 frege context "how does Frege use Frege for the investor demo?"
+FREGE_API_KEY="$FREGE_WRITER_KEY" frege docs read security-provider-key-handling
+FREGE_API_KEY="$FREGE_WRITER_KEY" frege context "provider key handling"
 ```
 
 If search is too broad, use exact or simple terms:
