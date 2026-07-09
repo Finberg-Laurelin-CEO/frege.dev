@@ -20,7 +20,9 @@ function includesAll(text, needles, label) {
   }
 }
 
-const signupRoute = read("app/api/signup/route.ts");
+// The signup API is a thin route wrapper around the DI-testable core in
+// lib/core/signup-flow-core.ts; smoke-check the combined source.
+const signupRoute = read("app/api/signup/route.ts") + read("lib/core/signup-flow-core.ts");
 const signupPage = read("app/signup/page.tsx");
 const resendRoute = read("app/api/signup/recovery/resend/route.ts");
 
@@ -30,9 +32,10 @@ includesAll(
     "createUserSession",
     "sendSignupWelcomeEmail",
     "sendEmailVerificationEmail",
-    "issueEmailVerificationToken",
+    "buildEmailVerificationToken",
     "hashPassword",
-    "ensureDefaultAgentRoles",
+    "defaultAgentRoleStatements",
+    "sql.transaction",
     "auth.signup.email",
     "auth.signup.ip",
     "account_exists",

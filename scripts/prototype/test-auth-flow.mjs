@@ -110,14 +110,19 @@ function makeLoginSql(row) {
   return { sql, calls };
 }
 
-function makeInviteSql({ invite, existingUser = null, credentialExists = false }) {
+// Neon-like fake: sql`...` builds a LAZY statement (recorded in `calls`) that
+// only executes when awaited — directly (reads) or via sql.transaction (writes).
+// `executed` tracks actual execution; `transactions` the batched statement texts.
+function makeInviteSql({ invite, existingUser = null, credentialExists = false, failOnText = null }) {
   const calls = [];
+  const executed = [];
+  const transactions = [];
   const createdUser = { id: "user-new", email: invite.email, name: "Ada Lovelace" };
   const updatedUser = { id: existingUser?.id ?? "user-existing", email: invite.email, name: existingUser?.name || "Ada Lovelace" };
 
-  const sql = async (strings, ...values) => {
-    const text = queryText(strings);
-    calls.push({ text, values });
+  const run = (text, values) => {
+    executed.push({ text, values });
+    if (failOnText && text.includes(failOnText)) throw new Error(`forced failure: ${failOnText}`);
     if (text.includes("from organization_invites")) return [invite];
     if (text.includes("from users where email")) return existingUser ? [existingUser] : [];
     if (text.includes("insert into users")) return [createdUser];
@@ -130,7 +135,30 @@ function makeInviteSql({ invite, existingUser = null, credentialExists = false }
     if (text.includes("update organization_invites")) return [];
     throw new Error(`unexpected invite SQL: ${text}`);
   };
-  return { sql, calls, createdUser, updatedUser };
+
+  const sql = (strings, ...values) => {
+    const text = queryText(strings);
+    calls.push({ text, values });
+    return {
+      text,
+      values,
+      then: (onFulfilled, onRejected) =>
+        Promise.resolve()
+          .then(() => run(text, values))
+          .then(onFulfilled, onRejected),
+    };
+  };
+  sql.transaction = async (queries) => {
+    transactions.push(queries.map((query) => query.text));
+    const results = [];
+    for (const query of queries) results.push(await query);
+    return results;
+  };
+  return { sql, calls, executed, transactions, createdUser, updatedUser };
+}
+
+function isWriteStatement(text) {
+  return text.startsWith("insert into") || text.startsWith("update");
 }
 
 async function readJson(response) {
@@ -227,7 +255,7 @@ test("invite acceptance creates user credentials and activates membership", asyn
     email: "new.user@example.com",
     role: "member",
   };
-  const { sql, calls } = makeInviteSql({ invite });
+  const { sql, calls, executed, transactions } = makeInviteSql({ invite });
   const { deps, sessions } = makeDeps(sql);
 
   const response = await handleInviteAcceptRequest(
@@ -248,6 +276,57 @@ test("invite acceptance creates user credentials and activates membership", asyn
   assert.equal(calls.some((call) => call.text.includes("insert into users")), true);
   assert.equal(calls.some((call) => call.text.includes("insert into user_password_credentials")), true);
   assert.equal(calls.some((call) => call.text.includes("insert into organization_memberships")), true);
+
+  // Every write ran inside exactly one atomic batch — none outside it.
+  assert.equal(transactions.length, 1);
+  assert.deepEqual(
+    executed.filter((call) => isWriteStatement(call.text)).map((call) => call.text),
+    transactions[0],
+  );
+  assert.equal(transactions[0].some((text) => text.includes("update organization_invites")), true);
+  // The new user's id is pre-generated client-side (non-interactive batch).
+  const userInsert = calls.find((call) => call.text.includes("insert into users"));
+  assert.match(String(userInsert.values[0]), /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  const membershipInsert = calls.find((call) => call.text.includes("insert into organization_memberships"));
+  assert.equal(membershipInsert.values[1], userInsert.values[0]);
+});
+
+test("invite acceptance partial failure runs no side effects after rollback", async () => {
+  const invite = {
+    id: "invite-3",
+    org_id: "org-3",
+    org_slug: "acme",
+    org_name: "Acme",
+    org_status: "active",
+    email: "new.user@example.com",
+    role: "member",
+  };
+  const { sql, executed, transactions } = makeInviteSql({
+    invite,
+    failOnText: "insert into organization_memberships",
+  });
+  const { deps, telemetry, sessions } = makeDeps(sql, {
+    routeError: () => Response.json({ error: "internal" }, { status: 500 }),
+  });
+
+  const response = await handleInviteAcceptRequest(
+    jsonRequest("/api/v1/auth/invites/accept", "frege.dev", {
+      token: "invite-token-with-enough-length",
+      name: "Ada Lovelace",
+      password: "long-enough-password",
+    }),
+    deps,
+  );
+  const body = await readJson(response);
+
+  assert.equal(response.status, 500);
+  assert.deepEqual(body, { error: "internal" });
+  // The batch was attempted once and rejected; no session, telemetry, or
+  // invite-status update escaped it.
+  assert.equal(transactions.length, 1);
+  assert.deepEqual(sessions, []);
+  assert.deepEqual(telemetry, []);
+  assert.equal(executed.some((call) => call.text.includes("update organization_invites")), false);
 });
 
 test("inactive owner/admin invite acceptance routes to account onboarding", async () => {
@@ -261,7 +340,7 @@ test("inactive owner/admin invite acceptance routes to account onboarding", asyn
     role: "admin",
   };
   const existingUser = { id: "user-existing", email: invite.email, name: "" };
-  const { sql, calls } = makeInviteSql({ invite, existingUser, credentialExists: true });
+  const { sql, calls, transactions } = makeInviteSql({ invite, existingUser, credentialExists: true });
   const { deps } = makeDeps(sql);
 
   const response = await handleInviteAcceptRequest(
@@ -280,6 +359,7 @@ test("inactive owner/admin invite acceptance routes to account onboarding", asyn
   assert.equal(calls.some((call) => call.text.includes("update users set name")), true);
   assert.equal(calls.some((call) => call.text.includes("insert into user_password_credentials")), false);
   assert.equal(calls.some((call) => call.text.includes("insert into organization_memberships")), true);
+  assert.equal(transactions.length, 1);
 });
 
 test("API key create/use/revoke mechanics and staff key boundaries stay separate", () => {

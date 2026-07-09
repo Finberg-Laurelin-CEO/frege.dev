@@ -121,9 +121,7 @@ export function assertVerifiedHumanUser(context: HumanOrgContext): Response | nu
   return emailVerificationRequiredResponse();
 }
 
-export async function ensureDefaultAgentRoles(orgId: string): Promise<void> {
-  const sql = getSql();
-  const defaults = [
+const DEFAULT_AGENT_ROLES = [
     {
       slug: "reader",
       name: "Reader",
@@ -168,8 +166,16 @@ export async function ensureDefaultAgentRoles(orgId: string): Promise<void> {
     },
   ];
 
-  for (const role of defaults) {
-    await sql`
+/**
+ * Build (but do not execute) the default agent-role inserts for an org.
+ *
+ * The statements are lazy query promises, so they can either be awaited
+ * one-by-one (ensureDefaultAgentRoles) or spread into a `sql.transaction([...])`
+ * batch by callers that need the whole onboarding flow to be atomic.
+ */
+export function defaultAgentRoleStatements(sql: ReturnType<typeof getSql>, orgId: string) {
+  return DEFAULT_AGENT_ROLES.map(
+    (role) => sql`
       insert into roles (
         org_id, slug, name, can_read_labels,
         can_create_docs, can_update_docs, can_read_audit,
@@ -182,6 +188,13 @@ export async function ensureDefaultAgentRoles(orgId: string): Promise<void> {
         ${role.reviewMemory}, ${role.sources}, ${role.executeAgents}
       )
       on conflict (org_id, slug) do nothing
-    `;
+    `,
+  );
+}
+
+export async function ensureDefaultAgentRoles(orgId: string): Promise<void> {
+  const sql = getSql();
+  for (const statement of defaultAgentRoleStatements(sql, orgId)) {
+    await statement;
   }
 }
