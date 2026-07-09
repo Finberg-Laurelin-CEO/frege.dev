@@ -53,7 +53,13 @@ declare global {
   }
 }
 
-const CLERK_CDN_SRC = "https://cdn.jsdelivr.net/npm/@clerk/clerk-js@5/dist/clerk.browser.js";
+// clerk-js must load from the instance's own frontend-API domain (the jsdelivr
+// mirror is only a webpack chunk registrar and never attaches window.Clerk).
+// The publishable key encodes that domain: pk_test_<base64("host$")>.
+function clerkScriptSrc(publishableKey: string): string {
+  const host = atob(publishableKey.replace(/^pk_(test|live)_/, "")).replace(/\$$/, "");
+  return `https://${host}/npm/@clerk/clerk-js@5/dist/clerk.browser.js`;
+}
 
 let clerkLoadPromise: Promise<ClerkInstance> | null = null;
 
@@ -90,9 +96,12 @@ function loadClerk(publishableKey: string): Promise<ClerkInstance> {
     }
 
     const script = document.createElement("script");
-    script.src = CLERK_CDN_SRC;
+    script.src = clerkScriptSrc(publishableKey);
     script.async = true;
     script.crossOrigin = "anonymous";
+    // With this attribute the frontend-API bundle self-initializes window.Clerk
+    // as a ready instance; initialize() handles both instance and class shapes.
+    script.setAttribute("data-clerk-publishable-key", publishableKey);
     script.onload = () => void initialize();
     script.onerror = () => fail("Clerk script failed to load");
     document.head.appendChild(script);
