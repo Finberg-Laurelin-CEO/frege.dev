@@ -70,6 +70,24 @@ type EmailVerificationEmailInput = {
   verificationUrl: string;
 };
 
+type SupportTicketCreatedEmailInput = {
+  to: string;
+  ticketId: string;
+  subject: string;
+  body: string;
+  orgName: string;
+  orgSlug: string;
+  requesterEmail: string;
+};
+
+type SupportTicketReplyEmailInput = {
+  to: string;
+  name: string;
+  ticketId: string;
+  subject: string;
+  body: string;
+};
+
 function inviteSubject(orgName: string): string {
   return `You're approved for Frege — set up ${orgName}`;
 }
@@ -395,6 +413,109 @@ function passwordResetHtmlBody(input: PasswordResetEmailInput): string {
 </html>`;
 }
 
+function supportTicketCreatedSubject(input: SupportTicketCreatedEmailInput): string {
+  return `New support ticket [${input.orgSlug}] ${input.subject}`;
+}
+
+function supportTicketCreatedTextBody(input: SupportTicketCreatedEmailInput): string {
+  return [
+    `New support ticket from ${input.orgName} (${input.orgSlug}).`,
+    "",
+    `From:    ${input.requesterEmail}`,
+    `Subject: ${input.subject}`,
+    `Ticket:  ${input.ticketId}`,
+    "",
+    input.body,
+    "",
+    "Reply from the platform console (tickets tab).",
+  ].join("\n");
+}
+
+function supportTicketCreatedHtmlBody(input: SupportTicketCreatedEmailInput): string {
+  const safeOrg = escapeHtml(input.orgName);
+  const safeSlug = escapeHtml(input.orgSlug);
+  const safeSubject = escapeHtml(input.subject);
+  const safeBody = escapeHtml(input.body).replace(/\n/g, "<br>");
+  const safeRequester = escapeHtml(input.requesterEmail);
+  const safeTicketId = escapeHtml(input.ticketId);
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px;">New support ticket</h1>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 16px;">
+          <strong>${safeOrg}</strong> (${safeSlug}) opened a ticket via ${safeRequester}:
+        </p>
+        <p style="font-size:15px;font-weight:600;margin:0 0 12px;">${safeSubject}</p>
+        <p style="font-size:14px;line-height:1.6;margin:0 0 24px;border-left:3px solid #d8dedb;padding-left:12px;color:#333;">
+          ${safeBody}
+        </p>
+        <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
+          Ticket ${safeTicketId} · reply from the platform console (tickets tab).
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function supportTicketReplySubject(input: SupportTicketReplyEmailInput): string {
+  return `Frege support replied: ${input.subject}`;
+}
+
+function supportTicketUrl(): string {
+  return `${customerAppBaseUrl()}/support`;
+}
+
+function supportTicketReplyTextBody(input: SupportTicketReplyEmailInput): string {
+  const firstName = input.name.trim().split(/\s+/)[0] || "there";
+  return [
+    `Hi ${firstName},`,
+    "",
+    `The Frege team replied to your support ticket "${input.subject}":`,
+    "",
+    input.body,
+    "",
+    "View the full conversation or reply here:",
+    `   ${supportTicketUrl()}`,
+    "",
+    "- The Frege team",
+  ].join("\n");
+}
+
+function supportTicketReplyHtmlBody(input: SupportTicketReplyEmailInput): string {
+  const safeFirstName = escapeHtml(input.name.trim().split(/\s+/)[0] || "there");
+  const safeSubject = escapeHtml(input.subject);
+  const safeBody = escapeHtml(input.body).replace(/\n/g, "<br>");
+  const safeUrl = escapeHtml(supportTicketUrl());
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px;">Frege support replied</h1>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 16px;">
+          Hi ${safeFirstName}, the Frege team replied to your ticket <strong>${safeSubject}</strong>:
+        </p>
+        <p style="font-size:14px;line-height:1.6;margin:0 0 24px;border-left:3px solid #d8dedb;padding-left:12px;color:#333;">
+          ${safeBody}
+        </p>
+        <p style="margin:0 0 28px;">
+          <a href="${safeUrl}" style="display:inline-block;background:#0033cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
+            View conversation
+          </a>
+        </p>
+        <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
+          If the button doesn't work, paste this URL into your browser:<br>
+          <span style="word-break:break-all;color:#0033cc;">${safeUrl}</span>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -509,6 +630,50 @@ export async function sendEmailVerificationEmail(input: EmailVerificationEmailIn
 
   if (error) {
     console.error("email verification send failed", { to: input.to, message: error.message });
+    return { sent: false, reason: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
+export async function sendSupportTicketCreatedEmail(input: SupportTicketCreatedEmailInput): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    console.warn("email not configured; support ticket created email skipped", { to: input.to });
+    return { sent: false, reason: "not_configured" };
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: fromAddress(),
+    to: input.to,
+    replyTo: replyToAddress(),
+    subject: supportTicketCreatedSubject(input),
+    text: supportTicketCreatedTextBody(input),
+    html: supportTicketCreatedHtmlBody(input),
+  });
+
+  if (error) {
+    console.error("support ticket created email send failed", { to: input.to, message: error.message });
+    return { sent: false, reason: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
+export async function sendSupportTicketReplyEmail(input: SupportTicketReplyEmailInput): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    console.warn("email not configured; support ticket reply email skipped", { to: input.to });
+    return { sent: false, reason: "not_configured" };
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: fromAddress(),
+    to: input.to,
+    replyTo: replyToAddress(),
+    subject: supportTicketReplySubject(input),
+    text: supportTicketReplyTextBody(input),
+    html: supportTicketReplyHtmlBody(input),
+  });
+
+  if (error) {
+    console.error("support ticket reply email send failed", { to: input.to, message: error.message });
     return { sent: false, reason: error.message };
   }
   return { sent: true, id: data?.id };

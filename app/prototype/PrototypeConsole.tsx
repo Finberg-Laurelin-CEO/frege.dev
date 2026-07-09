@@ -144,6 +144,9 @@ export default function PrototypeConsole({
           <span className={styles.footOrg}>{orgName}</span>
           {userEmail ? <span className={styles.footEmail}>{userEmail}</span> : null}
           {activeOrg?.role ? <span className={styles.footRole}>{activeOrg.role}</span> : null}
+          <a className={styles.logout} href="/support" style={{ textDecoration: "none" }}>
+            support →
+          </a>
           <button type="button" className={styles.logout} onClick={logout}>
             logout →
           </button>
