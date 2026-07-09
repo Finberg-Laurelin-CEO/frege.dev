@@ -3,9 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { COMPANY_SIZES, clientFields, clientSchema } from "@/lib/signup-schema";
+import { PLAN_OPTIONS, isPlanKey, type PlanKey } from "@/app/components/plan-options";
 import "./signup.css";
-
-type PlanKey = "solo" | "team-monthly" | "team-annual";
 
 type Values = {
   name: string;
@@ -93,36 +92,6 @@ const VISIBLE_FIELDS: (keyof Values)[] = [
   "company_size",
   "main_pain_point",
 ];
-
-const PLAN_OPTIONS: Array<{
-  key: PlanKey;
-  name: string;
-  price: string;
-  detail: string;
-}> = [
-  {
-    key: "solo",
-    name: "Solo",
-    price: "$20 / month",
-    detail: "One user, hosted brain, MCP access, governed memory.",
-  },
-  {
-    key: "team-monthly",
-    name: "Team monthly",
-    price: "$20 / user / month",
-    detail: "Shared org brain with roles, audit, and monthly billing.",
-  },
-  {
-    key: "team-annual",
-    name: "Team annual",
-    price: "$15 / user / month",
-    detail: "Team plan billed yearly at $180 per user.",
-  },
-];
-
-function isPlanKey(value: string | null): value is PlanKey {
-  return PLAN_OPTIONS.some((option) => option.key === value);
-}
 
 function formatRequestDate(value: string | null): string | null {
   if (!value) return null;

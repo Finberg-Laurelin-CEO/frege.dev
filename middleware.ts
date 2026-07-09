@@ -22,7 +22,7 @@ const ADMIN_ALLOWED_PREFIXES = [
 // the authenticated app where a user works with their account and org. These are
 // the app surfaces that belong on brain.* — everything else (home, pricing,
 // docs, etc.) is marketing and stays on frege.dev.
-const APP_PREFIXES = ["/console", "/billing", "/admin", "/prototype"];
+const APP_PREFIXES = ["/console", "/billing", "/admin", "/prototype", "/setup-workspace"];
 
 // Shared infra that must work on either host (auth handshake, API, invites).
 const APP_SHARED_PREFIXES = ["/api", "/auth", "/login", "/forgot-password", "/reset-password", "/invite", "/setup"];

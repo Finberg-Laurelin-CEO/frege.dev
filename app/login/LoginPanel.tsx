@@ -1,6 +1,12 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import {
+  appOrigin,
+  clerkOAuthStatusText,
+  finishClerkBridgeCallback,
+  startClerkOAuth,
+} from "@/app/components/clerk-client";
 import "../auth.css";
 
 const loginStatusText: Record<string, string> = {
@@ -9,106 +15,11 @@ const loginStatusText: Record<string, string> = {
   rate_limited: "Too many login attempts. Try again shortly.",
   validation: "Enter a valid email and password.",
   login_failed: "Could not sign in. Try again.",
-  oauth_denied: "Single sign-on was cancelled.",
-  oauth_state_mismatch: "That sign-in attempt expired. Try again.",
-  oauth_email_missing: "Your provider account has no email address we can use.",
-  oauth_email_unverified: "Verify your email with the provider first, then try again.",
-  oauth_account_disabled: "This account is disabled.",
-  oauth_rate_limited: "Too many sign-in attempts. Try again shortly.",
-  oauth_failed: "Single sign-on failed. Try again or use your password.",
-  oauth_not_configured: "Single sign-on is not available right now. Use your password.",
+  login_link_invalid: "That sign-in link is invalid or expired. Request a fresh one below.",
+  ...clerkOAuthStatusText,
 };
 
 type OAuthProviders = { google: boolean; github: boolean };
-
-// ── Clerk (CDN-loaded clerk-js) ──────────────────────────────────────────────
-//
-// Clerk brokers the Google/GitHub handshake in the browser; the bridge endpoint
-// then swaps the Clerk session JWT for our own frege_session cookie and we sign
-// out of Clerk again — Frege's session stays the single source of truth.
-// clerk-js is loaded lazily from the CDN (only when a button is clicked or a
-// callback is pending) so the login bundle stays lean and no package is added.
-
-type ClerkSession = { getToken: () => Promise<string | null> };
-type ClerkInstance = {
-  loaded?: boolean;
-  session?: ClerkSession | null;
-  client?: {
-    signIn: {
-      authenticateWithRedirect: (params: {
-        strategy: "oauth_google" | "oauth_github";
-        redirectUrl: string;
-        redirectUrlComplete: string;
-      }) => Promise<void>;
-    };
-  };
-  load: (options?: Record<string, unknown>) => Promise<void>;
-  handleRedirectCallback: (options?: Record<string, unknown>) => Promise<unknown>;
-  signOut: () => Promise<void>;
-};
-
-declare global {
-  interface Window {
-    Clerk?: (new (publishableKey: string) => ClerkInstance) | ClerkInstance;
-  }
-}
-
-// clerk-js must load from the instance's own frontend-API domain (the jsdelivr
-// mirror is only a webpack chunk registrar and never attaches window.Clerk).
-// The publishable key encodes that domain: pk_test_<base64("host$")>.
-function clerkScriptSrc(publishableKey: string): string {
-  const host = atob(publishableKey.replace(/^pk_(test|live)_/, "")).replace(/\$$/, "");
-  return `https://${host}/npm/@clerk/clerk-js@5/dist/clerk.browser.js`;
-}
-
-let clerkLoadPromise: Promise<ClerkInstance> | null = null;
-
-// Idempotent: one script tag, one Clerk instance, shared across clicks and the
-// callback effect. On failure the promise is reset so a retry re-attempts.
-function loadClerk(publishableKey: string): Promise<ClerkInstance> {
-  if (clerkLoadPromise) return clerkLoadPromise;
-
-  clerkLoadPromise = new Promise<ClerkInstance>((resolve, reject) => {
-    const fail = (message: string) => {
-      clerkLoadPromise = null;
-      reject(new Error(message));
-    };
-
-    const initialize = async () => {
-      try {
-        const globalClerk = window.Clerk;
-        if (!globalClerk) return fail("Clerk script loaded without a global");
-        // The CDN bundle exposes the Clerk class; hotloaded variants may have
-        // already constructed an instance. Handle both.
-        const clerk =
-          typeof globalClerk === "function" ? new globalClerk(publishableKey) : globalClerk;
-        if (!clerk.loaded) await clerk.load({ standardBrowser: true });
-        resolve(clerk);
-      } catch (err) {
-        clerkLoadPromise = null;
-        reject(err instanceof Error ? err : new Error("Clerk failed to initialize"));
-      }
-    };
-
-    if (window.Clerk) {
-      void initialize();
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = clerkScriptSrc(publishableKey);
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    // With this attribute the frontend-API bundle self-initializes window.Clerk
-    // as a ready instance; initialize() handles both instance and class shapes.
-    script.setAttribute("data-clerk-publishable-key", publishableKey);
-    script.onload = () => void initialize();
-    script.onerror = () => fail("Clerk script failed to load");
-    document.head.appendChild(script);
-  });
-
-  return clerkLoadPromise;
-}
 
 export default function LoginPanel({
   oauthProviders = { google: false, github: false },
@@ -121,22 +32,13 @@ export default function LoginPanel({
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
   const [pending, setPending] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
 
   // Surface OAuth callback failures (redirected here as /login?error=oauth_...).
   useEffect(() => {
     const error = new URLSearchParams(window.location.search).get("error");
     if (error) setStatus(loginStatusText[error] ?? loginStatusText.login_failed);
   }, []);
-
-  // The app lives on brain.frege.dev; the marketing site (frege.dev) only hosts
-  // the login form. After a successful login we send the user into the app on
-  // the brain.* host. On preview/localhost (no brain subdomain) we stay on the
-  // current origin.
-  function appOrigin(): string {
-    const { hostname, origin } = window.location;
-    if (hostname === "frege.dev") return "https://brain.frege.dev";
-    return origin;
-  }
 
   function safeNextPath(value: string | null): string {
     const fallback = "/console";
@@ -174,33 +76,69 @@ export default function LoginPanel({
     window.location.href = `${appOrigin()}${safeNextPath(new URLSearchParams(window.location.search).get("next"))}`;
   }
 
+  // Frege-native email sign-in link (no Clerk): reuses the email field above.
+  // The request endpoint is enumeration-safe, so success copy is generic.
+  async function requestLoginLink() {
+    if (!email.trim()) {
+      setStatus("Enter your email above first.");
+      return;
+    }
+    setPending(true);
+    setStatus("sending sign-in link...");
+
+    try {
+      const requestedNext = new URLSearchParams(window.location.search).get("next");
+      const response = await fetch("/api/v1/auth/login-link/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          ...(requestedNext ? { next: safeNextPath(requestedNext) } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "login_failed" }));
+        const code = typeof error.error === "string" ? error.error : "login_failed";
+        setStatus(
+          code === "validation"
+            ? "Enter a valid email above first."
+            : loginStatusText[code] ?? loginStatusText.login_failed,
+        );
+        setPending(false);
+        return;
+      }
+
+      setLinkSent(true);
+      setStatus("link sent — check your email");
+    } catch {
+      setStatus(loginStatusText.login_failed);
+    }
+    setPending(false);
+  }
+
   // Clerk mode: kick off the provider redirect through clerk-js. Clerk returns
   // the browser to /login?clerk=cb where the effect below finishes the bridge.
-  async function startClerkOAuth(provider: "google" | "github") {
+  async function startClerkLogin(provider: "google" | "github") {
     if (!clerkPublishableKey) return;
     setPending(true);
     setStatus(`redirecting to ${provider}...`);
 
     try {
-      const clerk = await loadClerk(clerkPublishableKey);
-      if (!clerk.client) throw new Error("Clerk client unavailable");
       const requestedNext = new URLSearchParams(window.location.search).get("next");
       const next = requestedNext ? safeNextPath(requestedNext) : null;
       const callbackUrl = `/login?clerk=cb${next ? `&next=${encodeURIComponent(next)}` : ""}`;
-      await clerk.client.signIn.authenticateWithRedirect({
-        strategy: `oauth_${provider}`,
-        redirectUrl: callbackUrl,
-        redirectUrlComplete: callbackUrl,
-      });
+      await startClerkOAuth(clerkPublishableKey, provider, callbackUrl);
     } catch {
       setStatus(loginStatusText.oauth_failed);
       setPending(false);
     }
   }
 
-  // Clerk callback: finish the handshake, swap the Clerk token for our own
-  // frege_session via the bridge, sign out of Clerk (identity verification
-  // only — one source of truth), then enter the app.
+  // Clerk callback: finish the handshake (including the transferable
+  // sign-in/sign-up repair for first-time users), swap the Clerk token for our
+  // own frege_session via the bridge, then enter the app. Brand-new users and
+  // users without an org land on /setup-workspace to create one.
   useEffect(() => {
     if (!clerkPublishableKey) return;
     const params = new URLSearchParams(window.location.search);
@@ -212,47 +150,22 @@ export default function LoginPanel({
       setPending(true);
       setStatus("finishing sign-in...");
 
-      try {
-        const clerk = await loadClerk(clerkPublishableKey);
-        if (!clerk.session) {
-          // Completes the sign-in Clerk started before redirecting here. It may
-          // trigger a navigation back to this same URL; the session check below
-          // covers both the settled and the reloaded pass.
-          await clerk.handleRedirectCallback({}).catch(() => {});
-        }
-        if (!clerk.session) throw new Error("no Clerk session after callback");
+      const next = safeNextPath(params.get("next"));
+      const result = await finishClerkBridgeCallback(clerkPublishableKey, { next });
+      if (cancelled) return;
 
-        const token = await clerk.session.getToken();
-        if (!token) throw new Error("Clerk session returned no token");
-
-        const next = safeNextPath(params.get("next"));
-        const response = await fetch("/api/v1/auth/clerk/bridge", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token, next }),
-        });
-
-        if (!response.ok) {
-          const error = await response.json().catch(() => ({ error: "oauth_failed" }));
-          const code = typeof error.error === "string" ? error.error : "oauth_failed";
-          await clerk.signOut().catch(() => {});
-          if (cancelled) return;
-          setStatus(loginStatusText[code] ?? loginStatusText.oauth_failed);
-          setPending(false);
-          return;
-        }
-
-        const payload = (await response.json().catch(() => ({}))) as { next?: unknown };
-        await clerk.signOut().catch(() => {});
-        if (cancelled) return;
-        setStatus("Signed in. Redirecting...");
-        const destination = safeNextPath(typeof payload.next === "string" ? payload.next : next);
-        window.location.href = `${appOrigin()}${destination}`;
-      } catch {
-        if (cancelled) return;
-        setStatus(loginStatusText.oauth_failed);
+      if (!result.ok) {
+        setStatus(loginStatusText[result.code] ?? loginStatusText.oauth_failed);
         setPending(false);
+        return;
       }
+
+      setStatus("Signed in. Redirecting...");
+      const destination =
+        result.flow === "created" || result.hasOrg === false
+          ? "/setup-workspace"
+          : safeNextPath(result.next ?? next);
+      window.location.href = `${appOrigin()}${destination}`;
     })();
 
     return () => {
@@ -308,6 +221,18 @@ export default function LoginPanel({
           </div>
         </form>
 
+        <p className="auth__note">
+          No password handy?{" "}
+          <button
+            className="lnk auth__linkbtn"
+            type="button"
+            disabled={pending || linkSent}
+            onClick={requestLoginLink}
+          >
+            {linkSent ? "link sent — check your email" : "email me a sign-in link"}
+          </button>
+        </p>
+
         {/* Customer OAuth — self-contained block. Clerk mode (publishable key
             present) wins over the hand-rolled providers, which stay as the
             dormant fallback. */}
@@ -315,10 +240,10 @@ export default function LoginPanel({
           <div className="auth__form" aria-label="Single sign-on">
             <p className="auth__meta">or continue with</p>
             <div className="auth__row">
-              <button className="button" type="button" disabled={pending} onClick={() => startClerkOAuth("google")}>
+              <button className="button" type="button" disabled={pending} onClick={() => startClerkLogin("google")}>
                 Continue with Google
               </button>
-              <button className="button" type="button" disabled={pending} onClick={() => startClerkOAuth("github")}>
+              <button className="button" type="button" disabled={pending} onClick={() => startClerkLogin("github")}>
                 Continue with GitHub
               </button>
             </div>

@@ -6,7 +6,7 @@ import {
 } from "@/lib/core/clerk-auth";
 import { defaultOAuthUserStore } from "@/lib/core/oauth-core";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
-import { createUserSession } from "@/lib/core/session";
+import { authenticateUserRequest, createUserSession } from "@/lib/core/session";
 import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
@@ -23,6 +23,7 @@ export async function POST(req: Request) {
     verifyClerkToken: verifyClerkSessionToken,
     getClerkUser: fetchClerkUser,
     createUserSession,
+    authenticateUserRequest,
     logTelemetryEvent,
     checkRateLimit,
     rateLimitedResponse,

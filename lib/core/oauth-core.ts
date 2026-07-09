@@ -370,6 +370,9 @@ export type OAuthUserStore = {
   markEmailVerified(userId: string): Promise<void>;
   createUser(input: { email: string; name: string }): Promise<OAuthUserRow>;
   touchLastLogin(userId: string): Promise<void>;
+  /** Whether the user already belongs to an org — the Clerk bridge reports it
+   *  as hasOrg so the client can route org-less users to /setup-workspace. */
+  hasActiveMembership(userId: string): Promise<boolean>;
 };
 
 export type OAuthCallbackDeps = {
@@ -433,6 +436,16 @@ export function defaultOAuthUserStore(sql: OAuthSql): OAuthUserStore {
     },
     async touchLastLogin(userId) {
       await sql`update users set last_login_at = now() where id = ${userId}`;
+    },
+    async hasActiveMembership(userId) {
+      const rows = await sql`
+        select 1
+        from organization_memberships
+        where user_id = ${userId}
+          and status = 'active'
+        limit 1
+      `;
+      return rows.length > 0;
     },
   };
 }
