@@ -11,28 +11,35 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // from brain / context / model modules directly. To drive it with an in-memory sql fake we
 // (1) resolve the "@/" path alias Node can't, and (2) swap those heavy value modules for
 // virtual stubs. getSql() returns globalThis.__fakeSql so each test controls its own store.
-// Until branch A merges, lib/prototype/agent-runtime.ts is absent; this validates at integration.
+// Until branch A merges, lib/core/agent-runtime.ts is absent; this validates at integration.
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const VIRTUAL = {
   "@/lib/db": "export function getSql(){ return globalThis.__fakeSql; }",
-  "@/lib/prototype/brain": `
+  "@/lib/core/brain": `
     export const redactSecrets = (value) => value ?? "";
     export const brainActorKeyId = (actor) => (actor?.actorType === "api_key" ? (actor.apiKeyAuth?.key?.id ?? null) : null);
     export const brainActorUserId = (actor) => (actor?.actorType === "user" ? (actor.userAuth?.user?.id ?? null) : null);
     export const startBrainSession = async () => ({ id: "sess-runtime" });
     export const appendSessionEvent = async () => ({});
   `,
-  "@/lib/prototype/context-gateway": `
+  "@/lib/core/context-gateway": `
     export const buildContextPacket = async () => ({
       id: "ctx-runtime", denied_count: 0, documents: [], brain_pages: [], token_estimate: 0, trust_zone: "green",
     });
   `,
-  "@/lib/prototype/model-gateway": "export const compileFregePrompt = (taskPrompt) => String(taskPrompt);",
-  "@/lib/prototype/model-configs": `
+  "@/lib/core/model-gateway": "export const compileFregePrompt = (taskPrompt) => String(taskPrompt);",
+  "@/lib/core/model-configs": `
     export const resolveModelConfig = async () => ({
       slug: "m1", provider: "anthropic", base_url: null, model_name: "claude", api_key: null, allowed_trust_zones: ["green"],
     });
+  `,
+  "@/lib/core/telemetry": `
+    export const logTelemetryEvent = async (event) => {
+      const sink = globalThis.__telemetrySink;
+      if (sink) return sink(event);
+      (globalThis.__telemetryEvents ??= []).push(event);
+    };
   `,
 };
 
@@ -58,7 +65,7 @@ registerHooks({
   },
 });
 
-const runtime = await import(pathToFileURL(path.join(rootDir, "lib/prototype/agent-runtime.ts")).href);
+const runtime = await import(pathToFileURL(path.join(rootDir, "lib/core/agent-runtime.ts")).href);
 
 const FIXED_NOW = "2026-01-01T00:00:00.000Z";
 
@@ -111,6 +118,8 @@ function makeRuntimeSql() {
       agent_default_context_query: store.agent.default_context_query,
       agent_max_steps: store.agent.max_steps,
       model_config_slug: store.agent.model_config_slug,
+      model_provider: "anthropic",
+      model_name: "claude",
     };
   }
 
@@ -179,8 +188,13 @@ function makeRuntimeSql() {
       const claimed = [];
       for (const runRow of store.runs.values()) {
         if (claimed.length >= limit) break;
-        const leaseFree = runRow.lease_expires_at == null;
-        if (runRow.status === "queued" && leaseFree) {
+        // Mirrors the claim CTE: queued runs with no/expired lease, plus
+        // 'running' runs whose lease has expired (orphaned mid-execution).
+        const leaseExpired = runRow.lease_expires_at != null && String(runRow.lease_expires_at) < FIXED_NOW;
+        const claimable =
+          (runRow.status === "queued" && (runRow.lease_expires_at == null || leaseExpired)) ||
+          (runRow.status === "running" && leaseExpired);
+        if (claimable) {
           runRow.status = "running";
           runRow.lease_owner = workerId;
           runRow.lease_expires_at = "2026-01-01T00:05:00.000Z";
@@ -274,6 +288,8 @@ function makeUserActor() {
 function setup() {
   const fake = makeRuntimeSql();
   globalThis.__fakeSql = fake.sql;
+  globalThis.__telemetryEvents = [];
+  globalThis.__telemetrySink = null;
   return fake;
 }
 
@@ -351,4 +367,118 @@ test("completing with a mismatched lease owner throws and writes no step", async
   assert.equal(store.runs.get(queued.id)?.status, "running", "run stays running after a rejected complete");
   assert.equal(store.runs.get(queued.id)?.lease_owner, "worker-1");
   assert.equal(stepsFor(queued.id).length, stepsBefore, "mismatched complete must not append a step");
+});
+
+test("a 'running' run with an expired lease is reclaimed by another worker", async () => {
+  const { store } = setup();
+  const actor = makeUserActor();
+
+  const queued = await runtime.enqueueAgentRun(actor, { agent_slug: "summarizer", input_md: "Orphan me." });
+  await runtime.claimAgentRunsForRuntime({ workerId: "worker-dead", limit: 10 });
+  const runRow = store.runs.get(queued.id);
+  assert.equal(runRow.status, "running");
+
+  // While the lease is live, no other worker may steal the run.
+  const stolen = await runtime.claimAgentRunsForRuntime({ workerId: "worker-2", limit: 10 });
+  assert.equal(stolen.length, 0, "unexpired running lease must not be reclaimed");
+
+  // Simulate the worker dying mid-run (cron killed at maxDuration): the run is
+  // stuck in 'running' and its lease expires.
+  runRow.lease_expires_at = "2025-12-31T23:59:00.000Z";
+
+  const reclaimed = await runtime.claimAgentRunsForRuntime({ workerId: "worker-2", limit: 10 });
+  assert.equal(reclaimed.length, 1, "expired running run must be reclaimed");
+  assert.equal(reclaimed[0].run.id, queued.id);
+  assert.equal(runRow.status, "running");
+  assert.equal(runRow.lease_owner, "worker-2");
+  assert.equal(runRow.attempt_count, 2, "reclaim counts as another attempt");
+
+  const completed = await runtime.completeAgentRunFromRuntime({
+    runId: queued.id,
+    workerId: "worker-2",
+    status: "succeeded",
+    resultMd: "recovered",
+  });
+  assert.equal(completed.status, "succeeded");
+});
+
+test("a reclaimed run past max attempts is dead-lettered instead of retried", async () => {
+  const { store, stepsFor } = setup();
+  const actor = makeUserActor();
+
+  const queued = await runtime.enqueueAgentRun(actor, { agent_slug: "summarizer", input_md: "Poison run." });
+  const runRow = store.runs.get(queued.id);
+  // The run has already burned its attempt budget (MAX_ATTEMPTS = 3) and is
+  // stuck 'running' with an expired lease.
+  runRow.status = "running";
+  runRow.lease_owner = "worker-dead";
+  runRow.lease_expires_at = "2025-12-31T23:59:00.000Z";
+  runRow.attempt_count = 3;
+  runRow.started_at = FIXED_NOW;
+
+  const packets = await runtime.claimAgentRunsForRuntime({ workerId: "worker-2", limit: 10 });
+  assert.equal(packets.length, 0, "dead-lettered run must not be handed back as a packet");
+  assert.equal(runRow.status, "failed");
+  assert.equal(runRow.error, "max_attempts_exceeded");
+  assert.equal(runRow.lease_owner, null);
+
+  const stepTypes = stepsFor(queued.id).map((step) => step.step_type);
+  assert.ok(stepTypes.includes("error"), "dead-letter must be recorded as an error step");
+
+  // Once failed, later claim sweeps ignore it.
+  const again = await runtime.claimAgentRunsForRuntime({ workerId: "worker-3", limit: 10 });
+  assert.equal(again.length, 0);
+});
+
+test("successful hosted completion logs a model.invoke telemetry event with the run's usage", async () => {
+  setup();
+  const actor = makeUserActor();
+
+  const queued = await runtime.enqueueAgentRun(actor, { agent_slug: "summarizer", input_md: "Track usage." });
+  await runtime.claimAgentRunsForRuntime({ workerId: "worker-1", limit: 10 });
+  await runtime.completeAgentRunFromRuntime({
+    runId: queued.id,
+    workerId: "worker-1",
+    status: "succeeded",
+    resultMd: "done",
+    usage: { input_tokens: 111, output_tokens: 22, estimated_cost_usd: 0.05 },
+  });
+
+  const events = globalThis.__telemetryEvents.filter((event) => event.action === "model.invoke");
+  assert.equal(events.length, 1, "hosted success must log exactly one model.invoke event");
+  const [event] = events;
+  assert.equal(event.outcome, "success");
+  assert.equal(event.resourceType, "model_config");
+  assert.equal(event.provider, "anthropic");
+  assert.equal(event.model, "claude");
+  assert.equal(event.inputTokens, 111);
+  assert.equal(event.outputTokens, 22);
+  assert.equal(event.estimatedCostUsd, 0.05);
+  assert.equal(event.metadata.agent_run_id, queued.id);
+  assert.equal(event.metadata.hosted_run, true);
+  assert.equal(event.actor.type, "user");
+});
+
+test("failed hosted completion logs no usage telemetry, and a telemetry crash never breaks completion", async () => {
+  const { store } = setup();
+  const actor = makeUserActor();
+
+  const failedRun = await runtime.enqueueAgentRun(actor, { agent_slug: "summarizer", input_md: "Will fail." });
+  await runtime.claimAgentRunsForRuntime({ workerId: "worker-1", limit: 10 });
+  await runtime.completeAgentRunFromRuntime({ runId: failedRun.id, workerId: "worker-1", status: "failed", error: "boom" });
+  assert.equal(globalThis.__telemetryEvents.length, 0, "failed runs must not log model.invoke usage");
+
+  const okRun = await runtime.enqueueAgentRun(actor, { agent_slug: "summarizer", input_md: "Telemetry down." });
+  await runtime.claimAgentRunsForRuntime({ workerId: "worker-1", limit: 10 });
+  globalThis.__telemetrySink = () => {
+    throw new Error("telemetry_down");
+  };
+  const completed = await runtime.completeAgentRunFromRuntime({
+    runId: okRun.id,
+    workerId: "worker-1",
+    status: "succeeded",
+    resultMd: "still completes",
+  });
+  assert.equal(completed.status, "succeeded", "telemetry failure must not break completion");
+  assert.equal(store.runs.get(okRun.id)?.status, "succeeded");
 });

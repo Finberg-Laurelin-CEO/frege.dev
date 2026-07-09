@@ -1,8 +1,8 @@
 import { getSql } from "@/lib/db";
-import { reissueInviteAndSendEmail } from "@/lib/prototype/invites";
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { reissueInviteAndSendEmail } from "@/lib/core/invites";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { assertSafeBrowserMutation, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

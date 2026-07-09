@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth0, isAuth0AdminMode } from "@/lib/prototype/auth0";
+import { auth0, isAuth0AdminMode } from "@/lib/core/auth0";
 
 // When deployed as the dedicated admin project (frege-admin), this instance is an
 // operations console only — not the public marketing site. We set FREGE_ADMIN_ONLY=true

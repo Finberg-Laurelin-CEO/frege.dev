@@ -1,6 +1,6 @@
-import { logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
-import { createDocumentLink, isDocumentLinkType } from "@/lib/prototype/semantic-map";
+import { logPrototypeAuditEvent } from "@/lib/core/audit";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/core/auth";
+import { createDocumentLink, isDocumentLinkType } from "@/lib/core/semantic-map";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

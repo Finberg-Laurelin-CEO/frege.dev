@@ -1,24 +1,22 @@
 import { getFregeSignupStats, type FregeSignupStats } from "@/lib/frege-signup-stats";
 import { postHermesEvent } from "@/lib/hermes-webhook";
-import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
-import { recordCronRun } from "@/lib/prototype/cron-run";
+import { cronDisabledResponse, cronsEnabled, isCronAuthorized } from "@/lib/cron-guard";
+import { recordCronRun } from "@/lib/core/cron-run";
+import { recordSignupMonitorEvent } from "@/lib/core/signup-monitor";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isCronAuthorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const authorization = req.headers.get("authorization");
-
-  return Boolean(secret && authorization === `Bearer ${secret}`);
-}
-
-async function postHermesStats(stats: FregeSignupStats) {
-  return postHermesEvent({
+async function recordAndPostHermesStats(stats: FregeSignupStats) {
+  const payload = {
     event: "frege.signup.stats.snapshot",
     created_at: new Date().toISOString(),
     stats,
-  });
+  };
+  // Frege-native monitor record (never throws); the external webhook only
+  // fires when FREGE_EXTERNAL_MONITOR_ENABLED=true.
+  await recordSignupMonitorEvent("frege.signup.stats.snapshot", payload);
+  return postHermesEvent(payload);
 }
 
 class CronResponseError extends Error {
@@ -42,7 +40,7 @@ export async function GET(req: Request) {
   try {
     const result = await recordCronRun("frege-signup-stats", async () => {
       const stats = await getFregeSignupStats();
-      const hermes = await postHermesStats(stats);
+      const hermes = await recordAndPostHermesStats(stats);
 
       if (!hermes.ok) {
         if (hermes.skipped) {

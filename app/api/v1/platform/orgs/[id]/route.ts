@@ -1,7 +1,7 @@
 import { getSql } from "@/lib/db";
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { routeError } from "@/lib/prototype/request-guards";
-import { orgUsageTotals, orgUsageByUser } from "@/lib/prototype/usage";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { routeError } from "@/lib/core/request-guards";
+import { orgUsageTotals, orgUsageByUser } from "@/lib/core/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

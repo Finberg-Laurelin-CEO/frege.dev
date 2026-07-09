@@ -1,7 +1,7 @@
 import { getSql } from "@/lib/db";
-import { appBaseUrl, getStripe, isStripeConfigured } from "@/lib/prototype/billing";
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
+import { appBaseUrl, getStripe, isStripeConfigured } from "@/lib/core/billing";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { assertSafeBrowserMutation, routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

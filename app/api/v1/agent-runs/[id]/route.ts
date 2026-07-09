@@ -1,7 +1,7 @@
-import { authenticateFregeActor, telemetryActorForFregeActor } from "@/lib/prototype/actor-auth";
-import { getAgentRunForActor } from "@/lib/prototype/agent-runtime";
-import { routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { authenticateFregeActor, telemetryActorForFregeActor } from "@/lib/core/actor-auth";
+import { getAgentRunForActor } from "@/lib/core/agent-runtime";
+import { routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

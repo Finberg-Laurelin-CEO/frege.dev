@@ -1,6 +1,17 @@
 # Hermes Monitoring Policy - Frege Signups
 
-Last updated: 2026-06-08.
+Last updated: 2026-07-09.
+
+> **Status: external Hermes integration deferred.** Founder decision (2026-07):
+> no external Hermes service runs against Frege's data for now. Signup
+> monitoring is Frege-native as a stopgap — every event below is persisted
+> in-app to the `signup_monitor_events` table (db/026_signup_intel.sql) and
+> surfaced on `/platform`. The webhook POSTs described in this document only
+> fire when `FREGE_EXTERNAL_MONITOR_ENABLED=true` **and**
+> `HERMES_FREGE_SIGNUP_WEBHOOK_URL` is set (default: off). The alerting
+> guidance below is now implemented in-app by lead scoring
+> (`lib/core/lead-score.ts`): every high-signal rule lands in the `hot` band
+> and triggers an email to `FREGE_LEAD_ALERT_EMAIL`.
 
 Frege signup monitoring uses app-side signals, not direct database access.
 
@@ -30,10 +41,17 @@ Frege signup monitoring uses app-side signals, not direct database access.
     "willing_to_pay": "$500-$2,000 / mo",
     "decision_timeline": "30 days",
     "main_pain_point": "We need agents to use current internal context safely.",
-    "other_comments": ""
+    "other_comments": "",
+    "score": 75,
+    "band": "hot"
   }
 }
 ```
+
+`score` (0-100) and `band` (`cold` / `warm` / `hot`) are computed at write time
+by `lib/core/lead-score.ts`, which implements the weights from the
+signup-data-pathways plan (repo history, commit 086f703) plus a hot-band floor
+for the high-signal rules below.
 
 ## Stats Event
 
@@ -56,6 +74,10 @@ Frege signup monitoring uses app-side signals, not direct database access.
 Treat every signup row as a plausible human lead. Frege already applies the
 form validation, honeypot, dwell-time, and database dedupe checks before a row
 exists.
+
+This guidance is now enforced in-app: each rule below forces `band = 'hot'`,
+and hot signups email `FREGE_LEAD_ALERT_EMAIL` via Resend
+(`lib/core/lead-alert.ts`). Alert failures never block signup.
 
 Notify Joe immediately when a signup has at least one high-signal field:
 

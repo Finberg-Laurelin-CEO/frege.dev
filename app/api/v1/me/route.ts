@@ -1,4 +1,4 @@
-import { authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
+import { authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/core/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

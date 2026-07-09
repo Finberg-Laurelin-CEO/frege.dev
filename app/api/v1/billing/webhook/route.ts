@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { getSql } from "@/lib/db";
-import { handleBillingWebhook } from "@/lib/prototype/billing-webhook-core";
-import { getStripe, getWebhookSecret, isStripeConfigured } from "@/lib/prototype/billing";
+import { handleBillingWebhook } from "@/lib/core/billing-webhook-core";
+import { getStripe, getWebhookSecret, isStripeConfigured } from "@/lib/core/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

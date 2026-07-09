@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { appBaseUrl, getStripe, isStripeConfigured } from "@/lib/prototype/billing";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { authenticateAdminRequest } from "@/lib/core/admin-auth";
+import { appBaseUrl, getStripe, isStripeConfigured } from "@/lib/core/billing";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

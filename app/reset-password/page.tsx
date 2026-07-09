@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import ResetPasswordPanel from "./ResetPasswordPanel";
 
 export const metadata: Metadata = {
-  title: "Reset Frege Password",
+  title: "Reset password — Frege",
   robots: { index: false, follow: false },
 };
 

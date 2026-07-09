@@ -1,10 +1,10 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { generateApiKey } from "@/lib/prototype/keys";
-import { assertActiveHumanOrg, assertVerifiedHumanUser } from "@/lib/prototype/org-guard";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { authenticateAdminRequest } from "@/lib/core/admin-auth";
+import { generateApiKey } from "@/lib/core/keys";
+import { assertActiveHumanOrg, assertVerifiedHumanUser } from "@/lib/core/org-guard";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

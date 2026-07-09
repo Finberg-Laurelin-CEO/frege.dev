@@ -1,0 +1,116 @@
+/* Shared styling for the public auth pages (/login, /forgot-password,
+   /reset-password, /invite). A centered terminal-style card built from the
+   marketing tokens in public/styles.css (paper, ink, green, Departure Mono).
+   Layout and skin only — the form logic lives in the page components.
+   The shell-prompt header reuses the global .line/.prompt/.sigil/.cmd
+   classes shared with /privacy, /terms, and /thanks. */
+
+.auth {
+  display: grid;
+  justify-items: center;
+  padding: clamp(40px, 9vh, 104px) var(--pad) clamp(56px, 9vw, 110px);
+}
+
+.auth__card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--rule);
+  padding: clamp(22px, 4.5vw, 36px);
+}
+
+.auth__card .line {
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+.auth__title {
+  margin: 0;
+  font-size: clamp(24px, 4.5vw, 30px);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+
+.auth__meta {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth__form {
+  margin: clamp(20px, 4vw, 28px) 0 0;
+}
+
+.auth__field {
+  display: block;
+  margin: 0 0 16px;
+}
+
+.auth__label {
+  display: block;
+  margin: 0 0 6px;
+  color: var(--accent-dark);
+  font-size: 14px;
+}
+
+.auth__label::before {
+  content: "▸ ";
+  color: var(--accent);
+}
+
+.auth__input {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 9px 11px;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.15s ease;
+}
+
+.auth__input:hover {
+  border-color: var(--muted);
+}
+
+.auth__input:focus {
+  border-color: var(--accent);
+}
+
+.auth__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin: 20px 0 0;
+}
+
+.auth__row .button[disabled] {
+  opacity: 0.55;
+  cursor: default;
+  pointer-events: none;
+}
+
+.auth__status {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth__note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  margin: 24px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--line, #d8dddd);
+  font-size: 14px;
+}

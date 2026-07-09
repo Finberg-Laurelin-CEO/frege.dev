@@ -1,5 +1,5 @@
 // Dev-only seed: one org (active) + one owner user with a known password.
-// Uses plain `pg`. Password hashing mirrors lib/prototype/password.ts (scrypt).
+// Uses plain `pg`. Password hashing mirrors lib/core/password.ts (scrypt).
 import { randomBytes, scrypt as scryptCb } from "node:crypto";
 import { promisify } from "node:util";
 import pg from "pg";

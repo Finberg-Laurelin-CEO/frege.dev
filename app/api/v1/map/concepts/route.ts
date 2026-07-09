@@ -1,7 +1,7 @@
-import { logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
-import { parseLimit } from "@/lib/prototype/documents";
-import { searchVisibleConcepts } from "@/lib/prototype/semantic-map";
+import { logPrototypeAuditEvent } from "@/lib/core/audit";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/core/auth";
+import { parseLimit } from "@/lib/core/documents";
+import { searchVisibleConcepts } from "@/lib/core/semantic-map";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

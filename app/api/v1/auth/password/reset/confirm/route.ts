@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { hashPassword } from "@/lib/prototype/password";
-import { hashPasswordResetToken } from "@/lib/prototype/password-reset";
-import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { createUserSession } from "@/lib/prototype/session";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { hashPassword } from "@/lib/core/password";
+import { hashPasswordResetToken } from "@/lib/core/password-reset";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { createUserSession } from "@/lib/core/session";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

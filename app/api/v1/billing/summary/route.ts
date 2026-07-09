@@ -1,8 +1,8 @@
 import { getSql } from "@/lib/db";
-import { billingSchemaResponse } from "@/lib/prototype/billing-errors";
-import { getMembershipForOrg } from "@/lib/prototype/org-guard";
-import { authenticateUserRequest, userUnauthorized } from "@/lib/prototype/session";
-import { routeError } from "@/lib/prototype/request-guards";
+import { billingSchemaResponse } from "@/lib/core/billing-errors";
+import { getMembershipForOrg } from "@/lib/core/org-guard";
+import { authenticateUserRequest, userUnauthorized } from "@/lib/core/session";
+import { routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

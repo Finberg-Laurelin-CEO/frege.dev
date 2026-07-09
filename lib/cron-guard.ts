@@ -17,3 +17,11 @@ export function cronDisabledResponse(): Response {
     { status: 200 },
   );
 }
+
+// Vercel cron invocations carry `Authorization: Bearer ${CRON_SECRET}`. Reject
+// everything else — including all requests when CRON_SECRET is unset.
+export function isCronAuthorized(req: Request): boolean {
+  const secret = process.env.CRON_SECRET;
+  const authorization = req.headers.get("authorization");
+  return Boolean(secret && authorization === `Bearer ${secret}`);
+}

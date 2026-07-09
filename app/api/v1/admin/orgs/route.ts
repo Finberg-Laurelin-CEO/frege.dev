@@ -5,10 +5,10 @@ import {
   ensureDefaultAgentRoles,
   orgActivationRequiredResponse,
   slugifyOrg,
-} from "@/lib/prototype/org-guard";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { authenticateUserRequest, userUnauthorized } from "@/lib/prototype/session";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+} from "@/lib/core/org-guard";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { authenticateUserRequest, userUnauthorized } from "@/lib/core/session";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

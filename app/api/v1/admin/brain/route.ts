@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { routeError } from "@/lib/prototype/request-guards";
+import { authenticateAdminRequest } from "@/lib/core/admin-auth";
+import { routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

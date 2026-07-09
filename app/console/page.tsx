@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireUserPageSession } from "@/lib/prototype/page-auth";
+import { requireUserPageSession } from "@/lib/core/page-auth";
 import PrototypeConsole from "../prototype/PrototypeConsole";
 
 export const metadata: Metadata = {

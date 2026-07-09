@@ -16,7 +16,7 @@ We want a customer support surface so that:
 - Customers (org owners/admins) can raise issues without leaving the product.
 - Platform staff can triage, respond to, and resolve those issues from the admin panel.
 - Support context (org, plan, billing owner, renewal date, non-standard terms) is
-  attached to each ticket. `lib/prototype/demo-data.ts` already states the desired
+  attached to each ticket. `lib/core/demo-data.ts` already states the desired
   hand-off info: "capture the promised plan, billing owner, renewal date, and any
   non-standard terms" — tickets should surface this automatically from `org_billing`.
 

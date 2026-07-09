@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import SiteNav from "./components/SiteNav";
 import AdminNav from "./components/AdminNav";
-import { isAuth0AdminMode } from "@/lib/prototype/auth0";
+import { isAuth0AdminMode } from "@/lib/core/auth0";
 
 // The admin-only deploy (admin.frege.dev) is an operations console, not the
 // public marketing site. We gate the nav and metadata on this flag.

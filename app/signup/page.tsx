@@ -318,16 +318,16 @@ export default function Signup() {
         <p className="out wrap">
           Create an org, choose a plan, verify your email, and open your account page. Stripe starts later from billing when you are ready.
         </p>
+        <p className="out wrap muted">
+          Already have an account? <a className="lnk" href="/login">Sign in</a>.
+        </p>
 
         <div className="pilot-get" aria-label="What you get">
           <p className="pilot-get__head"># what happens next</p>
           <ul className="pilot-get__list">
-            <li>Your org is created immediately</li>
-            <li>Your setup email includes a verification link</li>
-            <li>Your account page opens after signup</li>
-            <li>You can tour overview, knowledge, access, and connect before payment</li>
-            <li>Stripe billing activates the org after email verification</li>
-            <li>API keys and write actions unlock after activation</li>
+            <li>Your org is created immediately and your account page opens after signup</li>
+            <li>Your setup email includes a link to verify your email</li>
+            <li>Stripe billing activates the org after verification — API keys and write actions unlock then</li>
           </ul>
         </div>
 

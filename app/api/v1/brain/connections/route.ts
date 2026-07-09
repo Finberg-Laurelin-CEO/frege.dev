@@ -1,7 +1,7 @@
-import { authenticateFregeActor, telemetryActorForFregeActor } from "@/lib/prototype/actor-auth";
-import { findConnections, readerForActor } from "@/lib/prototype/brain-graph";
-import { routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { authenticateFregeActor, telemetryActorForFregeActor } from "@/lib/core/actor-auth";
+import { findConnections, readerForActor } from "@/lib/core/brain-graph";
+import { routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

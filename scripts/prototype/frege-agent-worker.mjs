@@ -27,6 +27,15 @@ function parseArgs(argv) {
   return args;
 }
 
+// Env-var/flag boolean: "0", "false", "no", "off" and "" are false, anything else
+// present is true. Boolean(process.env.X) would treat FREGE_WORKER_ONCE=0 as true.
+function parseBooleanFlag(value) {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "boolean") return value;
+  const normalized = String(value).trim().toLowerCase();
+  return !["", "0", "false", "no", "off"].includes(normalized);
+}
+
 function defaultModelBaseUrl(config) {
   if (config.base_url) return String(config.base_url).replace(/\/+$/, "");
   if (config.provider === "openrouter") return "https://openrouter.ai/api/v1";
@@ -173,8 +182,8 @@ async function main() {
     limit: Number(args.limit ?? process.env.FREGE_WORKER_LIMIT ?? 1),
     leaseSeconds: Number(args["lease-seconds"] ?? process.env.FREGE_WORKER_LEASE_SECONDS ?? 300),
     intervalMs: Number(args.interval ?? process.env.FREGE_WORKER_INTERVAL_MS ?? 5000),
-    once: Boolean(args.once ?? process.env.FREGE_WORKER_ONCE),
-    verbose: Boolean(args.verbose),
+    once: parseBooleanFlag(args.once ?? process.env.FREGE_WORKER_ONCE),
+    verbose: parseBooleanFlag(args.verbose),
   };
 
   console.log(`Frege agent worker ${options.workerId} -> ${normalizeBaseUrl(process.env.FREGE_BASE_URL)}`);

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 // (only `import type` specifiers) and fully dependency-injected, so it can be imported
 // directly and driven with an in-memory `sql` fake — same DI style as test-auth-flow.mjs.
 // Until branch B merges the file will not exist; this test then validates at integration.
-import { handleBillingWebhook } from "../../lib/prototype/billing-webhook-core.ts";
+import { handleBillingWebhook } from "../../lib/core/billing-webhook-core.ts";
 
 const FIXED_NOW = new Date("2026-01-01T00:00:00.000Z");
 
@@ -38,9 +38,15 @@ function makeBillingSql(seed = {}) {
     log.queries.push(text);
 
     if (text.startsWith("insert into stripe_webhook_events")) {
-      const [eventId, type, eventCreated] = values;
+      const [eventId, type, eventCreated, receivedAt] = values;
       if (store.webhookEvents.has(eventId)) return [];
-      store.webhookEvents.set(eventId, { event_id: eventId, type, event_created: eventCreated, status: "processing" });
+      store.webhookEvents.set(eventId, {
+        event_id: eventId,
+        type,
+        event_created: eventCreated,
+        status: "processing",
+        received_at: receivedAt,
+      });
       return [{ event_id: eventId }];
     }
 
@@ -62,8 +68,20 @@ function makeBillingSql(seed = {}) {
     }
 
     if (text.includes("update stripe_webhook_events set status = 'processing'")) {
+      // Stale-processing reclaim: guarded on status AND received_at, returns the
+      // reclaimed row so only one concurrent retry wins.
+      if (text.includes("received_at <")) {
+        const [receivedAt, eventId, staleBefore] = values;
+        const row = store.webhookEvents.get(eventId);
+        if (!row || row.status !== "processing" || !(row.received_at < staleBefore)) return [];
+        row.received_at = receivedAt;
+        return [{ event_id: eventId }];
+      }
       const row = store.webhookEvents.get(values.at(-1));
-      if (row) row.status = "processing";
+      if (row) {
+        row.status = "processing";
+        row.received_at = values[0];
+      }
       return [];
     }
 
@@ -241,4 +259,55 @@ test("out-of-order deleted then stale updated(active) leaves the org suspended",
 
   assert.equal(store.organizations.get("org-2")?.status, "suspended", "org must remain suspended");
   assert.equal(store.orgBilling.get("org-2")?.subscription_status, "canceled");
+});
+
+test("an event stuck in 'processing' for over 15 minutes is reclaimed and processed on retry", async () => {
+  const { sql, store, log } = makeBillingSql();
+  const deps = makeDeps(sql);
+  const event = subscriptionUpdatedEvent({ id: "evt_stuck", created: 1000, orgId: "org-3", subId: "sub-3" });
+
+  // A previous delivery's handler crashed before markWebhookFailed: the row is
+  // stuck in 'processing' with a received_at 16 minutes in the past.
+  store.webhookEvents.set("evt_stuck", {
+    event_id: "evt_stuck",
+    type: event.type,
+    event_created: 1000,
+    status: "processing",
+    received_at: new Date(FIXED_NOW.getTime() - 16 * 60 * 1000).toISOString(),
+  });
+
+  const retry = await handleBillingWebhook(webhookInput(event), deps);
+  const body = await retry.json();
+  assert.equal(retry.status, 200);
+  assert.equal(body.received, true);
+  assert.notEqual(body.deduped, true);
+
+  assert.equal(store.webhookEvents.get("evt_stuck")?.status, "processed");
+  assert.equal(store.organizations.get("org-3")?.status, "active");
+  assert.equal(log.activations, 1, "reclaimed event must be processed exactly once");
+});
+
+test("an event freshly in 'processing' still returns busy (no double-processing window)", async () => {
+  const { sql, store, log } = makeBillingSql();
+  const deps = makeDeps(sql);
+  const event = subscriptionUpdatedEvent({ id: "evt_fresh", created: 1000, orgId: "org-4", subId: "sub-4" });
+
+  // Another delivery of the same event started one minute ago and is still running.
+  const freshReceivedAt = new Date(FIXED_NOW.getTime() - 60 * 1000).toISOString();
+  store.webhookEvents.set("evt_fresh", {
+    event_id: "evt_fresh",
+    type: event.type,
+    event_created: 1000,
+    status: "processing",
+    received_at: freshReceivedAt,
+  });
+
+  const retry = await handleBillingWebhook(webhookInput(event), deps);
+  const body = await retry.json();
+  assert.equal(retry.status, 500, "Stripe must see a retryable error while the event is in flight");
+  assert.equal(body.error, "event_in_progress");
+
+  assert.equal(store.webhookEvents.get("evt_fresh")?.status, "processing");
+  assert.equal(store.webhookEvents.get("evt_fresh")?.received_at, freshReceivedAt, "busy must not refresh the claim");
+  assert.equal(log.activations, 0, "busy retry must not touch org_billing");
 });

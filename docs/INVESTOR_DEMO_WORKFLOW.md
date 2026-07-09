@@ -1,5 +1,13 @@
 # Frege-for-Frege Investor Demo Workflow
 
+> **Status (2026-07-09): extended storyboard, superseded for recording.**
+> This document is the long-form storyboard and requirements list behind the demo.
+> The script actually used to record the investor Loom is
+> `docs/LOOM_INVESTOR_DEMO_SCRIPT.md` — where the two differ (step order, commands,
+> identity, key roles), the Loom script wins. This doc is synced into the demo org
+> via `frege.docs.yml` and may appear on screen, so keep it consistent with the
+> script when either changes.
+
 ## Goal
 
 Show that Frege uses Frege to build Frege: the product is the governed brain for its own agents, docs, deployment notes, billing decisions, and architecture.

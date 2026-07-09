@@ -44,7 +44,7 @@ if (job === "usage-rollup") {
     process.exit(1);
   }
 
-  const { rollupUsage } = await import(pathToFileURL(join(root, "lib/prototype/usage.ts")).href);
+  const { rollupUsage } = await import(pathToFileURL(join(root, "lib/core/usage.ts")).href);
   const result = await rollupUsage(days);
   console.log(JSON.stringify({ ok: true, job, days, rolled_rows: result.rows }, null, 2));
 } else if (job === "frege-signup-stats") {

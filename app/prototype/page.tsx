@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { requireUserPageSession } from "@/lib/prototype/page-auth";
+import { requireUserPageSession } from "@/lib/core/page-auth";
 
 export const metadata: Metadata = {
   title: "Frege Knowledge Console",

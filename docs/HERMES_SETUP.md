@@ -1,6 +1,12 @@
 # Hermes Setup - Frege Signup Monitoring
 
-Last updated: 2026-06-08.
+Last updated: 2026-07-09.
+
+> **Status: external Hermes integration deferred.** Founder decision (2026-07):
+> monitoring is in-app for now. Signup and stats events are persisted to the
+> `signup_monitor_events` table (db/026_signup_intel.sql) and surfaced on
+> `/platform`; hot leads email `FREGE_LEAD_ALERT_EMAIL`. The outbound webhook
+> below stays wired but is disabled unless `FREGE_EXTERNAL_MONITOR_ENABLED=true`.
 
 ## Production Endpoints
 
@@ -16,6 +22,11 @@ These must be server-side only:
 - `HERMES_FREGE_WEBHOOK_SECRET`
 - `FREGE_ADMIN_STATS_SECRET`
 - `CRON_SECRET`
+- `FREGE_EXTERNAL_MONITOR_ENABLED` — set to `true` to enable outbound Hermes
+  webhook POSTs. Any other value (or unset, the default) disables them; events
+  are still persisted in-app to `signup_monitor_events`.
+- `FREGE_LEAD_ALERT_EMAIL` — recipient for hot-lead alert emails (sent via
+  Resend, so `RESEND_API_KEY` must also be set). Unset = no alert emails.
 
 Do not prefix these with `NEXT_PUBLIC_`, and do not paste real values into
 chat or docs.
