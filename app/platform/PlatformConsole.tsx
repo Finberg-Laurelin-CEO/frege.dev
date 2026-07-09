@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import styles from "../admin/admin.module.css";
 
-type Tab = "queue" | "orgs" | "users" | "signups" | "stripe-coupons" | "usage" | "payments" | "audit";
+type Tab = "queue" | "orgs" | "users" | "signups" | "tickets" | "stripe-coupons" | "usage" | "payments" | "audit";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "queue", label: "Queue" },
   { id: "orgs", label: "Organizations" },
   { id: "users", label: "Users" },
   { id: "signups", label: "Signups" },
+  { id: "tickets", label: "Tickets" },
   { id: "stripe-coupons", label: "Stripe coupons" },
   { id: "usage", label: "Usage" },
   { id: "payments", label: "Payments" },
@@ -160,6 +161,46 @@ type SignupRow = {
   owner_user_email: string | null;
 };
 
+type TicketRow = {
+  id: string;
+  org_id: string | null;
+  subject: string;
+  status: string;
+  priority: string;
+  assigned_to: string | null;
+  first_response_at: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  updated_at: string;
+  org_slug: string | null;
+  org_name: string | null;
+  plan: string | null;
+  seats: number | null;
+  subscription_status: string | null;
+  created_by_email: string | null;
+  assigned_to_email: string | null;
+  message_count: number;
+};
+
+type TicketCounts = { open: number; pending: number; resolved: number; closed: number };
+
+type TicketDetail = {
+  ticket: TicketRow & {
+    org_status: string | null;
+    billing_interval: string | null;
+    current_period_end: string | null;
+    created_by_name: string | null;
+  };
+  messages: {
+    id: string;
+    author_kind: "customer" | "staff";
+    body: string;
+    created_at: string;
+    author_email: string | null;
+    author_name: string | null;
+  }[];
+};
+
 type UsageOrgRow = {
   org_id: string;
   slug: string;
@@ -291,6 +332,34 @@ const severityTone: Record<string, BadgeTone> = {
   low: "neutral",
 };
 
+const priorityTone: Record<string, BadgeTone> = {
+  urgent: "danger",
+  high: "warn",
+  normal: "neutral",
+  low: "muted",
+};
+
+// SLA is computed client-side from stored timestamps: a ticket that is still
+// waiting on staff (open/pending, no first_response_at) breaches after 24h.
+const SLA_FIRST_RESPONSE_HOURS = 24;
+
+function ticketSlaBreached(ticket: { status: string; first_response_at: string | null; created_at: string }): boolean {
+  if (ticket.first_response_at) return false;
+  if (ticket.status === "resolved" || ticket.status === "closed") return false;
+  return Date.now() - new Date(ticket.created_at).getTime() > SLA_FIRST_RESPONSE_HOURS * 60 * 60 * 1000;
+}
+
+function TicketSlaBadge({ ticket }: { ticket: { status: string; first_response_at: string | null; created_at: string } }) {
+  if (ticketSlaBreached(ticket)) {
+    return <Badge tone="danger" label={`no first response in >${SLA_FIRST_RESPONSE_HOURS}h`} />;
+  }
+  if (!ticket.first_response_at) {
+    if (ticket.status === "resolved" || ticket.status === "closed") return <Badge tone="muted" label="—" />;
+    return <Badge tone="warn" label="awaiting first response" />;
+  }
+  return <Badge tone="ok" label="responded" />;
+}
+
 function platformErrorMessage(json: unknown, status: number, action: string): string {
   const payload = json && typeof json === "object" ? (json as { error?: unknown; message?: unknown }) : {};
   const error = typeof payload.error === "string" ? payload.error : "";
@@ -340,6 +409,13 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const [search, setSearch] = useState("");
   const [detail, setDetail] = useState<OrgDetail | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
+  const [tickets, setTickets] = useState<TicketRow[]>([]);
+  const [ticketCounts, setTicketCounts] = useState<TicketCounts>({ open: 0, pending: 0, resolved: 0, closed: 0 });
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("");
+  const [ticketPriorityFilter, setTicketPriorityFilter] = useState("");
+  const [ticketDetail, setTicketDetail] = useState<TicketDetail | null>(null);
+  const [ticketDetailBusy, setTicketDetailBusy] = useState(false);
+  const [ticketReply, setTicketReply] = useState("");
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -447,9 +523,33 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }, []);
 
+  const loadTickets = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (ticketStatusFilter) params.set("status", ticketStatusFilter);
+      if (ticketPriorityFilter) params.set("priority", ticketPriorityFilter);
+      const qs = params.toString();
+      const res = await fetch(`/api/v1/platform/tickets${qs ? `?${qs}` : ""}`);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(`Failed to load tickets (${res.status}).`);
+        return;
+      }
+      setTickets((json as { tickets?: TicketRow[] }).tickets ?? []);
+      setTicketCounts({ open: 0, pending: 0, resolved: 0, closed: 0, ...((json as { counts?: TicketCounts }).counts ?? {}) });
+    } catch {
+      setError("Failed to load tickets.");
+    }
+  }, [ticketStatusFilter, ticketPriorityFilter]);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Load tickets on mount (for the tab count chip) and whenever filters change.
+  useEffect(() => {
+    void loadTickets();
+  }, [loadTickets]);
 
   // Load queue + payments once on mount so the operator summary header and tab
   // counts are populated even before those tabs are opened. Runs silently so a
@@ -463,8 +563,9 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     if (tab === "queue") void loadQueue();
     else if (tab === "payments") void loadPayments();
     else if (tab === "stripe-coupons") void loadStripePromoCodes();
+    else if (tab === "tickets") void loadTickets();
     else if (tab === "audit") void loadAudit();
-  }, [tab, loadQueue, loadPayments, loadStripePromoCodes, loadAudit]);
+  }, [tab, loadQueue, loadPayments, loadStripePromoCodes, loadTickets, loadAudit]);
 
   async function cancelSubscription(orgId: string, immediate: boolean) {
     setBusy(true);
@@ -671,6 +772,70 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     }
   }
 
+  const openTicket = useCallback(async (ticketId: string) => {
+    setTicketDetailBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/tickets/${ticketId}`);
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(`Failed to load ticket (${res.status}).`);
+        return;
+      }
+      setTicketDetail(json as TicketDetail);
+      setTicketReply("");
+    } catch {
+      setError("Failed to load ticket.");
+    } finally {
+      setTicketDetailBusy(false);
+    }
+  }, []);
+
+  async function sendTicketReply(ticketId: string) {
+    const body = ticketReply.trim();
+    if (!body) return;
+    setTicketDetailBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/tickets/${ticketId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(`Reply failed (${json.error ?? res.status}).`);
+        return;
+      }
+      setTicketReply("");
+      await openTicket(ticketId);
+      await loadTickets();
+    } finally {
+      setTicketDetailBusy(false);
+    }
+  }
+
+  async function patchTicket(ticketId: string, patch: { status?: string; priority?: string; assigned_to?: string | null }) {
+    setTicketDetailBusy(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/v1/platform/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(`Ticket update failed (${json.error ?? res.status}).`);
+        return;
+      }
+      await openTicket(ticketId);
+      await loadTickets();
+    } finally {
+      setTicketDetailBusy(false);
+    }
+  }
+
   const openDetail = useCallback(async (orgId: string) => {
     setDetailBusy(true);
     setError("");
@@ -748,12 +913,15 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
     ? payments.past_due_subscriptions + payments.open_invoices.length
     : 0;
 
+  const ticketSlaBreaches = tickets.filter((t) => ticketSlaBreached(t)).length;
+
   // Counts shown on tab labels. null = don't render a count chip.
   const tabCounts: Record<Tab, number | null> = {
     queue: queue.length,
     orgs: orgs.length,
     users: users.length,
     signups: pendingApprovals,
+    tickets: ticketCounts.open,
     "stripe-coupons": activeStripePromoCodes,
     usage: null,
     payments: payments ? payments.past_due_subscriptions : null,
@@ -762,6 +930,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
   const tabCountAlert: Partial<Record<Tab, boolean>> = {
     queue: highQueue > 0,
     signups: pendingApprovals > 0,
+    tickets: ticketSlaBreaches > 0,
     payments: !!payments && payments.past_due_subscriptions > 0,
   };
 
@@ -1189,6 +1358,203 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               <p className={styles.sectionLead}>Manual approval creates an inactive org + owner invite. Self-serve signups create their org and account immediately, then activate after payment.</p>
               </>
               )}
+            </div>
+          ) : null}
+
+          {tab === "tickets" ? (
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>Support tickets ({tickets.length})</h2>
+
+              <div className={styles.rowActions} style={{ marginBottom: 12 }}>
+                {[
+                  { id: "", label: `all (${num(ticketCounts.open + ticketCounts.pending + ticketCounts.resolved + ticketCounts.closed)})` },
+                  { id: "open", label: `open (${num(ticketCounts.open)})` },
+                  { id: "pending", label: `pending (${num(ticketCounts.pending)})` },
+                  { id: "resolved", label: `resolved (${num(ticketCounts.resolved)})` },
+                  { id: "closed", label: `closed (${num(ticketCounts.closed)})` },
+                ].map((f) => (
+                  <button
+                    key={f.id || "all"}
+                    type="button"
+                    className={ticketStatusFilter === f.id ? styles.button : styles.buttonSecondary}
+                    onClick={() => setTicketStatusFilter(f.id)}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+                <select
+                  className={styles.field}
+                  value={ticketPriorityFilter}
+                  onChange={(e) => setTicketPriorityFilter(e.target.value)}
+                  aria-label="Filter tickets by priority"
+                >
+                  <option value="">any priority</option>
+                  <option value="low">low</option>
+                  <option value="normal">normal</option>
+                  <option value="high">high</option>
+                  <option value="urgent">urgent</option>
+                </select>
+              </div>
+
+              {tickets.length === 0 ? (
+                <div className={styles.empty}>
+                  <strong>No tickets{ticketStatusFilter || ticketPriorityFilter ? " match the filters" : ""}.</strong>
+                  <span>Customer support requests raised from /support land here.</span>
+                </div>
+              ) : (
+              <div className={styles.tableScroll}>
+              <table className={styles.table}>
+                <thead>
+                  <tr><th>subject</th><th>org</th><th>status</th><th>priority</th><th>sla</th><th>assignee</th><th>updated</th></tr>
+                </thead>
+                <tbody>
+                  {tickets.map((t) => (
+                    <tr key={t.id}>
+                      <td>
+                        <button type="button" className={styles.linkButton} onClick={() => openTicket(t.id)}>{t.subject}</button>
+                        <br />
+                        <span className={styles.summaryHint}>{t.created_by_email ?? "—"} · {num(t.message_count)} msg</span>
+                      </td>
+                      <td>
+                        {t.org_slug ?? "—"}
+                        <br />
+                        <span className={styles.summaryHint}>{t.plan ? `${t.plan} · ${t.seats ?? 1} seat(s)` : "no plan"}</span>
+                      </td>
+                      <td><Badge status={t.status} /></td>
+                      <td><Badge tone={priorityTone[t.priority] ?? "neutral"} label={t.priority} /></td>
+                      <td><TicketSlaBadge ticket={t} /></td>
+                      <td>{t.assigned_to_email ?? "—"}</td>
+                      <td>{shortDay(t.updated_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              </div>
+              )}
+
+              {ticketDetailBusy && !ticketDetail ? <p className={styles.status}>Loading ticket…</p> : null}
+
+              {ticketDetail ? (
+                <div className={styles.detail}>
+                  <div className={styles.detailHeader}>
+                    <h3 className={styles.sectionTitle} style={{ margin: 0 }}>
+                      {ticketDetail.ticket.subject}{" "}
+                      <Badge status={ticketDetail.ticket.status} />{" "}
+                      <Badge tone={priorityTone[ticketDetail.ticket.priority] ?? "neutral"} label={ticketDetail.ticket.priority} />{" "}
+                      <TicketSlaBadge ticket={ticketDetail.ticket} />
+                    </h3>
+                    <button type="button" className={styles.buttonSecondary} onClick={() => setTicketDetail(null)} aria-label="Close ticket detail">close</button>
+                  </div>
+
+                  {ticketDetailBusy ? <p className={styles.status}>Refreshing…</p> : null}
+
+                  <div className={styles.detailSection}>
+                    <h4 className={styles.label}>Org context</h4>
+                    <p className={styles.sectionLead} style={{ marginTop: 0, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      <span>{ticketDetail.ticket.org_name ?? "—"} ({ticketDetail.ticket.org_slug ?? "no org"})</span>
+                      {ticketDetail.ticket.org_status ? <Badge status={ticketDetail.ticket.org_status} /> : null}
+                      <span>
+                        {ticketDetail.ticket.plan
+                          ? `${ticketDetail.ticket.plan} · ${ticketDetail.ticket.billing_interval ?? "—"} · ${ticketDetail.ticket.seats ?? 1} seat(s)`
+                          : "no billing record"}
+                      </span>
+                      <Badge status={ticketDetail.ticket.subscription_status ?? "no subscription"} />
+                      {ticketDetail.ticket.current_period_end ? (
+                        <span className={styles.summaryHint}>renews {shortDay(ticketDetail.ticket.current_period_end)}</span>
+                      ) : null}
+                      {ticketDetail.ticket.org_id && ticketDetail.ticket.subscription_status ? (
+                        <button
+                          type="button"
+                          className={styles.buttonSecondary}
+                          disabled={busy}
+                          onClick={() => {
+                            const orgId = ticketDetail.ticket.org_id;
+                            if (orgId) void openOrgPortal(orgId);
+                          }}
+                        >
+                          billing portal
+                        </button>
+                      ) : null}
+                    </p>
+                    <p className={styles.summaryHint}>
+                      opened {shortDay(ticketDetail.ticket.created_at)} by {ticketDetail.ticket.created_by_email ?? "unknown"}
+                      {ticketDetail.ticket.first_response_at ? ` · first response ${shortDay(ticketDetail.ticket.first_response_at)}` : ""}
+                      {ticketDetail.ticket.resolved_at ? ` · resolved ${shortDay(ticketDetail.ticket.resolved_at)}` : ""}
+                    </p>
+                  </div>
+
+                  <div className={styles.detailSection}>
+                    <h4 className={styles.label}>Triage</h4>
+                    <div className={styles.rowActions}>
+                      <select
+                        className={styles.field}
+                        value={ticketDetail.ticket.status}
+                        disabled={ticketDetailBusy}
+                        onChange={(e) => patchTicket(ticketDetail.ticket.id, { status: e.target.value })}
+                        aria-label="Ticket status"
+                      >
+                        {["open", "pending", "resolved", "closed"].map((s) => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                      <select
+                        className={styles.field}
+                        value={ticketDetail.ticket.priority}
+                        disabled={ticketDetailBusy}
+                        onChange={(e) => patchTicket(ticketDetail.ticket.id, { priority: e.target.value })}
+                        aria-label="Ticket priority"
+                      >
+                        {["low", "normal", "high", "urgent"].map((p) => (
+                          <option key={p} value={p}>{p}</option>
+                        ))}
+                      </select>
+                      <select
+                        className={styles.field}
+                        value={ticketDetail.ticket.assigned_to ?? ""}
+                        disabled={ticketDetailBusy}
+                        onChange={(e) => patchTicket(ticketDetail.ticket.id, { assigned_to: e.target.value || null })}
+                        aria-label="Ticket assignee"
+                      >
+                        <option value="">unassigned</option>
+                        {users.filter((u) => u.is_platform_staff).map((u) => (
+                          <option key={u.id} value={u.id}>{u.email}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.detailSection}>
+                    <h4 className={styles.label}>Conversation ({ticketDetail.messages.length})</h4>
+                    {ticketDetail.messages.map((m) => (
+                      <div key={m.id} style={{ marginBottom: 12 }}>
+                        <p className={styles.summaryHint} style={{ margin: 0 }}>
+                          <Badge tone={m.author_kind === "staff" ? "ok" : "neutral"} label={m.author_kind} />{" "}
+                          {m.author_email ?? "—"} · {shortDay(m.created_at)}
+                        </p>
+                        <p className={styles.sectionLead} style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{m.body}</p>
+                      </div>
+                    ))}
+                    <textarea
+                      className={styles.textarea}
+                      rows={4}
+                      value={ticketReply}
+                      onChange={(e) => setTicketReply(e.target.value)}
+                      placeholder="Reply to the customer — they get an email notification…"
+                      aria-label="Reply to customer"
+                    />
+                    <div className={styles.buttonRow}>
+                      <button
+                        type="button"
+                        className={styles.button}
+                        disabled={ticketDetailBusy || !ticketReply.trim()}
+                        onClick={() => sendTicketReply(ticketDetail.ticket.id)}
+                      >
+                        send reply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
