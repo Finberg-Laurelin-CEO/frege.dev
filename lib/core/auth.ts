@@ -44,6 +44,7 @@ type AuthRow = {
   owner_user_email: string | null;
   status: string;
   expires_at: Date | string | null;
+  last_used_at: Date | string | null;
   org_id: string;
   org_slug: string;
   org_name: string;
@@ -76,6 +77,16 @@ function isExpired(expiresAt: Date | string | null): boolean {
 
   const expiresAtMs = new Date(expiresAt).getTime();
   return Number.isFinite(expiresAtMs) && expiresAtMs <= Date.now();
+}
+
+// Shared by api_keys.last_used_at and user_sessions.last_seen_at refreshes: these
+// are advisory timestamps, so skip the UPDATE unless the stored value is missing,
+// unparsable, or older than a minute.
+export function isBookkeepingTimestampStale(value: Date | string | null, maxAgeMs = 60_000): boolean {
+  if (!value) return true;
+  const valueMs = new Date(value).getTime();
+  if (!Number.isFinite(valueMs)) return true;
+  return Date.now() - valueMs > maxAgeMs;
 }
 
 function toAuthContext(row: AuthRow): PrototypeAuthContext {
@@ -131,6 +142,7 @@ export async function authenticatePrototypeRequest(req: Request): Promise<Protot
       owner.email as owner_user_email,
       api_keys.status,
       api_keys.expires_at,
+      api_keys.last_used_at,
       organizations.id as org_id,
       organizations.slug as org_slug,
       organizations.name as org_name,
@@ -164,11 +176,15 @@ export async function authenticatePrototypeRequest(req: Request): Promise<Protot
   const candidateHash = hashApiKey(parsed.rawKey);
   if (!safelyCompareApiKeyHash(candidateHash, row.key_hash)) return null;
 
-  await sql`
-    update api_keys
-    set last_used_at = now()
-    where id = ${row.key_id}
-  `;
+  // last_used_at is bookkeeping, not audit: refreshing it at most once a minute
+  // avoids one extra write round-trip on every authenticated request.
+  if (isBookkeepingTimestampStale(row.last_used_at)) {
+    await sql`
+      update api_keys
+      set last_used_at = now()
+      where id = ${row.key_id}
+    `;
+  }
 
   return toAuthContext(row);
 }

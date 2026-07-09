@@ -15,7 +15,19 @@ function accountPath(verified: string): string {
   return `/console?view=account&verified=${encodeURIComponent(verified)}`;
 }
 
+// This handler is reached by users clicking a link in an email: an unexpected
+// failure (db timeout, etc.) must land them back on the console with an error
+// state, never on a raw 500 page.
 export async function GET(req: Request) {
+  try {
+    return await confirmEmailVerification(req);
+  } catch (err) {
+    console.error("email verification confirm failed", { message: (err as Error)?.message });
+    return appRedirect(accountPath("error"));
+  }
+}
+
+async function confirmEmailVerification(req: Request): Promise<Response> {
   const startedAt = Date.now();
   const url = new URL(req.url);
   const token = url.searchParams.get("token") ?? "";

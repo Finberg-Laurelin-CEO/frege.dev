@@ -29,6 +29,7 @@ function statusText(verified: string | undefined): string | null {
   if (verified === "expired") return "That verification link expired. Send a fresh link below.";
   if (verified === "used") return "That verification link was already used. If this account is still pending, send a fresh link.";
   if (verified === "invalid") return "That verification link is invalid. Send a fresh link below.";
+  if (verified === "error") return "Something went wrong verifying your email. Try the link again or send a fresh one below.";
   return null;
 }
 

@@ -54,6 +54,11 @@ function subscriptionSeats(sub: Stripe.Subscription): number | null {
   return sub.items?.data?.[0]?.quantity ?? null;
 }
 
+// A handler that crashes between beginWebhookEvent and markWebhookFailed leaves the
+// event stuck in 'processing'; without a recovery window every Stripe retry gets
+// "busy" forever. After this long, a 'processing' row is treated as abandoned.
+const STALE_PROCESSING_MS = 15 * 60 * 1000;
+
 async function beginWebhookEvent(sql: Sql, deps: BillingWebhookDeps, event: Stripe.Event): Promise<"process" | "deduped" | "busy"> {
   const inserted = await sql`
     insert into stripe_webhook_events (event_id, type, event_created, status, received_at)
@@ -82,6 +87,24 @@ async function beginWebhookEvent(sql: Sql, deps: BillingWebhookDeps, event: Stri
       where event_id = ${event.id}
     `;
     return "process";
+  }
+  if (status === "processing") {
+    // Reclaim an abandoned 'processing' event. The guard on received_at makes the
+    // reclaim single-winner: a concurrent retry sees the refreshed received_at,
+    // matches zero rows, and stays "busy" instead of double-processing.
+    const staleBefore = new Date(deps.now().getTime() - STALE_PROCESSING_MS).toISOString();
+    const reclaimed = await sql`
+      update stripe_webhook_events
+      set status = 'processing',
+          received_at = ${isoNow(deps)},
+          processed_at = null,
+          error = null
+      where event_id = ${event.id}
+        and status = 'processing'
+        and received_at < ${staleBefore}
+      returning event_id
+    `;
+    if (reclaimed.length > 0) return "process";
   }
 
   return "busy";
