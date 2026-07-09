@@ -1,6 +1,7 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
+import { defaultAgentRoleStatements, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
 import { hashPassword } from "@/lib/core/password";
 import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
 import { assertSafeOrigin, readJson, routeError } from "@/lib/core/request-guards";
@@ -56,40 +57,53 @@ export async function POST(req: Request) {
     const orgSlug = slugifyOrg(parsed.data.org_slug ?? parsed.data.org_name);
     const password = await hashPassword(parsed.data.password);
 
-    const [org] = await sql`
-      insert into organizations (slug, name)
-      values (${orgSlug}, ${parsed.data.org_name})
-      returning id, slug, name
-    `;
-    const [user] = await sql`
-      insert into users (email, name)
-      values (${email}, ${parsed.data.name.trim()})
-      returning id, email, name
-    `;
-    await sql`
-      insert into user_password_credentials (user_id, password_hash, password_salt, password_params)
-      values (${user.id}, ${password.passwordHash}, ${password.passwordSalt}, ${JSON.stringify(password.passwordParams)}::jsonb)
-    `;
-    await sql`
-      insert into organization_memberships (org_id, user_id, role)
-      values (${org.id}, ${user.id}, 'owner')
-    `;
-    await ensureDefaultAgentRoles(org.id);
+    // Atomic bootstrap: the neon HTTP driver runs sql.transaction([...]) as a
+    // non-interactive batch (later statements cannot read earlier results), so
+    // both ids are pre-generated client-side with crypto.randomUUID() — same
+    // pattern as lib/core/billing-webhook-core.ts. A mid-batch failure leaves
+    // no orphaned org/user rows behind.
+    const orgId = randomUUID();
+    const userId = randomUUID();
+    const userName = parsed.data.name.trim();
+    await sql.transaction([
+      sql`
+        insert into organizations (id, slug, name)
+        values (${orgId}, ${orgSlug}, ${parsed.data.org_name})
+      `,
+      sql`
+        insert into users (id, email, name)
+        values (${userId}, ${email}, ${userName})
+      `,
+      sql`
+        insert into user_password_credentials (user_id, password_hash, password_salt, password_params)
+        values (${userId}, ${password.passwordHash}, ${password.passwordSalt}, ${JSON.stringify(password.passwordParams)}::jsonb)
+      `,
+      sql`
+        insert into organization_memberships (org_id, user_id, role)
+        values (${orgId}, ${userId}, 'owner')
+      `,
+      ...defaultAgentRoleStatements(sql, orgId),
+    ]);
 
-    const session = await createUserSession(user.id, req.headers.get("host"));
+    // Session mint and telemetry stay outside the batch: they are side
+    // effects that must only happen once the bootstrap rows are committed.
+    const session = await createUserSession(userId, req.headers.get("host"));
     await logTelemetryEvent({
-      actor: { type: "system", orgId: org.id },
+      actor: { type: "system", orgId },
       req,
       action: "auth.bootstrap",
       resourceType: "organization",
-      resourceId: org.id,
+      resourceId: orgId,
       outcome: "success",
       latencyMs: Date.now() - startedAt,
-      metadata: { org_slug: org.slug, user_email: email },
+      metadata: { org_slug: orgSlug, user_email: email },
     });
 
     return Response.json(
-      { user: { id: user.id, email: user.email, name: user.name }, organization: org },
+      {
+        user: { id: userId, email, name: userName },
+        organization: { id: orgId, slug: orgSlug, name: parsed.data.org_name },
+      },
       { status: 201, headers: { "Set-Cookie": session.cookie } },
     );
   } catch (err) {

@@ -38,17 +38,29 @@ export function emailVerificationUrlForToken(rawToken: string): string {
   return `${customerAppBaseUrl()}/api/v1/auth/email/verification/confirm?token=${encodeURIComponent(rawToken)}`;
 }
 
-export async function issueEmailVerificationToken(sql: Sql, userId: string): Promise<EmailVerificationToken> {
+/**
+ * Generate a verification token bundle without touching the database.
+ * Callers that need the insert to be part of a larger atomic batch
+ * (e.g. signup) build the row themselves from tokenHash/expiresAt.
+ */
+export function buildEmailVerificationToken(): EmailVerificationToken {
   const rawToken = generateEmailVerificationToken();
-  const tokenHash = hashEmailVerificationToken(rawToken);
-  const expiresAt = new Date(Date.now() + TOKEN_TTL_MS).toISOString();
+  return {
+    rawToken,
+    tokenHash: hashEmailVerificationToken(rawToken),
+    expiresAt: new Date(Date.now() + TOKEN_TTL_MS).toISOString(),
+  };
+}
+
+export async function issueEmailVerificationToken(sql: Sql, userId: string): Promise<EmailVerificationToken> {
+  const token = buildEmailVerificationToken();
 
   await sql`
     insert into email_verification_tokens (user_id, token_hash, expires_at)
-    values (${userId}, ${tokenHash}, ${expiresAt})
+    values (${userId}, ${token.tokenHash}, ${token.expiresAt})
   `;
 
-  return { rawToken, tokenHash, expiresAt };
+  return token;
 }
 
 export async function revokeOutstandingEmailVerificationTokens(sql: Sql, userId: string): Promise<void> {

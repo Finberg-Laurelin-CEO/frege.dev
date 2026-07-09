@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
+import type { getSql as getDefaultSql } from "@/lib/db";
 import { assertSafeOrigin, readJson } from "@/lib/core/request-guards";
 
-export type AuthFlowSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
+export type AuthFlowSql = ReturnType<typeof getDefaultSql>;
 
 type RateLimitResult = {
   allowed: boolean;
@@ -209,58 +210,73 @@ export async function handleInviteAcceptRequest(req: Request, deps: InviteAccept
     const invite = rows[0] as InviteRow | undefined;
     if (!invite) return Response.json({ error: "invalid_invite" }, { status: 404 });
 
-    let user = (await sql`
+    const existingUser = (await sql`
       select id, email, name
       from users
       where email = ${invite.email}
       limit 1
     `)[0] as UserRow | undefined;
 
-    if (!user) {
-      const insertedUsers = (await sql`
-        insert into users (email, name, status, email_verified_at)
-        values (${invite.email}, ${parsed.data.name.trim()}, 'active', now())
-        returning id, email, name
-      `) as unknown as UserRow[];
-      [user] = insertedUsers;
-    } else {
-      const updatedUsers = (await sql`
-        update users
-        set name = case when trim(name) = '' then ${parsed.data.name.trim()} else name end,
-            status = 'active',
-            email_verified_at = coalesce(email_verified_at, now())
-        where id = ${user.id}
-        returning id, email, name
-      `) as unknown as UserRow[];
-      [user] = updatedUsers;
-    }
-
-    const credentialRows = await sql`
-      select user_id
-      from user_password_credentials
-      where user_id = ${user.id}
-      limit 1
-    `;
-    if (credentialRows.length === 0) {
-      const password = await deps.hashPassword(parsed.data.password);
-      await sql`
-        insert into user_password_credentials (user_id, password_hash, password_salt, password_params)
-        values (${user.id}, ${password.passwordHash}, ${password.passwordSalt}, ${JSON.stringify(password.passwordParams)}::jsonb)
+    let needsCredentials = true;
+    if (existingUser) {
+      const credentialRows = await sql`
+        select user_id
+        from user_password_credentials
+        where user_id = ${existingUser.id}
+        limit 1
       `;
+      needsCredentials = credentialRows.length === 0;
     }
 
-    await sql`
+    // ── Atomic acceptance batch ──────────────────────────────────────────
+    // The neon HTTP driver runs sql.transaction([...]) as a non-interactive
+    // batch (later statements cannot read earlier results — see
+    // lib/core/billing-webhook-core.ts), so a new user's id is pre-generated
+    // client-side with crypto.randomUUID() and every statement references it
+    // directly. A mid-batch failure rolls the whole acceptance back.
+    const userId = existingUser?.id ?? randomUUID();
+    const statements = [];
+    statements.push(
+      existingUser
+        ? sql`
+            update users
+            set name = case when trim(name) = '' then ${parsed.data.name.trim()} else name end,
+                status = 'active',
+                email_verified_at = coalesce(email_verified_at, now())
+            where id = ${existingUser.id}
+            returning id, email, name
+          `
+        : sql`
+            insert into users (id, email, name, status, email_verified_at)
+            values (${userId}, ${invite.email}, ${parsed.data.name.trim()}, 'active', now())
+            returning id, email, name
+          `,
+    );
+
+    if (needsCredentials) {
+      const password = await deps.hashPassword(parsed.data.password);
+      statements.push(sql`
+        insert into user_password_credentials (user_id, password_hash, password_salt, password_params)
+        values (${userId}, ${password.passwordHash}, ${password.passwordSalt}, ${JSON.stringify(password.passwordParams)}::jsonb)
+      `);
+    }
+
+    statements.push(sql`
       insert into organization_memberships (org_id, user_id, role, status)
-      values (${invite.org_id}, ${user.id}, ${invite.role}, 'active')
+      values (${invite.org_id}, ${userId}, ${invite.role}, 'active')
       on conflict (org_id, user_id) do update
         set role = excluded.role,
             status = 'active'
-    `;
-    await sql`
+    `);
+    statements.push(sql`
       update organization_invites
       set status = 'accepted', accepted_at = now()
       where id = ${invite.id}
-    `;
+    `);
+
+    const results = await sql.transaction(statements);
+    const user = (results[0] as UserRow[] | undefined)?.[0];
+    if (!user) throw new Error("invite_accept_user_write_failed");
 
     const session = await deps.createUserSession(user.id, req.headers.get("host"));
     const canManageBilling = invite.role === "owner" || invite.role === "admin";
