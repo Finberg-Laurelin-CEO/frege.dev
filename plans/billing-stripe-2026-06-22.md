@@ -1,5 +1,11 @@
 # Billing / Stripe Plan — deferred to last
 
+> **Update (2026-07-09):** the "no open self-serve account creation" decision below
+> was reversed on 2026-07-06 (commit `d516493`, "Enable self-serve signup").
+> Self-serve signup with email verification and Stripe checkout activation is now
+> live: `/signup` creates an account directly, and payment activates the org.
+> The apply-to-join pilot gate described below is historical.
+
 ## Decision
 Get the product working end-to-end first (self-serve apply flow, CLI, docs), then
 add Stripe **last** so payments wrap a finished flow.

@@ -1,6 +1,6 @@
 # Frege Local Worklog
 
-_Last updated: 2026-06-19._
+_Last updated: 2026-07-09 (dated correction notes added; the historical entries below are unchanged)._
 
 This worklog records the local prototype state for the Frege backend/control-plane worktree. It intentionally omits raw API keys, passwords, provider secrets, and bootstrap tokens.
 
@@ -102,6 +102,14 @@ roles: reader, writer, admin
 ```
 
 Bootstrap should now refuse a second first-user bootstrap.
+
+> **Correction (2026-07-09):** the bootstrap record above is accurate history —
+> `joe@laurelin-inc.com` was the first admin and remains the platform-staff
+> operator account (see `docs/ADMIN_ACCESS.md`). The demo docs
+> (`docs/LOOM_INVESTOR_DEMO_SCRIPT.md`, `docs/INVESTOR_DEMO_WORKFLOW.md`)
+> standardize on `joe@frege.dev` as the on-screen browser identity for the
+> investor Loom. Both refer to the same org, `frege-local`. Verify
+> `joe@frege.dev` is an admin member of `frege-local` before recording.
 
 ## Dummy Data
 
@@ -311,6 +319,12 @@ npm install -g github:Finberg-Laurelin-CEO/frege.dev
 frege connect https://frege.dev --token frg_live_...
 frege doctor
 ```
+
+> **Correction (2026-07-09):** the GitHub install channel above is dead — do not
+> use it. The canonical install is the published npm package
+> (`npm install -g @frege-dev/cli`); see `docs/FREGE_MCP_INSTALL.md`. Leftover
+> GitHub installs cause the `EEXIST` collisions described in that doc's
+> troubleshooting section and should be uninstalled.
 
 Verification passed:
 

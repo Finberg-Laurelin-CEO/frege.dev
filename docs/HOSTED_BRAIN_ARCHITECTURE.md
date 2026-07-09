@@ -1,8 +1,16 @@
 # Frege Hosted Brain Architecture
 
-Last updated: 2026-06-19
+Last updated: 2026-07-09 (originally written 2026-06-19)
 
 This is the current backend plan and implementation summary for the Frege prototype. It reflects the decision to make Frege a hosted SaaS control plane and brain database, with local development and a thin local MCP/CLI client.
+
+What changed in the 2026-07-09 refresh:
+
+- The MCP surface is now 27 tools; the brain graph tools (`frege_list_vault`, `frege_page_links`, `frege_traverse`, `frege_find_connections`) and their REST routes are documented below.
+- Hosted agent runs now execute inside Vercel by default via the `/api/cron/agent-worker` cron route (`maxDuration 300`, in-process executor `lib/core/agent-executor.ts`). The standalone worker is the secondary/external path.
+- Cron routes are guarded by `CRON_ENABLED` (`lib/cron-guard.ts`) so only one Vercel project executes them.
+- Production hosts are split: `frege.dev` (marketing/API base), `brain.frege.dev` (authenticated app/console), `admin.frege.dev` / `FREGE_ADMIN_ONLY` (operations console). See `middleware.ts`.
+- Migrations run through `pnpm db:migrate` with a `schema_migrations` ledger (currently `001`–`022`, with `015` deleted).
 
 ## Current Status
 
@@ -136,7 +144,7 @@ Core table:
 
 - `org_model_configs`
 
-Frege can invoke configured models, and Frege can also execute hosted agents through a separate runtime tier. The Vercel app should remain the control plane. The agent runtime/model router should run outside Vercel when Frege needs to execute agents itself.
+Frege can invoke configured models, and Frege can also execute hosted agents. As of 2026-07 the default agent execution path runs inside the Vercel app itself (the `/api/cron/agent-worker` cron route with the in-process executor `lib/core/agent-executor.ts`) — the agent loop is orchestration and provider HTTP calls, which fit serverless limits. A separate runtime tier outside Vercel remains the path for local/open-weight model serving and long-running GPU work.
 
 Frege's backend responsibility is:
 
@@ -148,7 +156,7 @@ Frege's backend responsibility is:
 
 Frege should not require a local model inside the Vercel app. The default product assumption is model-agnostic orchestration: user agents and user-selected providers supply most reasoning power, while Frege supplies governed memory, prompt/context assembly, and observability.
 
-When Frege needs to execute agents itself, use a separate Frege Agent Runtime:
+When Frege needs local/open-weight models or long-running GPU inference, use a separate Frege Agent Runtime:
 
 ```text
 Frege app on Vercel
@@ -182,7 +190,16 @@ Implemented runtime APIs:
 - `POST /api/v1/runtime/agent-runs/claim`: runtime worker claim endpoint, guarded by `FREGE_RUNTIME_TOKEN`.
 - `POST /api/v1/runtime/agent-runs/:id/complete`: runtime worker completion endpoint, guarded by `FREGE_RUNTIME_TOKEN`.
 
-Implemented worker:
+Implemented execution paths (updated 2026-07-09):
+
+1. **Primary — in-Vercel cron worker.** `GET /api/cron/agent-worker` runs every
+   minute (see `vercel.json`), guarded by `CRON_SECRET` and `CRON_ENABLED`. It
+   claims up to 3 queued runs per pass (lease 300s), executes them in-process via
+   `executeAgentPacket` in `lib/core/agent-executor.ts` within a 260s tick budget
+   (`maxDuration 300`), and records the pass in `cron_runs`. Model calls still go
+   to configured external providers — Vercel hosts orchestration, not weights.
+2. **Secondary — standalone worker** for external/GPU runtimes, using the same
+   token-guarded claim/complete APIs:
 
 ```bash
 FREGE_RUNTIME_TOKEN=... \
@@ -252,7 +269,7 @@ Compliance history remains in `audit_events`. Raw task memory remains in the bra
 
 The Frege CLI/MCP server calls REST APIs only. It never reads the database directly.
 
-Current MCP-first tools:
+Current MCP-first tools (27, defined in `packages/frege-cli/bin/frege-mcp.mjs`):
 
 ```text
 frege_status
@@ -260,6 +277,10 @@ frege_brain_status
 frege_list_sources
 frege_search_pages
 frege_get_page
+frege_list_vault
+frege_page_links
+frege_traverse
+frege_find_connections
 frege_add_source_proposal
 frege_write_page_proposal
 frege_start_session
@@ -278,6 +299,15 @@ frege_create_document
 frege_propose_revision
 frege_audit_events
 frege_invoke_model
+```
+
+The four brain graph tools map to trust-zone-gated REST routes backed by `lib/core/brain-graph.ts`:
+
+```text
+frege_list_vault        GET /api/v1/brain/vault
+frege_page_links        GET /api/v1/brain/pages/:slug/links
+frege_traverse          GET /api/v1/brain/graph
+frege_find_connections  GET /api/v1/brain/connections
 ```
 
 Recommended agent workflow:
@@ -383,11 +413,7 @@ The admin console is intentionally functional and backend-first. It currently co
 
 ## Verification Commands
 
-Run from:
-
-```bash
-cd /Users/Joe/frege/worktrees/feature-prototype-audit-and-admin
-```
+Run from the repo root.
 
 Useful checks:
 
@@ -396,8 +422,9 @@ curl -sS http://localhost:3000/api/v1/health
 frege doctor
 pnpm run typecheck
 pnpm run build
-node --env-file=.env.local scripts/migrate.mjs db/006_hosted_brain_sessions.sql
-node --env-file=.env.local scripts/migrate.mjs db/009_agent_runtime.sql
+DATABASE_URL=... pnpm db:status
+DATABASE_URL=... pnpm db:migrate
+DATABASE_URL=... pnpm db:verify
 FREGE_RUNTIME_TOKEN=frege-runtime-local-smoke FREGE_BASE_URL=http://localhost:3000 pnpm run agent:worker:once
 ```
 

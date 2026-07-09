@@ -1,6 +1,7 @@
 # Backend Architecture Note — Storage, Linking, Payment → API Keys
 
-Last updated: 2026-06-23
+Last updated: 2026-07-09 (refreshed: migrations ledger, cron guard, in-Vercel agent
+execution, brain/admin host split; originally written 2026-06-23)
 
 This note captures the current backend topology and the payment-to-access flow as
 deployed today. It complements (does not replace):
@@ -19,7 +20,10 @@ deployed today. It complements (does not replace):
   The client is memoized per process; every query goes through `getSql()`.
 - All persistent state is in Postgres. There is **no separate object store, cache, or
   secondary DB** in the app path. Schema is managed by ordered SQL migrations in `db/`
-  (`001_*` … `011_*`), applied in sequence.
+  (`001_*` … `022_*` and counting), applied via `pnpm db:migrate`
+  (`scripts/prototype/migrate-db.mjs`), which records applied files in a
+  `schema_migrations` ledger. Inspect with `pnpm db:status` / `pnpm db:verify`.
+  Note: `015` was deleted and is intentionally absent from the sequence.
 - Connection env vars come in two shapes (both point at the same Neon project):
   - `DATABASE_URL` / `DATABASE_URL_UNPOOLED` (used by the app via `lib/db.ts`).
   - `POSTGRES_*` and `PG*` mirrors (Neon/Vercel integration conventions).
@@ -60,9 +64,23 @@ Two Vercel projects, **same Git repo** (`Finberg-Laurelin-CEO/frege.dev`, branch
 - `frege-admin` exists to put the `/platform` staff console behind a second wall
   (Vercel Authentication / team SSO) in addition to the app-level
   `requirePlatformStaffPage` gate. Defense-in-depth.
-- **Cron caution:** crons are defined in repo `vercel.json`. They must run on **one**
-  project only (the main site) to avoid double-processing the shared DB. Verify crons
-  are disabled/ignored on `frege-admin`.
+- **Host split (`middleware.ts`):** `frege.dev` is the marketing site;
+  `brain.frege.dev` serves the authenticated app surfaces (`/console`, `/billing`,
+  `/admin`, `/prototype` — root redirects to `/console`) and bounces marketing paths
+  back to `frege.dev`. A deploy behaves as the admin-only operations console when
+  `FREGE_ADMIN_ONLY=true` is set (the `frege-admin` project) **or** the request
+  arrives on `admin.frege.dev` — non-admin paths then redirect to `/platform`.
+- **Cron guard (`lib/cron-guard.ts`):** crons are defined in repo `vercel.json` and
+  Vercel registers them on **every** project deploying that repo. Each cron route
+  therefore checks `CRON_ENABLED === "true"` and no-ops (200,
+  `crons_disabled_on_this_project`) elsewhere. Set `CRON_ENABLED=true` on the
+  canonical (main site) project **only**; cron invocations are additionally
+  authenticated by the `CRON_SECRET` bearer token.
+- **Agent execution now runs in-Vercel.** `/api/cron/agent-worker` (every minute,
+  `maxDuration 300`) claims queued agent runs and executes them in-process via
+  `lib/core/agent-executor.ts`, recording outcomes through `cron_runs`. The
+  standalone worker (`pnpm agent:worker`, `scripts/prototype/frege-agent-worker.mjs`)
+  remains as a secondary/external runtime path over the same claim/complete APIs.
 
 ### External services
 

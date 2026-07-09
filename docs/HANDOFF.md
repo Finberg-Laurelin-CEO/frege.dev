@@ -1,5 +1,13 @@
 # Frege.dev — build handoff
 
+> **HISTORICAL DOCUMENT (2026-06-08) — SUPERSEDED.**
+> This handoff describes the state one month into the project: a static-site port
+> with a dormant signup form and no database. Since then, signup, self-serve
+> onboarding, email verification, and Stripe billing have shipped and are live in
+> production (self-serve enabled 2026-07-06, commit `d516493`). Do not follow the
+> TODOs below. For current operations see `docs/PROTOTYPE_OPERATIONS.md`; for the
+> current demo flow see `docs/LOOM_INVESTOR_DEMO_SCRIPT.md`. Kept for history only.
+
 _Last updated: 2026-06-08. Written for the orchestrator picking up backend + email work._
 
 ## TL;DR — what's done
