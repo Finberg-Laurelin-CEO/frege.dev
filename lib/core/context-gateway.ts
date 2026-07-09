@@ -430,32 +430,35 @@ export async function buildContextPacket(actor: FregeActorContext, input: Contex
   `;
 
   const contextBuildId = (contextBuild as { id: string }).id;
-  for (const document of documents) {
-    const chunkIds = document.chunks.map((chunk) => chunk.id).filter((id): id is string => Boolean(id));
-    const docTokenEstimate = document.chunks.reduce((total, chunk) => total + chunk.token_count, 0);
-    await sql`
-      insert into context_build_documents (
-        context_build_id,
-        document_id,
-        revision_id,
-        chunk_ids,
-        inclusion_reason,
-        trust_zone,
-        token_estimate
-      ) values (
-        ${contextBuildId},
-        ${document.id},
-        ${document.revision_id},
-        ${chunkIds}::uuid[],
-        ${input.slug ? "source_slug" : "query_match"},
-        ${document.trust_zone},
-        ${docTokenEstimate}
-      )
-    `;
-  }
 
-  for (const page of brainPages) {
-    await sql`
+  // Batch the per-row inserts into a single transaction request: over the Neon
+  // HTTP driver each awaited statement is its own round trip, so a large packet
+  // (8 docs + 8 pages) was ~16 serial round trips on the hot context-build path.
+  const rowInserts = [
+    ...documents.map((document) => {
+      const chunkIds = document.chunks.map((chunk) => chunk.id).filter((id): id is string => Boolean(id));
+      const docTokenEstimate = document.chunks.reduce((total, chunk) => total + chunk.token_count, 0);
+      return sql`
+        insert into context_build_documents (
+          context_build_id,
+          document_id,
+          revision_id,
+          chunk_ids,
+          inclusion_reason,
+          trust_zone,
+          token_estimate
+        ) values (
+          ${contextBuildId},
+          ${document.id},
+          ${document.revision_id},
+          ${chunkIds}::uuid[],
+          ${input.slug ? "source_slug" : "query_match"},
+          ${document.trust_zone},
+          ${docTokenEstimate}
+        )
+      `;
+    }),
+    ...brainPages.map((page) => sql`
       insert into context_build_brain_pages (
         context_build_id,
         page_id,
@@ -471,7 +474,10 @@ export async function buildContextPacket(actor: FregeActorContext, input: Contex
         ${page.trust_zone},
         ${page.token_count}
       )
-    `;
+    `),
+  ];
+  if (rowInserts.length > 0) {
+    await sql.transaction(rowInserts);
   }
 
   return {

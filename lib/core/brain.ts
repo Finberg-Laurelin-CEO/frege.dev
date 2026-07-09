@@ -890,25 +890,76 @@ async function acceptLinkProposal(
   return { page_id: pageId };
 }
 
+function toMemoryProposal(row: Record<string, unknown>): MemoryProposal {
+  return {
+    id: row.id,
+    proposal_type: row.proposal_type,
+    slug: row.slug,
+    title: row.title,
+    summary: row.summary,
+    trust_zone: row.trust_zone,
+    status: row.status,
+    session_id: row.session_id,
+    created_by_user_id: row.created_by_user_id,
+    created_by_key_id: row.created_by_key_id,
+    reviewer_user_id: row.reviewer_user_id,
+    resolved_at: row.resolved_at,
+    created_at: row.created_at,
+  } as MemoryProposal;
+}
+
 export async function resolveMemoryProposal(
   auth: HumanOrgContext,
   input: { proposalId: string; action: "accept" | "reject" },
 ) {
   if (!auth.capabilities.canReviewMemoryProposals) throw new Error("memory_review_forbidden");
   const sql = getSql();
-  const [proposal] = await sql`
-    select *
-    from memory_proposals
+
+  // Claim first: the status = 'pending' guard means exactly one of two concurrent
+  // resolves flips the row, so accept side effects below can never double-apply.
+  const [claimed] = await sql`
+    update memory_proposals
+    set
+      status = ${input.action === "accept" ? "accepted" : "rejected"},
+      reviewer_user_id = ${auth.user.id},
+      resolved_at = now()
     where id = ${input.proposalId}
       and org_id = ${auth.organization.id}
-    limit 1
+      and status = 'pending'
+    returning *
   `;
-  if (!proposal) throw new Error("memory_proposal_not_found");
-  if ((proposal as { status: string }).status !== "pending") throw new Error("memory_proposal_resolved");
+
+  if (!claimed) {
+    // Lost the claim (or the proposal never existed). Return the already-resolved
+    // outcome instead of applying side effects a second time.
+    const [existing] = await sql`
+      select
+        id,
+        proposal_type,
+        slug,
+        title,
+        summary,
+        trust_zone,
+        status,
+        session_id,
+        created_by_user_id,
+        created_by_key_id,
+        reviewer_user_id,
+        resolved_at,
+        created_at
+      from memory_proposals
+      where id = ${input.proposalId}
+        and org_id = ${auth.organization.id}
+      limit 1
+    `;
+    if (!existing) throw new Error("memory_proposal_not_found");
+    if ((existing as { status: string }).status === "pending") throw new Error("memory_proposal_resolved");
+    return { proposal: existing as MemoryProposal, accepted_resource: null };
+  }
 
   let acceptedResource: unknown = null;
   if (input.action === "accept") {
-    const typed = proposal as {
+    const typed = claimed as {
       id: string;
       proposal_type: MemoryProposalType;
       target_page_id: string | null;
@@ -920,40 +971,31 @@ export async function resolveMemoryProposal(
       source_ids: string[];
       metadata: Record<string, unknown>;
     };
-    if (typed.proposal_type === "source_create") {
-      acceptedResource = await acceptSourceProposal(auth, typed);
-    } else if (typed.proposal_type === "page_create" || typed.proposal_type === "page_update") {
-      acceptedResource = await acceptPageProposal(auth, typed);
-    } else if (typed.proposal_type === "link_update") {
-      acceptedResource = await acceptLinkProposal(auth, typed);
+    try {
+      if (typed.proposal_type === "source_create") {
+        acceptedResource = await acceptSourceProposal(auth, typed);
+      } else if (typed.proposal_type === "page_create" || typed.proposal_type === "page_update") {
+        acceptedResource = await acceptPageProposal(auth, typed);
+      } else if (typed.proposal_type === "link_update") {
+        acceptedResource = await acceptLinkProposal(auth, typed);
+      }
+    } catch (err) {
+      // Side effects failed after the claim: release it so the proposal can be
+      // retried (matches the pre-claim behavior where a failed accept left the
+      // proposal pending). Best-effort — the original error always propagates.
+      await sql`
+        update memory_proposals
+        set status = 'pending', reviewer_user_id = null, resolved_at = null
+        where id = ${input.proposalId}
+          and org_id = ${auth.organization.id}
+      `.catch(() => undefined);
+      throw err;
     }
   }
 
-  const [resolved] = await sql`
-    update memory_proposals
-    set
-      status = ${input.action === "accept" ? "accepted" : "rejected"},
-      reviewer_user_id = ${auth.user.id},
-      resolved_at = now()
-    where id = ${input.proposalId}
-      and org_id = ${auth.organization.id}
-    returning
-      id,
-      proposal_type,
-      slug,
-      title,
-      summary,
-      trust_zone,
-      status,
-      session_id,
-      created_by_user_id,
-      created_by_key_id,
-      reviewer_user_id,
-      resolved_at,
-      created_at
-  `;
-
-  return { proposal: resolved as MemoryProposal, accepted_resource: acceptedResource };
+  // `returning *` already reflects the resolved status/reviewer/resolved_at;
+  // narrow to the public MemoryProposal shape (drops body_md etc. from responses).
+  return { proposal: toMemoryProposal(claimed as Record<string, unknown>), accepted_resource: acceptedResource };
 }
 
 export { actorKeyId as brainActorKeyId, actorUserId as brainActorUserId, estimateTokens as estimateBrainTokens };

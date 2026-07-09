@@ -4,6 +4,7 @@ import { appendSessionEvent, brainActorKeyId, brainActorUserId, redactSecrets, s
 import { buildContextPacket, type ContextPacket } from "@/lib/core/context-gateway";
 import { compileFregePrompt } from "@/lib/core/model-gateway";
 import { resolveModelConfig, type ModelProvider } from "@/lib/core/model-configs";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 import type { HumanOrgContext } from "@/lib/core/org-guard";
 import { trustZonesForActor, type SensitivityLabel, type TrustZone } from "@/lib/core/types";
 
@@ -119,6 +120,8 @@ type AgentRunRow = AgentRun & {
   agent_default_context_query?: string;
   agent_max_steps?: number;
   model_config_slug?: string;
+  model_provider?: ModelProvider;
+  model_name?: string;
 };
 
 // A run is claimed (and attempt_count incremented) once per execution attempt. Past
@@ -540,12 +543,18 @@ export async function claimAgentRunsForRuntime(input: {
 }): Promise<RuntimeExecutionPacket[]> {
   const sql = getSql();
   const leaseSeconds = input.leaseSeconds ?? 300;
+  // Claims queued runs, plus 'running' runs whose lease has expired: a worker (or
+  // cron tick) killed mid-execution leaves the row in 'running' forever otherwise.
+  // Reclaims re-increment attempt_count, so the MAX_ATTEMPTS dead-letter below
+  // still bounds retries for runs that repeatedly die mid-flight.
   const claimed = (await sql`
     with candidates as (
       select id
       from agent_runs
-      where status = 'queued'
-        and (lease_expires_at is null or lease_expires_at < now())
+      where (
+          (status = 'queued' and (lease_expires_at is null or lease_expires_at < now()))
+          or (status = 'running' and lease_expires_at < now())
+        )
       order by created_at asc
       limit ${input.limit}
       for update skip locked
@@ -594,7 +603,9 @@ async function loadRunForRuntime(runId: string): Promise<AgentRunRow | null> {
       agent_definitions.instructions_md as agent_instructions_md,
       agent_definitions.default_context_query as agent_default_context_query,
       agent_definitions.max_steps as agent_max_steps,
-      org_model_configs.slug as model_config_slug
+      org_model_configs.slug as model_config_slug,
+      org_model_configs.provider as model_provider,
+      org_model_configs.model_name as model_name
     from agent_runs
     join organizations on organizations.id = agent_runs.org_id
     left join api_keys on api_keys.id = agent_runs.requested_by_key_id
@@ -761,6 +772,42 @@ export async function completeAgentRunFromRuntime(input: {
       payload: { agent_run_id: row.id, status: input.status, usage: input.usage ?? {} },
       trust_zone: row.trust_zone,
     });
+  }
+
+  // Hosted runs would otherwise only record usage in agent_runs.metadata, which
+  // rollupUsage (lib/core/usage.ts) never sees: it counts action='model.invoke'
+  // telemetry rows. Mirror the /api/v1/model/invoke telemetry shape here so hosted
+  // runs show up in usage_daily. Best-effort: telemetry must never break completion.
+  if (input.status === "succeeded") {
+    try {
+      const usage = input.usage ?? {};
+      await logTelemetryEvent({
+        actor:
+          actor.actorType === "api_key"
+            ? { type: "api_key", auth: actor.apiKeyAuth }
+            : { type: "user", auth: actor.userAuth },
+        action: "model.invoke",
+        resourceType: "model_config",
+        outcome: "success",
+        provider: row.model_provider,
+        model: row.model_name,
+        inputTokens: usage.input_tokens,
+        outputTokens: usage.output_tokens,
+        estimatedCostUsd: usage.estimated_cost_usd ?? undefined,
+        trustZone: row.trust_zone,
+        sessionId: row.session_id ?? undefined,
+        contextBuildId: row.context_build_id ?? undefined,
+        metadata: {
+          model_config_slug: row.model_config_slug ?? null,
+          context_build_id: row.context_build_id ?? null,
+          agent_run_id: row.id,
+          agent_slug: row.agent_slug ?? null,
+          hosted_run: true,
+        },
+      });
+    } catch (err) {
+      console.error("agent run telemetry write failed", { run_id: row.id, message: (err as Error)?.message });
+    }
   }
 
   return run;

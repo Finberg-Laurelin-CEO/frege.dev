@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
+import { isBookkeepingTimestampStale } from "@/lib/core/auth";
 import {
   SESSION_COOKIE,
   SESSION_MAX_AGE_SECONDS,
@@ -36,6 +37,7 @@ export type UserSessionContext = {
 type SessionRow = {
   session_id: string;
   expires_at: Date | string;
+  last_seen_at: Date | string | null;
   user_id: string;
   email: string;
   name: string;
@@ -127,6 +129,7 @@ export async function authenticateSessionToken(rawToken: string | null): Promise
     select
       user_sessions.id as session_id,
       user_sessions.expires_at,
+      user_sessions.last_seen_at,
       users.id as user_id,
       users.email,
       users.name,
@@ -144,11 +147,15 @@ export async function authenticateSessionToken(rawToken: string | null): Promise
   const row = rows[0] as SessionRow | undefined;
   if (!row) return null;
 
-  await sql`
-    update user_sessions
-    set last_seen_at = now()
-    where id = ${row.session_id}
-  `;
+  // last_seen_at is bookkeeping, not audit: refreshing it at most once a minute
+  // avoids one extra write round-trip on every session-authenticated request.
+  if (isBookkeepingTimestampStale(row.last_seen_at)) {
+    await sql`
+      update user_sessions
+      set last_seen_at = now()
+      where id = ${row.session_id}
+    `;
+  }
 
   const memberships = await sql`
     select
