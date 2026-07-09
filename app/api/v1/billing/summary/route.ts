@@ -1,27 +1,12 @@
 import { getSql } from "@/lib/db";
 import { billingSchemaResponse } from "@/lib/core/billing-errors";
+import { billingSummaryFromRow, toIsoString, type OrgBillingSummaryRow } from "@/lib/core/billing-view-core";
 import { getMembershipForOrg } from "@/lib/core/org-guard";
 import { authenticateUserRequest, userUnauthorized } from "@/lib/core/session";
 import { routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-type BillingSummaryRow = {
-  plan: string | null;
-  billing_interval: string | null;
-  seats: number | null;
-  subscription_status: string | null;
-  current_period_end: Date | string | null;
-  updated_at: Date | string | null;
-};
-
-function toIsoString(value: Date | string | null | undefined): string | null {
-  if (!value) return null;
-  if (value instanceof Date) return value.toISOString();
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? value : date.toISOString();
-}
 
 export async function GET(req: Request) {
   try {
@@ -43,11 +28,12 @@ export async function GET(req: Request) {
         seats,
         subscription_status,
         current_period_end,
-        updated_at
+        updated_at,
+        stripe_customer_id
       from org_billing
       where org_id = ${auth.organization.id}
       limit 1
-    `) as BillingSummaryRow[];
+    `) as OrgBillingSummaryRow[];
 
     return Response.json(
       {
@@ -66,16 +52,7 @@ export async function GET(req: Request) {
           email: auth.user.email,
           email_verified_at: toIsoString(auth.user.email_verified_at),
         },
-        billing: billing
-          ? {
-              plan: billing.plan,
-              billing_interval: billing.billing_interval,
-              seats: billing.seats,
-              subscription_status: billing.subscription_status,
-              current_period_end: toIsoString(billing.current_period_end),
-              updated_at: toIsoString(billing.updated_at),
-            }
-          : null,
+        billing: billingSummaryFromRow(billing),
       },
       { status: 200 },
     );
