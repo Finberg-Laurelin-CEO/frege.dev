@@ -116,11 +116,19 @@ type SessionResult = {
   expiresAt: Date;
 };
 
+// Link mode resolves the caller's frege_session with the same helper the
+// /api/v1/auth/me route uses (authenticateUserRequest); only the fields the
+// bridge needs are typed here.
+type BridgeSessionContext = {
+  user: { id: string; email: string };
+};
+
 export type ClerkBridgeDeps = {
   userStore: OAuthUserStore;
   verifyClerkToken: (token: string) => Promise<{ userId: string }>;
   getClerkUser: (userId: string) => Promise<ClerkUserProfile>;
   createUserSession: (userId: string, host?: string | null) => Promise<SessionResult>;
+  authenticateUserRequest: (req: Request) => Promise<BridgeSessionContext | null>;
   logTelemetryEvent: (event: ClerkTelemetryInput) => Promise<void>;
   checkRateLimit: (
     req: Request,
@@ -129,9 +137,13 @@ export type ClerkBridgeDeps = {
   rateLimitedResponse: (limit: RateLimitResult) => Response;
 };
 
+// mode defaults to "login" so the deployed login page (which sends no mode)
+// keeps working unchanged. "link" binds the Clerk-verified external account to
+// the CURRENT frege_session user instead of signing anyone in.
 const bridgeSchema = z.object({
   token: z.string().min(1).max(8192),
   next: z.string().max(2048).optional(),
+  mode: z.enum(["login", "link"]).default("login"),
 });
 
 function normalizeEmail(email: string): string {
@@ -156,15 +168,17 @@ export async function handleClerkBridgeRequest(
   const startedAt = Date.now();
   const host = req.headers.get("host");
 
-  const denied = (method: string, reason: string, metadata: Record<string, unknown> = {}) =>
+  const deniedEvent = (action: string, method: string, reason: string, metadata: Record<string, unknown> = {}) =>
     deps.logTelemetryEvent({
       actor: { type: "system" },
       req,
-      action: "auth.login",
+      action,
       outcome: "denied",
       latencyMs: Date.now() - startedAt,
       metadata: { method, reason, ...metadata },
     });
+  const denied = (method: string, reason: string, metadata: Record<string, unknown> = {}) =>
+    deniedEvent("auth.login", method, reason, metadata);
 
   try {
     const json = await readJson(req);
@@ -172,6 +186,7 @@ export async function handleClerkBridgeRequest(
 
     const parsed = bridgeSchema.safeParse(json.value);
     if (!parsed.success) return bridgeError("validation", 400);
+    const mode = parsed.data.mode;
 
     const limit = await deps.checkRateLimit(req, {
       action: "auth.clerk.bridge",
@@ -180,6 +195,17 @@ export async function handleClerkBridgeRequest(
       keyParts: [],
     });
     if (!limit.allowed) return deps.rateLimitedResponse(limit);
+
+    // Link mode is only meaningful for an already signed-in Frege user; reject
+    // before spending a Clerk verification on an anonymous caller.
+    let linkSession: BridgeSessionContext | null = null;
+    if (mode === "link") {
+      linkSession = await deps.authenticateUserRequest(req);
+      if (!linkSession) {
+        await deniedEvent("auth.identity_link", "clerk", "no_session");
+        return bridgeError("unauthorized", 401);
+      }
+    }
 
     let userId: string;
     try {
@@ -202,19 +228,84 @@ export async function handleClerkBridgeRequest(
     // Identity mapping: prefer the Google/GitHub external account so identity
     // rows stay interchangeable with the hand-rolled flow. Clerk sign-ins with
     // no such account (e.g. email-code sign-up) fall back to email linking.
-    const external = clerkUser.externalAccounts
+    const externalAccounts = clerkUser.externalAccounts
       .map((account) => ({
         provider: clerkExternalProvider(account.provider),
         subject: account.providerUserId,
       }))
-      .find((account): account is { provider: OAuthProvider; subject: string } =>
+      .filter((account): account is { provider: OAuthProvider; subject: string } =>
         account.provider !== null && account.subject.length > 0,
-      ) ?? null;
+      );
+    const external = externalAccounts[0] ?? null;
     const method = external ? `clerk_${external.provider}` : "clerk_email";
 
     const primaryEmail = clerkUser.primaryEmailAddressId
       ? clerkUser.emailAddresses.find((entry) => entry.id === clerkUser.primaryEmailAddressId)
       : undefined;
+
+    // ── Link mode: bind the Clerk-verified external account(s) to the current
+    // frege_session user. Never switches sessions, never links by email, never
+    // creates users — the email checks below are login-mode concerns (link
+    // decisions are made purely on provider subjects; the identity row's email
+    // column is informational).
+    if (mode === "link" && linkSession) {
+      if (externalAccounts.length === 0) {
+        await deniedEvent("auth.identity_link", method, "no_external_account");
+        return bridgeError("oauth_failed", 400);
+      }
+
+      const sessionUserId = linkSession.user.id;
+      const identityEmail = primaryEmail?.emailAddress
+        ? normalizeEmail(primaryEmail.emailAddress)
+        : normalizeEmail(linkSession.user.email);
+
+      // Conflict check across every account first so a bind is all-or-nothing:
+      // an identity already belonging to ANOTHER user rejects the whole call.
+      const owners = await Promise.all(
+        externalAccounts.map((account) =>
+          deps.userStore.findIdentityUser(account.provider, account.subject),
+        ),
+      );
+      if (owners.some((owner) => owner !== null && owner.id !== sessionUserId)) {
+        await deniedEvent("auth.identity_link", method, "identity_in_use");
+        return bridgeError("identity_in_use", 409);
+      }
+
+      // Idempotent: accounts already bound to this user are skipped.
+      const toBind = externalAccounts.filter((_, index) => owners[index] === null);
+      for (const account of toBind) {
+        await deps.userStore.linkIdentity({
+          userId: sessionUserId,
+          provider: account.provider,
+          subject: account.subject,
+          email: identityEmail,
+        });
+      }
+
+      const providers = externalAccounts.map((account) => account.provider);
+      await deps.logTelemetryEvent({
+        actor: { type: "system" },
+        req,
+        action: "auth.identity_link",
+        resourceType: "user",
+        resourceId: sessionUserId,
+        outcome: "success",
+        latencyMs: Date.now() - startedAt,
+        metadata: { providers, already_linked: toBind.length === 0 },
+      });
+
+      // No Set-Cookie: the caller's existing frege_session stays untouched.
+      return Response.json(
+        {
+          ok: true,
+          providers,
+          already_linked: toBind.length === 0,
+          next: `/console?view=account&linked=${providers[0]}`,
+        },
+        { status: 200 },
+      );
+    }
+
     if (!primaryEmail?.emailAddress) {
       await denied(method, "email_missing");
       return bridgeError("oauth_email_missing", 403);
@@ -278,6 +369,8 @@ export async function handleClerkBridgeRequest(
     }
 
     if (flow !== "created") await deps.userStore.touchLastLogin(user.id);
+    // Brand-new users cannot have a membership yet; skip the lookup for them.
+    const hasOrg = flow === "created" ? false : await deps.userStore.hasActiveMembership(user.id);
     const session = await deps.createUserSession(user.id, host);
 
     await deps.logTelemetryEvent({
@@ -292,9 +385,11 @@ export async function handleClerkBridgeRequest(
     });
 
     // The client (login page) performs the redirect — the bridge only reports
-    // the validated destination and sets the session cookie.
+    // the validated destination and sets the session cookie. flow/hasOrg let
+    // the client send org-less users to /setup-workspace; older clients that
+    // only read `next` keep working.
     return Response.json(
-      { ok: true, next: safeNextPath(parsed.data.next) },
+      { ok: true, next: safeNextPath(parsed.data.next), flow, hasOrg },
       { status: 200, headers: { "Set-Cookie": session.cookie } },
     );
   } catch (err) {

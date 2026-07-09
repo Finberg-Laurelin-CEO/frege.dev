@@ -73,7 +73,7 @@ export type SignupFlowDeps = {
 
 const NEXT_PATH = "/console?view=account";
 
-type SignupWebhookRow = {
+export type SignupWebhookRow = {
   id: string;
   created_at: Date | string;
   name: string;
@@ -110,7 +110,9 @@ function toIsoString(value: Date | string): string {
   return date.toISOString();
 }
 
-function signupCreatedPayload(signup: SignupWebhookRow, lead: LeadScore) {
+// Shared with lib/core/workspace-core.ts (social signups emit the same
+// frege.signup.created monitor/webhook payload).
+export function signupCreatedPayload(signup: SignupWebhookRow, lead: LeadScore) {
   return {
     event: "frege.signup.created",
     created_at: toIsoString(signup.created_at),
@@ -149,7 +151,9 @@ async function sendHermesSignupWebhook(
   });
 }
 
-async function uniqueOrgSlug(sql: Sql, base: string): Promise<string> {
+// Shared with lib/core/workspace-core.ts — same slug conventions for every
+// org-provisioning path.
+export async function uniqueOrgSlug(sql: Sql, base: string): Promise<string> {
   const root = slugifyOrg(base);
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const candidate = attempt === 0 ? root : `${root}-${attempt + 1}`;
@@ -173,7 +177,9 @@ function accountResumeUrl(): string {
   return `${customerAppBaseUrl()}${NEXT_PATH}`;
 }
 
-function billingSelection(planKey: string, seats: number): { plan: "solo" | "team"; interval: "monthly" | "annual"; seats: number } {
+// Shared with lib/core/workspace-core.ts — one mapping from self-serve plan
+// keys to org_billing columns.
+export function billingSelection(planKey: string, seats: number): { plan: "solo" | "team"; interval: "monthly" | "annual"; seats: number } {
   if (planKey === "team-annual") return { plan: "team", interval: "annual", seats: Math.max(1, seats) };
   if (planKey === "team-monthly") return { plan: "team", interval: "monthly", seats: Math.max(1, seats) };
   return { plan: "solo", interval: "monthly", seats: 1 };

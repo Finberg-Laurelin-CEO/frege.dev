@@ -64,6 +64,12 @@ type PasswordResetEmailInput = {
   resetUrl: string;
 };
 
+type LoginLinkEmailInput = {
+  to: string;
+  name: string;
+  loginUrl: string;
+};
+
 type EmailVerificationEmailInput = {
   to: string;
   name: string;
@@ -432,6 +438,52 @@ function passwordResetHtmlBody(input: PasswordResetEmailInput): string {
 </html>`;
 }
 
+function loginLinkSubject(): string {
+  return "Your Frege sign-in link";
+}
+
+function loginLinkTextBody(input: LoginLinkEmailInput): string {
+  const firstName = input.name.trim().split(/\s+/)[0] || "there";
+  return [
+    `Hi ${firstName},`,
+    "",
+    "Use this link to sign in to your Frege account:",
+    `   ${input.loginUrl}`,
+    "",
+    "This link expires in 15 minutes and can be used once. If you did not request it, you can ignore this email.",
+    "",
+    "- The Frege team",
+  ].join("\n");
+}
+
+function loginLinkHtmlBody(input: LoginLinkEmailInput): string {
+  const safeFirstName = escapeHtml(input.name.trim().split(/\s+/)[0] || "there");
+  const safeLoginUrl = escapeHtml(input.loginUrl);
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px;">Your Frege sign-in link</h1>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 20px;">
+          Hi ${safeFirstName}, use this link to sign in to your Frege account.
+        </p>
+        <p style="margin:0 0 28px;">
+          <a href="${safeLoginUrl}" style="display:inline-block;background:#0033cc;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:15px;font-weight:600;">
+            Sign in to Frege
+          </a>
+        </p>
+        <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
+          This link expires in 15 minutes and can be used once. If you did not request it, you can ignore this email.
+          If the button doesn't work, paste this URL into your browser:<br>
+          <span style="word-break:break-all;color:#0033cc;">${safeLoginUrl}</span>
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 function supportTicketCreatedSubject(input: SupportTicketCreatedEmailInput): string {
   return `New support ticket [${input.orgSlug}] ${input.subject}`;
 }
@@ -781,6 +833,28 @@ export async function sendHotLeadAlertEmail(input: HotLeadAlertEmailInput): Prom
 
   if (error) {
     console.error("hot lead alert email send failed", { to: input.to, message: error.message });
+    return { sent: false, reason: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
+export async function sendLoginLinkEmail(input: LoginLinkEmailInput): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    console.warn("email not configured; login link email skipped", { to: input.to });
+    return { sent: false, reason: "not_configured" };
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: fromAddress(),
+    to: input.to,
+    replyTo: replyToAddress(),
+    subject: loginLinkSubject(),
+    text: loginLinkTextBody(input),
+    html: loginLinkHtmlBody(input),
+  });
+
+  if (error) {
+    console.error("login link email send failed", { to: input.to, message: error.message });
     return { sent: false, reason: error.message };
   }
   return { sent: true, id: data?.id };

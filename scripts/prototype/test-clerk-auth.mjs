@@ -111,8 +111,15 @@ function makeClerkUser({
   };
 }
 
-function makeUserStore({ identityUser = null, emailUser = null } = {}) {
-  const calls = { findIdentityUser: [], linkIdentity: [], markEmailVerified: [], createUser: [], touchLastLogin: [] };
+function makeUserStore({ identityUser = null, emailUser = null, hasOrg = false } = {}) {
+  const calls = {
+    findIdentityUser: [],
+    linkIdentity: [],
+    markEmailVerified: [],
+    createUser: [],
+    touchLastLogin: [],
+    hasActiveMembership: [],
+  };
   const store = {
     async findIdentityUser(provider, subject) {
       calls.findIdentityUser.push({ provider, subject });
@@ -134,11 +141,15 @@ function makeUserStore({ identityUser = null, emailUser = null } = {}) {
     async touchLastLogin(userId) {
       calls.touchLastLogin.push(userId);
     },
+    async hasActiveMembership(userId) {
+      calls.hasActiveMembership.push(userId);
+      return hasOrg;
+    },
   };
   return { store, calls };
 }
 
-function makeDeps({ clerkUser, userStore, overrides = {} } = {}) {
+function makeDeps({ clerkUser, userStore, session = null, overrides = {} } = {}) {
   const telemetry = [];
   const sessions = [];
   const verifications = [];
@@ -162,6 +173,7 @@ function makeDeps({ clerkUser, userStore, overrides = {} } = {}) {
         expiresAt: new Date(Date.now() + 1000),
       };
     },
+    authenticateUserRequest: async () => session,
     logTelemetryEvent: async (event) => {
       telemetry.push(event);
     },
@@ -337,10 +349,11 @@ test("bridge signs in an existing google identity and mints a frege_session", as
 
   const response = await handleClerkBridgeRequest(bridgeRequest({ token: "tok-1" }), deps);
   assert.equal(response.status, 200);
-  assert.deepEqual(await response.json(), { ok: true, next: "/console" });
+  assert.deepEqual(await response.json(), { ok: true, next: "/console", flow: "identity", hasOrg: false });
 
   // The identity lookup uses the exact row shape the hand-rolled flow writes.
   assert.deepEqual(calls.findIdentityUser, [{ provider: "google", subject: "google-sub-1" }]);
+  assert.deepEqual(calls.hasActiveMembership, ["user-1"]);
   assert.deepEqual(calls.linkIdentity, []);
   assert.deepEqual(calls.touchLastLogin, ["user-1"]);
   assert.deepEqual(sessions, [{ userId: "user-1", host: HOST }]);
@@ -510,7 +523,7 @@ test("bridge validates next and blocks external URLs and login loops", async () 
     bridgeRequest({ token: "tok-1", next: "/console?view=account" }),
     valid.deps,
   );
-  assert.deepEqual(await validResponse.json(), { ok: true, next: "/console?view=account" });
+  assert.equal((await validResponse.json()).next, "/console?view=account");
 
   for (const hostileNext of ["https://evil.com/phish", "//evil.com", "/login"]) {
     const hostile = makeDeps({ userStore: makeUserStore({ identityUser: ACTIVE_USER }) });
@@ -518,8 +531,181 @@ test("bridge validates next and blocks external URLs and login loops", async () 
       bridgeRequest({ token: "tok-1", next: hostileNext }),
       hostile.deps,
     );
-    assert.deepEqual(await hostileResponse.json(), { ok: true, next: "/console" });
+    assert.equal((await hostileResponse.json()).next, "/console");
   }
+  clearClerkEnv();
+});
+
+// ── hasOrg (workspace routing for social signups) ───────────────────────────
+
+test("bridge reports hasOrg true when the store finds an active membership", async () => {
+  setClerkEnv();
+  const userStore = makeUserStore({ identityUser: ACTIVE_USER, hasOrg: true });
+  const { deps, calls } = makeDeps({ userStore });
+
+  const response = await handleClerkBridgeRequest(bridgeRequest({ token: "tok-1" }), deps);
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { ok: true, next: "/console", flow: "identity", hasOrg: true });
+  assert.deepEqual(calls.hasActiveMembership, ["user-1"]);
+  clearClerkEnv();
+});
+
+test("bridge created flow reports hasOrg false without a membership lookup", async () => {
+  setClerkEnv();
+  const userStore = makeUserStore({ hasOrg: true });
+  const { deps, calls } = makeDeps({ userStore });
+
+  const response = await handleClerkBridgeRequest(bridgeRequest({ token: "tok-1" }), deps);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.flow, "created");
+  assert.equal(body.hasOrg, false);
+  // Brand-new users cannot have a membership; the lookup is skipped.
+  assert.deepEqual(calls.hasActiveMembership, []);
+  clearClerkEnv();
+});
+
+// ── Link mode (bind Google/GitHub to the signed-in account) ─────────────────
+
+const LINK_SESSION = { user: { id: "session-user-1", email: "session@example.com" } };
+
+test("bridge link mode requires an existing frege_session", async () => {
+  setClerkEnv();
+  const userStore = makeUserStore();
+  const { deps, sessions, telemetry, calls, verifications } = makeDeps({ userStore, session: null });
+
+  const response = await handleClerkBridgeRequest(
+    bridgeRequest({ token: "tok-1", mode: "link" }),
+    deps,
+  );
+  assert.equal(response.status, 401);
+  assert.deepEqual(await response.json(), { error: "unauthorized" });
+  // No Clerk verification, no writes, no session mint for anonymous callers.
+  assert.deepEqual(verifications, []);
+  assert.deepEqual(calls.linkIdentity, []);
+  assert.deepEqual(calls.createUser, []);
+  assert.deepEqual(sessions, []);
+  assert.equal(telemetry.at(-1)?.action, "auth.identity_link");
+  assert.equal(telemetry.at(-1)?.outcome, "denied");
+  assert.equal(telemetry.at(-1)?.metadata?.reason, "no_session");
+  clearClerkEnv();
+});
+
+test("bridge link mode binds the provider identity to the session user", async () => {
+  setClerkEnv();
+  const userStore = makeUserStore();
+  const { deps, sessions, telemetry, calls } = makeDeps({ userStore, session: LINK_SESSION });
+
+  const response = await handleClerkBridgeRequest(
+    bridgeRequest({ token: "tok-1", mode: "link" }),
+    deps,
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    providers: ["google"],
+    already_linked: false,
+    next: "/console?view=account&linked=google",
+  });
+
+  // The identity row lands on the SESSION user with the provider email.
+  assert.deepEqual(calls.linkIdentity, [
+    { userId: "session-user-1", provider: "google", subject: "google-sub-1", email: "ada@example.com" },
+  ]);
+  // Never creates users, never links by email, never switches sessions.
+  assert.deepEqual(calls.createUser, []);
+  assert.deepEqual(calls.markEmailVerified, []);
+  assert.deepEqual(calls.touchLastLogin, []);
+  assert.deepEqual(sessions, []);
+  assert.equal(response.headers.get("set-cookie"), null);
+
+  const event = telemetry.at(-1);
+  assert.equal(event?.action, "auth.identity_link");
+  assert.equal(event?.outcome, "success");
+  assert.equal(event?.resourceId, "session-user-1");
+  assert.deepEqual(event?.metadata?.providers, ["google"]);
+  assert.equal(event?.metadata?.already_linked, false);
+  clearClerkEnv();
+});
+
+test("bridge link mode rejects an identity bound to another user with 409", async () => {
+  setClerkEnv();
+  const userStore = makeUserStore({ identityUser: { ...ACTIVE_USER, id: "other-user" } });
+  const { deps, sessions, telemetry, calls } = makeDeps({ userStore, session: LINK_SESSION });
+
+  const response = await handleClerkBridgeRequest(
+    bridgeRequest({ token: "tok-1", mode: "link" }),
+    deps,
+  );
+  assert.equal(response.status, 409);
+  assert.deepEqual(await response.json(), { error: "identity_in_use" });
+  assert.deepEqual(calls.linkIdentity, []);
+  assert.deepEqual(calls.createUser, []);
+  assert.deepEqual(sessions, []);
+  assert.equal(telemetry.at(-1)?.action, "auth.identity_link");
+  assert.equal(telemetry.at(-1)?.outcome, "denied");
+  assert.equal(telemetry.at(-1)?.metadata?.reason, "identity_in_use");
+  clearClerkEnv();
+});
+
+test("bridge link mode is idempotent when the identity is already bound to this user", async () => {
+  setClerkEnv();
+  const userStore = makeUserStore({ identityUser: { ...ACTIVE_USER, id: "session-user-1" } });
+  const { deps, telemetry, calls } = makeDeps({ userStore, session: LINK_SESSION });
+
+  const response = await handleClerkBridgeRequest(
+    bridgeRequest({ token: "tok-1", mode: "link" }),
+    deps,
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    ok: true,
+    providers: ["google"],
+    already_linked: true,
+    next: "/console?view=account&linked=google",
+  });
+  assert.deepEqual(calls.linkIdentity, []);
+  assert.equal(telemetry.at(-1)?.outcome, "success");
+  assert.equal(telemetry.at(-1)?.metadata?.already_linked, true);
+  clearClerkEnv();
+});
+
+test("bridge link mode never creates a user, even when the email matches nobody", async () => {
+  setClerkEnv();
+  // No identity match and no email match: login mode would create a user here.
+  const userStore = makeUserStore({ identityUser: null, emailUser: null });
+  const { deps, sessions, calls } = makeDeps({ userStore, session: LINK_SESSION });
+
+  const response = await handleClerkBridgeRequest(
+    bridgeRequest({ token: "tok-1", mode: "link" }),
+    deps,
+  );
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls.createUser, []);
+  assert.deepEqual(sessions, []);
+  assert.equal(calls.linkIdentity.length, 1);
+  assert.equal(calls.linkIdentity[0].userId, "session-user-1");
+  clearClerkEnv();
+});
+
+test("bridge link mode rejects a Clerk user without a google/github external account", async () => {
+  setClerkEnv();
+  const userStore = makeUserStore();
+  const { deps, telemetry, calls } = makeDeps({
+    userStore,
+    session: LINK_SESSION,
+    clerkUser: makeClerkUser({ externalAccounts: [] }),
+  });
+
+  const response = await handleClerkBridgeRequest(
+    bridgeRequest({ token: "tok-1", mode: "link" }),
+    deps,
+  );
+  assert.equal(response.status, 400);
+  assert.deepEqual(await response.json(), { error: "oauth_failed" });
+  assert.deepEqual(calls.linkIdentity, []);
+  assert.equal(telemetry.at(-1)?.action, "auth.identity_link");
+  assert.equal(telemetry.at(-1)?.metadata?.reason, "no_external_account");
   clearClerkEnv();
 });
 

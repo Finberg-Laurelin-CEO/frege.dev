@@ -1,32 +1,25 @@
 import type { ReactNode } from "react";
 import { oauthProvidersConfigured } from "@/lib/core/oauth-core";
+import SignupSso from "./SignupSso";
 
 // Server wrapper for the (client) signup page. It exists so we can check OAuth
-// env config on the server and render a sign-in hint without touching the
-// signup form itself — config presence only, no secrets reach the client.
+// env config on the server and render the social-signup block without touching
+// the signup form itself — config presence only, no secrets reach the client
+// (the Clerk publishable key is public by design).
 //
 // Clerk mode (publishable key present) wins over the hand-rolled providers:
-// the Clerk handshake runs client-side on the login page, so the hint sends
-// users there instead of the (dormant) hand-rolled start routes.
+// the Clerk handshake runs client-side right here (SignupSso shares the exact
+// login-page flow via app/components/clerk-client.ts).
 export default function SignupLayout({ children }: { children: ReactNode }) {
-  const clerkEnabled = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? null;
   const providers = oauthProvidersConfigured();
   const anyProvider = providers.google || providers.github;
 
   return (
     <>
       {children}
-      {clerkEnabled ? (
-        <p
-          style={{ textAlign: "center", margin: "0 auto 3rem", maxWidth: "40rem" }}
-          aria-label="Single sign-on"
-        >
-          Prefer single sign-on? {" "}
-          <a className="lnk" href="/login">
-            Continue with Google or GitHub
-          </a>
-          {" "} from the login page — an account is created automatically.
-        </p>
+      {clerkPublishableKey ? (
+        <SignupSso clerkPublishableKey={clerkPublishableKey} />
       ) : anyProvider ? (
         <p
           style={{ textAlign: "center", margin: "0 auto 3rem", maxWidth: "40rem" }}

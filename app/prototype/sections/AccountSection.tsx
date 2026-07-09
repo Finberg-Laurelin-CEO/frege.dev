@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  clerkOAuthStatusText,
+  finishClerkBridgeCallback,
+  startClerkOAuth,
+} from "@/app/components/clerk-client";
 import type { ConsoleSection } from "./ui";
 
 type Membership = {
@@ -31,6 +36,23 @@ function statusText(verified: string | undefined): string | null {
   if (verified === "invalid") return "That verification link is invalid. Send a fresh link below.";
   if (verified === "error") return "Something went wrong verifying your email. Try the link again or send a fresh one below.";
   return null;
+}
+
+const IDENTITY_PROVIDERS = [
+  { id: "google", label: "Google" },
+  { id: "github", label: "GitHub" },
+] as const;
+
+type IdentityProviderId = (typeof IDENTITY_PROVIDERS)[number]["id"];
+
+function providerLabel(id: string): string {
+  return IDENTITY_PROVIDERS.find((provider) => provider.id === id)?.label ?? id;
+}
+
+function linkStatusText(code: string): string {
+  if (code === "identity_in_use") return "That account is already connected to a different Frege user.";
+  if (code === "unauthorized") return "Your session expired. Sign in again, then retry the connection.";
+  return clerkOAuthStatusText[code] ?? "Could not connect that account. Try again.";
 }
 
 function planLabel(plan: string | null | undefined, interval: string | null | undefined): string {
@@ -68,6 +90,97 @@ export default function AccountSection({
   const activeOrg = memberships.find((m) => m.status === "active") ?? memberships[0] ?? null;
   const [billing, setBilling] = useState<BillingSummary | null>(null);
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent" | "not_configured" | "verified" | "rate_limited" | "error">("idle");
+  const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
+  const [linkStatus, setLinkStatus] = useState("");
+  const [linkPending, setLinkPending] = useState(false);
+
+  // NEXT_PUBLIC_ env vars are inlined into the client bundle at build time —
+  // the publishable key is public by design (it boots clerk-js in the browser).
+  const clerkPublishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ?? null;
+
+  useEffect(() => {
+    let live = true;
+    fetch("/api/v1/auth/identities")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        const providers = (json as { providers?: unknown } | null)?.providers;
+        if (live && Array.isArray(providers)) {
+          setLinkedProviders(providers.filter((entry): entry is string => typeof entry === "string"));
+        }
+      })
+      .catch(() => null);
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  // Finish a pending "Connect Google/GitHub" Clerk callback: the same shared
+  // browser flow as login, but the bridge runs in link mode and binds the
+  // provider identity to THIS session user (no session switch). The URL is
+  // rewritten to ?linked=<provider> so a reload doesn't replay the callback.
+  useEffect(() => {
+    if (!clerkPublishableKey) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("clerk") !== "cb") return;
+    const provider = params.get("link") ?? "";
+
+    let cancelled = false;
+
+    (async () => {
+      setLinkPending(true);
+      setLinkStatus(`connecting ${providerLabel(provider)}...`);
+
+      const result = await finishClerkBridgeCallback(clerkPublishableKey, { mode: "link" });
+      if (cancelled) return;
+
+      if (!result.ok) {
+        window.history.replaceState(null, "", "/console?view=account");
+        setLinkStatus(linkStatusText(result.code));
+        setLinkPending(false);
+        return;
+      }
+
+      const linked = result.providers[0] ?? provider;
+      window.history.replaceState(null, "", `/console?view=account&linked=${encodeURIComponent(linked)}`);
+      setLinkedProviders((current) => Array.from(new Set([...current, ...result.providers])));
+      setLinkStatus(
+        result.alreadyLinked
+          ? `${providerLabel(linked)} was already connected.`
+          : `${providerLabel(linked)} connected.`,
+      );
+      setLinkPending(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clerkPublishableKey]);
+
+  // Landing back with ?linked=<provider> (e.g. after a full redirect) shows a
+  // confirmation without replaying anything.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("clerk") === "cb") return;
+    const linked = params.get("linked");
+    if (linked) setLinkStatus(`${providerLabel(linked)} connected.`);
+  }, []);
+
+  async function connectProvider(provider: IdentityProviderId) {
+    if (!clerkPublishableKey) return;
+    setLinkPending(true);
+    setLinkStatus(`redirecting to ${providerLabel(provider)}...`);
+    try {
+      await startClerkOAuth(
+        clerkPublishableKey,
+        provider,
+        `/console?view=account&clerk=cb&link=${provider}`,
+      );
+    } catch {
+      setLinkStatus(linkStatusText("oauth_failed"));
+      setLinkPending(false);
+    }
+  }
 
   useEffect(() => {
     let live = true;
@@ -222,6 +335,46 @@ export default function AccountSection({
           )}
         </section>
       </div>
+
+      <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
+        <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)", marginBottom: 8 }}>connected sign-ins</div>
+        <p style={{ margin: "0 0 14px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+          Sign in to this account with Google or GitHub in addition to your password.
+        </p>
+        <div style={{ display: "grid", gap: 10 }}>
+          {IDENTITY_PROVIDERS.map((provider) => {
+            const connected = linkedProviders.includes(provider.id);
+            return (
+              <div
+                key={provider.id}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, border: "1px solid var(--line)", background: "var(--surface-mute)", padding: "10px 13px" }}
+              >
+                <span style={{ color: "var(--ink)", fontSize: 13 }}>
+                  {provider.label}
+                  <span style={{ display: "block", color: connected ? "var(--green-dark)" : "var(--faint)", fontSize: 11, marginTop: 2 }}>
+                    {connected ? "connected" : "not connected"}
+                  </span>
+                </span>
+                {clerkPublishableKey && !connected ? (
+                  <button
+                    type="button"
+                    onClick={() => connectProvider(provider.id)}
+                    disabled={linkPending}
+                    style={{ minHeight: 34, padding: "0 12px", border: "1px solid var(--line-strong)", background: "var(--surface)", color: "var(--ink)", font: "inherit", cursor: linkPending ? "default" : "pointer" }}
+                  >
+                    Connect {provider.label}
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        {linkStatus ? (
+          <p role="status" aria-live="polite" style={{ margin: "10px 0 0", color: "var(--muted)", fontSize: 12 }}>
+            {linkStatus}
+          </p>
+        ) : null}
+      </section>
 
       <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
         <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)", marginBottom: 12 }}>tour</div>
