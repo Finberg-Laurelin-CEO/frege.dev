@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
-import type { SendResult } from "@/lib/prototype/email";
-import { sendInviteEmail } from "@/lib/prototype/email";
-import { customerBaseUrl } from "@/lib/prototype/public-url";
+import type { SendResult } from "@/lib/core/email";
+import { sendInviteEmail } from "@/lib/core/email";
+import { customerBaseUrl } from "@/lib/core/public-url";
 import type { getSql } from "@/lib/db";
 
 const INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14;

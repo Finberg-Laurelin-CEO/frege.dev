@@ -1,8 +1,8 @@
 import { getSql } from "@/lib/db";
-import { verifyEmailVerificationToken } from "@/lib/prototype/email-verification";
-import { customerAppBaseUrl } from "@/lib/prototype/public-url";
-import { authenticateUserRequest } from "@/lib/prototype/session";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { verifyEmailVerificationToken } from "@/lib/core/email-verification";
+import { customerAppBaseUrl } from "@/lib/core/public-url";
+import { authenticateUserRequest } from "@/lib/core/session";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

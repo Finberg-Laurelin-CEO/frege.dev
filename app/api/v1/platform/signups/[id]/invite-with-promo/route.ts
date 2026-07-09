@@ -1,14 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { getStripe, isStripeConfigured } from "@/lib/prototype/billing";
-import { sendInviteWithStripePromoCodeEmail, sendStripePromoCodeEmail } from "@/lib/prototype/email";
-import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/prototype/invites";
-import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { getStripe, isStripeConfigured } from "@/lib/core/billing";
+import { sendInviteWithStripePromoCodeEmail, sendStripePromoCodeEmail } from "@/lib/core/email";
+import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/core/invites";
+import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { recordPlatformAudit } from "@/lib/core/platform-audit";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

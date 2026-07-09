@@ -1,6 +1,6 @@
-import { listPrototypeAuditEvents, logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
-import { parseLimit } from "@/lib/prototype/documents";
+import { listPrototypeAuditEvents, logPrototypeAuditEvent } from "@/lib/core/audit";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/core/auth";
+import { parseLimit } from "@/lib/core/documents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

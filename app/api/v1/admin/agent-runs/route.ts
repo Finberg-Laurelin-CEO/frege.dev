@@ -1,6 +1,6 @@
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { listAgentRunsForAdmin } from "@/lib/prototype/agent-runtime";
-import { routeError } from "@/lib/prototype/request-guards";
+import { authenticateAdminRequest } from "@/lib/core/admin-auth";
+import { listAgentRunsForAdmin } from "@/lib/core/agent-runtime";
+import { routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

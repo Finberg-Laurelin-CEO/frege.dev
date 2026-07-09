@@ -1,10 +1,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getSql } from "@/lib/db";
-import { resolveAdminSsoStaff } from "@/lib/prototype/admin-sso";
-import { isAuth0AdminMode } from "@/lib/prototype/auth0";
-import { resolveAuth0Staff } from "@/lib/prototype/auth0-staff";
-import { authenticateSessionToken, SESSION_COOKIE, type UserSessionContext } from "@/lib/prototype/session";
+import { resolveAdminSsoStaff } from "@/lib/core/admin-sso";
+import { isAuth0AdminMode } from "@/lib/core/auth0";
+import { resolveAuth0Staff } from "@/lib/core/auth0-staff";
+import { authenticateSessionToken, SESSION_COOKIE, type UserSessionContext } from "@/lib/core/session";
 
 function loginUrl(nextPath: string): string {
   return `/login?next=${encodeURIComponent(nextPath)}`;

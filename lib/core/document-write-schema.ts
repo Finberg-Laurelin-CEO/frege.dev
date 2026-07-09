@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { DOCUMENT_STATUSES, SENSITIVITY_LABELS } from "@/lib/prototype/types";
+import { DOCUMENT_STATUSES, SENSITIVITY_LABELS } from "@/lib/core/types";
 
 const slugSchema = z.string().trim().regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/).max(120);
 const tagSchema = z.string().trim().min(1).max(48).regex(/^[a-z0-9][a-z0-9-]*$/);

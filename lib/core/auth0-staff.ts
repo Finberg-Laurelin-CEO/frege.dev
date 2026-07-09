@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
-import { auth0, isAuth0AdminMode } from "@/lib/prototype/auth0";
-import type { UserSessionContext } from "@/lib/prototype/session";
+import { auth0, isAuth0AdminMode } from "@/lib/core/auth0";
+import type { UserSessionContext } from "@/lib/core/session";
 
 // Option A bridge: Auth0 verifies WHO the person is; the DB decides whether they
 // are allowed into /platform. An authenticated Auth0 user only becomes a staff

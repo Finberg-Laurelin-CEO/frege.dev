@@ -1,7 +1,7 @@
-import { authenticatePrototypeRequest, orgInactiveResponse, type PrototypeAuthContext } from "@/lib/prototype/auth";
-import { getMembershipForOrg, type HumanOrgContext } from "@/lib/prototype/org-guard";
-import { authenticateUserRequest } from "@/lib/prototype/session";
-import type { SensitivityLabel } from "@/lib/prototype/types";
+import { authenticatePrototypeRequest, orgInactiveResponse, type PrototypeAuthContext } from "@/lib/core/auth";
+import { getMembershipForOrg, type HumanOrgContext } from "@/lib/core/org-guard";
+import { authenticateUserRequest } from "@/lib/core/session";
+import type { SensitivityLabel } from "@/lib/core/types";
 
 export type FregeActorContext =
   | {

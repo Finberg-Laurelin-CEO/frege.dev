@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { getSql as getDefaultSql } from "@/lib/db";
-import { customerAppBaseUrl } from "@/lib/prototype/public-url";
+import { customerAppBaseUrl } from "@/lib/core/public-url";
 
 type Sql = ReturnType<typeof getDefaultSql>;
 

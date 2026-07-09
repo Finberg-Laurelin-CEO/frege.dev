@@ -17,21 +17,21 @@ They create the database foundation, API-key auth layer, permission-filtered rea
 
 - `db/002_prototype_core.sql`
 - `lib/db.ts`
-- `lib/prototype/types.ts`
+- `lib/core/types.ts`
 - `scripts/prototype/seed-demo-org.mjs`
-- `lib/prototype/keys.ts`
-- `lib/prototype/auth.ts`
+- `lib/core/keys.ts`
+- `lib/core/auth.ts`
 - `scripts/prototype/create-api-key.mjs`
 - `app/api/v1/health/route.ts`
 - `app/api/v1/me/route.ts`
-- `lib/prototype/audit.ts`
-- `lib/prototype/documents.ts`
+- `lib/core/audit.ts`
+- `lib/core/documents.ts`
 - `app/api/v1/documents/route.ts`
 - `app/api/v1/documents/search/route.ts`
 - `app/api/v1/documents/[slug]/route.ts`
 - `db/003_semantic_map.sql`
-- `lib/prototype/embeddings.ts`
-- `lib/prototype/semantic-map.ts`
+- `lib/core/embeddings.ts`
+- `lib/core/semantic-map.ts`
 - `scripts/prototype/index-semantic-map.mjs`
 - `scripts/prototype/inspect-neural-map.mjs`
 - `app/api/v1/map/related/route.ts`
@@ -39,7 +39,7 @@ They create the database foundation, API-key auth layer, permission-filtered rea
 - `app/api/v1/map/context/route.ts`
 - `app/api/v1/map/links/route.ts`
 - `db/004_document_proposals.sql`
-- `lib/prototype/document-write-schema.ts`
+- `lib/core/document-write-schema.ts`
 - `app/api/v1/documents/[slug]/proposals/route.ts`
 - `app/api/v1/audit-events/route.ts`
 - `scripts/prototype/create-org.mjs`

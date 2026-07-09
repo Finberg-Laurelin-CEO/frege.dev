@@ -3,12 +3,12 @@ import {
   emailVerificationUrlForToken,
   issueEmailVerificationToken,
   revokeOutstandingEmailVerificationTokens,
-} from "@/lib/prototype/email-verification";
-import { sendEmailVerificationEmail } from "@/lib/prototype/email";
-import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
-import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
-import { authenticateUserRequest, userUnauthorized } from "@/lib/prototype/session";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+} from "@/lib/core/email-verification";
+import { sendEmailVerificationEmail } from "@/lib/core/email";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
+import { assertSafeBrowserMutation, routeError } from "@/lib/core/request-guards";
+import { authenticateUserRequest, userUnauthorized } from "@/lib/core/session";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

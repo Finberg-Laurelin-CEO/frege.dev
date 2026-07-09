@@ -1,5 +1,5 @@
 import { getSql } from "@/lib/db";
-import type { UserSessionContext } from "@/lib/prototype/session";
+import type { UserSessionContext } from "@/lib/core/session";
 
 // On the admin-only deployment, Vercel Deployment Protection (SSO) is the single
 // sign-in: any request that reaches the app is already an authenticated Vercel

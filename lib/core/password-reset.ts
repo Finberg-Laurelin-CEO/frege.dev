@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { customerAppBaseUrl } from "@/lib/prototype/public-url";
+import { customerAppBaseUrl } from "@/lib/core/public-url";
 
 export const PASSWORD_RESET_EXPIRES_SECONDS = 60 * 60;
 

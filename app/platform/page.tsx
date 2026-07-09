@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requirePlatformStaffPage } from "@/lib/prototype/page-auth";
+import { requirePlatformStaffPage } from "@/lib/core/page-auth";
 import PlatformConsole from "./PlatformConsole";
 
 export const metadata: Metadata = {

@@ -7,8 +7,8 @@
 // openai-compatible), but the bare fetch() is swapped for fetchWithTimeout so a hung
 // upstream fails as model_timeout instead of holding the invocation open.
 
-import type { RuntimeExecutionPacket, RuntimeModelConfigPacket } from "@/lib/prototype/agent-runtime";
-import { fetchWithTimeout, isFetchTimeoutError } from "@/lib/prototype/http";
+import type { RuntimeExecutionPacket, RuntimeModelConfigPacket } from "@/lib/core/agent-runtime";
+import { fetchWithTimeout, isFetchTimeoutError } from "@/lib/core/http";
 
 export type AgentExecutionUsage = {
   input_tokens?: number;

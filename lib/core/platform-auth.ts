@@ -1,8 +1,8 @@
 import { getSql } from "@/lib/db";
-import { resolveAdminSsoStaff } from "@/lib/prototype/admin-sso";
-import { resolveAuth0Staff } from "@/lib/prototype/auth0-staff";
-import { authenticatePlatformStaffKey } from "@/lib/prototype/platform-staff-keys";
-import { authenticateUserRequest, type UserSessionContext } from "@/lib/prototype/session";
+import { resolveAdminSsoStaff } from "@/lib/core/admin-sso";
+import { resolveAuth0Staff } from "@/lib/core/auth0-staff";
+import { authenticatePlatformStaffKey } from "@/lib/core/platform-staff-keys";
+import { authenticateUserRequest, type UserSessionContext } from "@/lib/core/session";
 
 export type PlatformStaffContext = {
   user: UserSessionContext["user"];

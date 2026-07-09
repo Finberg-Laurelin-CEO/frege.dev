@@ -1,11 +1,11 @@
 import { getSql } from "@/lib/db";
-import type { FregeActorContext } from "@/lib/prototype/actor-auth";
-import { appendSessionEvent, brainActorKeyId, brainActorUserId, redactSecrets, startBrainSession } from "@/lib/prototype/brain";
-import { buildContextPacket, type ContextPacket } from "@/lib/prototype/context-gateway";
-import { compileFregePrompt } from "@/lib/prototype/model-gateway";
-import { resolveModelConfig, type ModelProvider } from "@/lib/prototype/model-configs";
-import type { HumanOrgContext } from "@/lib/prototype/org-guard";
-import type { SensitivityLabel, TrustZone } from "@/lib/prototype/types";
+import type { FregeActorContext } from "@/lib/core/actor-auth";
+import { appendSessionEvent, brainActorKeyId, brainActorUserId, redactSecrets, startBrainSession } from "@/lib/core/brain";
+import { buildContextPacket, type ContextPacket } from "@/lib/core/context-gateway";
+import { compileFregePrompt } from "@/lib/core/model-gateway";
+import { resolveModelConfig, type ModelProvider } from "@/lib/core/model-configs";
+import type { HumanOrgContext } from "@/lib/core/org-guard";
+import type { SensitivityLabel, TrustZone } from "@/lib/core/types";
 
 export type AgentDefinition = {
   id: string;

@@ -4,15 +4,15 @@ import { postHermesEvent } from "@/lib/hermes-webhook";
 import {
   emailVerificationUrlForToken,
   issueEmailVerificationToken,
-} from "@/lib/prototype/email-verification";
-import { sendEmailVerificationEmail, sendSignupWelcomeEmail } from "@/lib/prototype/email";
-import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
-import { hashPassword } from "@/lib/prototype/password";
-import { customerAppBaseUrl } from "@/lib/prototype/public-url";
-import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
-import { assertSafeOrigin } from "@/lib/prototype/request-guards";
-import { createUserSession } from "@/lib/prototype/session";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+} from "@/lib/core/email-verification";
+import { sendEmailVerificationEmail, sendSignupWelcomeEmail } from "@/lib/core/email";
+import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
+import { hashPassword } from "@/lib/core/password";
+import { customerAppBaseUrl } from "@/lib/core/public-url";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
+import { assertSafeOrigin } from "@/lib/core/request-guards";
+import { createUserSession } from "@/lib/core/session";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 import { signupSchema } from "@/lib/signup-schema";
 
 export const runtime = "nodejs";

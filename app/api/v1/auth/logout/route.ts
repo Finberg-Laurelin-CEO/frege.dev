@@ -1,6 +1,6 @@
-import { assertSafeBrowserMutation, routeError } from "@/lib/prototype/request-guards";
-import { authenticateUserRequest, clearSessionCookie, revokeCurrentSession, userUnauthorized } from "@/lib/prototype/session";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { assertSafeBrowserMutation, routeError } from "@/lib/core/request-guards";
+import { authenticateUserRequest, clearSessionCookie, revokeCurrentSession, userUnauthorized } from "@/lib/core/session";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

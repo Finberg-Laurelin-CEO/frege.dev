@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
-import type { PrototypeAuthContext } from "@/lib/prototype/auth";
-import type { DocumentStatus, SensitivityLabel, TrustZone } from "@/lib/prototype/types";
+import type { PrototypeAuthContext } from "@/lib/core/auth";
+import type { DocumentStatus, SensitivityLabel, TrustZone } from "@/lib/core/types";
 
 export type DocumentListItem = {
   id: string;

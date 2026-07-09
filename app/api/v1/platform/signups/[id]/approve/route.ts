@@ -1,12 +1,12 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { sendInviteEmail } from "@/lib/prototype/email";
-import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/prototype/invites";
-import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { sendInviteEmail } from "@/lib/core/email";
+import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/core/invites";
+import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

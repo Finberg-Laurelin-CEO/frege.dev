@@ -1,7 +1,7 @@
-import { logPrototypeAuditEvent } from "@/lib/prototype/audit";
-import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/prototype/auth";
-import { updateDocumentSchema } from "@/lib/prototype/document-write-schema";
-import { readVisibleDocument, updateDocument } from "@/lib/prototype/documents";
+import { logPrototypeAuditEvent } from "@/lib/core/audit";
+import { assertActiveOrg, authenticatePrototypeRequest, prototypeUnauthorized } from "@/lib/core/auth";
+import { updateDocumentSchema } from "@/lib/core/document-write-schema";
+import { readVisibleDocument, updateDocument } from "@/lib/core/documents";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

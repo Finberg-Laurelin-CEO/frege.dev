@@ -1,4 +1,4 @@
-import { readSessionToken } from "@/lib/prototype/session";
+import { readSessionToken } from "@/lib/core/session";
 
 export function assertSafeOrigin(req: Request): Response | null {
   const origin = req.headers.get("origin");

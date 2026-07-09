@@ -1,6 +1,6 @@
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { routeError } from "@/lib/prototype/request-guards";
-import { platformUsageByOrg, platformUsageDailySeries } from "@/lib/prototype/usage";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { routeError } from "@/lib/core/request-guards";
+import { platformUsageByOrg, platformUsageDailySeries } from "@/lib/core/usage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

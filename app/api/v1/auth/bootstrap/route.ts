@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/prototype/org-guard";
-import { hashPassword } from "@/lib/prototype/password";
-import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
-import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
-import { createUserSession } from "@/lib/prototype/session";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
+import { hashPassword } from "@/lib/core/password";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
+import { assertSafeOrigin, readJson, routeError } from "@/lib/core/request-guards";
+import { createUserSession } from "@/lib/core/session";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

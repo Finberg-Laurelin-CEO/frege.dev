@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { claimAgentRunsForRuntime } from "@/lib/prototype/agent-runtime";
-import { readJson, routeError } from "@/lib/prototype/request-guards";
-import { authenticateRuntimeRequest } from "@/lib/prototype/runtime-auth";
+import { claimAgentRunsForRuntime } from "@/lib/core/agent-runtime";
+import { readJson, routeError } from "@/lib/core/request-guards";
+import { authenticateRuntimeRequest } from "@/lib/core/runtime-auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

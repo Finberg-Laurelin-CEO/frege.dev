@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { getSql } from "@/lib/db";
-import type { PrototypeAuthContext } from "@/lib/prototype/auth";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
-import type { AuditEvent } from "@/lib/prototype/types";
+import type { PrototypeAuthContext } from "@/lib/core/auth";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
+import type { AuditEvent } from "@/lib/core/types";
 
 export type PrototypeAuditInput = {
   action: string;

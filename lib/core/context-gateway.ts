@@ -1,7 +1,7 @@
 import { getSql } from "@/lib/db";
-import { estimateBrainTokens } from "@/lib/prototype/brain";
-import type { FregeActorContext } from "@/lib/prototype/actor-auth";
-import type { DocumentLinkType, SensitivityLabel, TrustZone } from "@/lib/prototype/types";
+import { estimateBrainTokens } from "@/lib/core/brain";
+import type { FregeActorContext } from "@/lib/core/actor-auth";
+import type { DocumentLinkType, SensitivityLabel, TrustZone } from "@/lib/core/types";
 
 export type ContextBuildInput = {
   query: string;

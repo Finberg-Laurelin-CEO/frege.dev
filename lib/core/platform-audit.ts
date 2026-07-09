@@ -1,5 +1,5 @@
 import { getSql } from "@/lib/db";
-import type { PlatformStaffContext } from "@/lib/prototype/platform-auth";
+import type { PlatformStaffContext } from "@/lib/core/platform-auth";
 
 export type PlatformAuditInput = {
   action: string;

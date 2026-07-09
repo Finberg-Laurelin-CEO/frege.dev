@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { listAgentDefinitionsForAdmin, upsertAgentDefinitionForAdmin } from "@/lib/prototype/agent-runtime";
-import { assertActiveHumanOrg } from "@/lib/prototype/org-guard";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { authenticateAdminRequest } from "@/lib/core/admin-auth";
+import { listAgentDefinitionsForAdmin, upsertAgentDefinitionForAdmin } from "@/lib/core/agent-runtime";
+import { assertActiveHumanOrg } from "@/lib/core/org-guard";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,6 +1,6 @@
-import { rollupUsage } from "@/lib/prototype/usage";
+import { rollupUsage } from "@/lib/core/usage";
 import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
-import { recordCronRun } from "@/lib/prototype/cron-run";
+import { recordCronRun } from "@/lib/core/cron-run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

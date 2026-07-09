@@ -1,10 +1,10 @@
 import { z } from "zod";
-import { authenticateFregeActor, telemetryActorForFregeActor, type FregeActorContext } from "@/lib/prototype/actor-auth";
-import { appendSessionEvent } from "@/lib/prototype/brain";
-import { buildContextPacket, getContextPacketById, type ContextPacket } from "@/lib/prototype/context-gateway";
-import { invokeModel } from "@/lib/prototype/model-gateway";
-import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { authenticateFregeActor, telemetryActorForFregeActor, type FregeActorContext } from "@/lib/core/actor-auth";
+import { appendSessionEvent } from "@/lib/core/brain";
+import { buildContextPacket, getContextPacketById, type ContextPacket } from "@/lib/core/context-gateway";
+import { invokeModel } from "@/lib/core/model-gateway";
+import { assertSafeOrigin, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

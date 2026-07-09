@@ -4,8 +4,8 @@
 // the conventions in brain.ts.
 
 import { getSql } from "@/lib/db";
-import type { FregeActorContext } from "@/lib/prototype/actor-auth";
-import type { TrustZone } from "@/lib/prototype/types";
+import type { FregeActorContext } from "@/lib/core/actor-auth";
+import type { TrustZone } from "@/lib/core/types";
 
 // Both API-key actors and human sessions can read the graph. We only need the
 // org id and the trust zones the caller may see. authenticateFregeActor already

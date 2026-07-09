@@ -1,7 +1,7 @@
 import { getSql } from "@/lib/db";
-import type { PrototypeAuthContext } from "@/lib/prototype/auth";
-import type { DocumentLinkType, SensitivityLabel } from "@/lib/prototype/types";
-import { DOCUMENT_LINK_TYPES } from "@/lib/prototype/types";
+import type { PrototypeAuthContext } from "@/lib/core/auth";
+import type { DocumentLinkType, SensitivityLabel } from "@/lib/core/types";
+import { DOCUMENT_LINK_TYPES } from "@/lib/core/types";
 
 export type SemanticMapDocument = {
   id: string;

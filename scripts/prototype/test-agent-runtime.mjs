@@ -11,25 +11,25 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // from brain / context / model modules directly. To drive it with an in-memory sql fake we
 // (1) resolve the "@/" path alias Node can't, and (2) swap those heavy value modules for
 // virtual stubs. getSql() returns globalThis.__fakeSql so each test controls its own store.
-// Until branch A merges, lib/prototype/agent-runtime.ts is absent; this validates at integration.
+// Until branch A merges, lib/core/agent-runtime.ts is absent; this validates at integration.
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const VIRTUAL = {
   "@/lib/db": "export function getSql(){ return globalThis.__fakeSql; }",
-  "@/lib/prototype/brain": `
+  "@/lib/core/brain": `
     export const redactSecrets = (value) => value ?? "";
     export const brainActorKeyId = (actor) => (actor?.actorType === "api_key" ? (actor.apiKeyAuth?.key?.id ?? null) : null);
     export const brainActorUserId = (actor) => (actor?.actorType === "user" ? (actor.userAuth?.user?.id ?? null) : null);
     export const startBrainSession = async () => ({ id: "sess-runtime" });
     export const appendSessionEvent = async () => ({});
   `,
-  "@/lib/prototype/context-gateway": `
+  "@/lib/core/context-gateway": `
     export const buildContextPacket = async () => ({
       id: "ctx-runtime", denied_count: 0, documents: [], brain_pages: [], token_estimate: 0, trust_zone: "green",
     });
   `,
-  "@/lib/prototype/model-gateway": "export const compileFregePrompt = (taskPrompt) => String(taskPrompt);",
-  "@/lib/prototype/model-configs": `
+  "@/lib/core/model-gateway": "export const compileFregePrompt = (taskPrompt) => String(taskPrompt);",
+  "@/lib/core/model-configs": `
     export const resolveModelConfig = async () => ({
       slug: "m1", provider: "anthropic", base_url: null, model_name: "claude", api_key: null, allowed_trust_zones: ["green"],
     });
@@ -58,7 +58,7 @@ registerHooks({
   },
 });
 
-const runtime = await import(pathToFileURL(path.join(rootDir, "lib/prototype/agent-runtime.ts")).href);
+const runtime = await import(pathToFileURL(path.join(rootDir, "lib/core/agent-runtime.ts")).href);
 
 const FIXED_NOW = "2026-01-01T00:00:00.000Z";
 

@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 // (only `import type` specifiers) and fully dependency-injected, so it can be imported
 // directly and driven with an in-memory `sql` fake — same DI style as test-auth-flow.mjs.
 // Until branch B merges the file will not exist; this test then validates at integration.
-import { handleBillingWebhook } from "../../lib/prototype/billing-webhook-core.ts";
+import { handleBillingWebhook } from "../../lib/core/billing-webhook-core.ts";
 
 const FIXED_NOW = new Date("2026-01-01T00:00:00.000Z");
 

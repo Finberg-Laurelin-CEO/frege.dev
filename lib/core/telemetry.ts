@@ -1,8 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { getSql } from "@/lib/db";
-import type { PrototypeAuthContext } from "@/lib/prototype/auth";
-import type { HumanOrgContext } from "@/lib/prototype/org-guard";
-import type { TrustZone } from "@/lib/prototype/types";
+import type { PrototypeAuthContext } from "@/lib/core/auth";
+import type { HumanOrgContext } from "@/lib/core/org-guard";
+import type { TrustZone } from "@/lib/core/types";
 
 export type TelemetryActor =
   | { type: "api_key"; auth: PrototypeAuthContext }

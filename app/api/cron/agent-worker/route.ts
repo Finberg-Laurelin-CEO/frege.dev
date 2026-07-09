@@ -1,7 +1,7 @@
-import { claimAgentRunsForRuntime, completeAgentRunFromRuntime } from "@/lib/prototype/agent-runtime";
-import { executeAgentPacket } from "@/lib/prototype/agent-executor";
+import { claimAgentRunsForRuntime, completeAgentRunFromRuntime } from "@/lib/core/agent-runtime";
+import { executeAgentPacket } from "@/lib/core/agent-executor";
 import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
-import { recordCronRun } from "@/lib/prototype/cron-run";
+import { recordCronRun } from "@/lib/core/cron-run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

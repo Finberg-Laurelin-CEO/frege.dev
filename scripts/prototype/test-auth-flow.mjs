@@ -2,16 +2,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { handleInviteAcceptRequest, handleLoginRequest } from "../../lib/prototype/auth-flow-core.ts";
+import { handleInviteAcceptRequest, handleLoginRequest } from "../../lib/core/auth-flow-core.ts";
 import {
   generateApiKey,
   hashApiKey,
   parseApiKey,
   parseStaffApiKey,
   safelyCompareApiKeyHash,
-} from "../../lib/prototype/keys.ts";
-import { hashPassword, verifyPassword } from "../../lib/prototype/password.ts";
-import { clearSessionCookie, cookieDomainForHost, sessionCookie } from "../../lib/prototype/session-cookie.ts";
+} from "../../lib/core/keys.ts";
+import { hashPassword, verifyPassword } from "../../lib/core/password.ts";
+import { clearSessionCookie, cookieDomainForHost, sessionCookie } from "../../lib/core/session-cookie.ts";
 
 const TEST_PASSWORD = "correct horse battery staple";
 const TEST_SALT = "00112233445566778899aabbccddeeff";

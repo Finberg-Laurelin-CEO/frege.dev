@@ -15,11 +15,11 @@ Relevant files:
 - Login API: `app/api/v1/auth/login/route.ts`
 - Logout API: `app/api/v1/auth/logout/route.ts`
 - Invite accept API: `app/api/v1/auth/invites/accept/route.ts`
-- Page auth: `lib/prototype/page-auth.ts`
-- Sessions: `lib/prototype/session.ts`
+- Page auth: `lib/core/page-auth.ts`
+- Sessions: `lib/core/session.ts`
 - Org admin UI: `app/admin/AdminConsole.tsx`
 - API key API: `app/api/v1/admin/api-keys/route.ts`
-- API key validation: `lib/prototype/keys.ts`, `lib/prototype/auth.ts`
+- API key validation: `lib/core/keys.ts`, `lib/core/auth.ts`
 - Runtime routes using keys: `app/api/v1/context/build`, `app/api/v1/model/invoke`, document/search/map routes
 
 Current user API keys use `frg_live_...`, are stored hashed, belong to an org/role/owner, and should authenticate runtime/API requests.

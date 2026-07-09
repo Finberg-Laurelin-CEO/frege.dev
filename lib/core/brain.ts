@@ -1,13 +1,13 @@
 import { getSql } from "@/lib/db";
-import type { FregeActorContext } from "@/lib/prototype/actor-auth";
-import { parseBrainLinks, slugifyBrain } from "@/lib/prototype/brain-links";
-import type { HumanOrgContext } from "@/lib/prototype/org-guard";
+import type { FregeActorContext } from "@/lib/core/actor-auth";
+import { parseBrainLinks, slugifyBrain } from "@/lib/core/brain-links";
+import type { HumanOrgContext } from "@/lib/core/org-guard";
 import type {
   BrainSessionEventType,
   MemoryProposalStatus,
   MemoryProposalType,
   TrustZone,
-} from "@/lib/prototype/types";
+} from "@/lib/core/types";
 
 const MAX_LEDGER_BODY_CHARS = 100_000;
 

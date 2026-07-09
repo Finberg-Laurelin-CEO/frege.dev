@@ -5,7 +5,7 @@
 // public/styles.css so these stay in lockstep with the paper-and-green system.
 
 import type { CSSProperties, ReactNode } from "react";
-import type { SensitivityLabel } from "@/lib/prototype/types";
+import type { SensitivityLabel } from "@/lib/core/types";
 
 export type ConsoleSection = "account" | "overview" | "activity" | "knowledge" | "access" | "connect" | "billing";
 

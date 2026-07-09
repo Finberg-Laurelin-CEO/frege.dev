@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { getStripe, isStripeConfigured } from "@/lib/prototype/billing";
-import { sendStripePromoCodeEmail } from "@/lib/prototype/email";
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
+import { getStripe, isStripeConfigured } from "@/lib/core/billing";
+import { sendStripePromoCodeEmail } from "@/lib/core/email";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { recordPlatformAudit } from "@/lib/core/platform-audit";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

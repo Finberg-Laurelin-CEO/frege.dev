@@ -12,7 +12,7 @@ Use Stripe API data to improve payment/revenue visibility in the admin panel and
 - User billing UI: `app/billing/BillingPanel.tsx`
 - Platform payments overview: `app/api/v1/platform/payments/overview/route.ts`
 - Platform console payments UI: `app/platform/PlatformConsole.tsx`
-- Billing helper: `lib/prototype/billing.ts`
+- Billing helper: `lib/core/billing.ts`
 - Billing state table: `org_billing`
 
 The current payments tab shows MRR, active/past-due subscription counts, recent charges, open invoices, and payout status. It does not yet show revenue per org/user, ARR, signup-to-paid attribution, or approved-but-unpaid funnel stalls.
@@ -20,7 +20,7 @@ The current payments tab shows MRR, active/past-due subscription counts, recent 
 ## Implementation steps
 
 1. **Extract Stripe revenue helpers**
-   - In `lib/prototype/billing.ts`, add helpers for:
+   - In `lib/core/billing.ts`, add helpers for:
      - computing MRR/ARR from active/trialing subscriptions
      - computing customer revenue from charges/refunds
    - Use Stripe auto-pagination where possible.

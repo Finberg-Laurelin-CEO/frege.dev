@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
-import { hashApiKey, parseApiKey, safelyCompareApiKeyHash } from "@/lib/prototype/keys";
-import type { SensitivityLabel } from "@/lib/prototype/types";
+import { hashApiKey, parseApiKey, safelyCompareApiKeyHash } from "@/lib/core/keys";
+import type { SensitivityLabel } from "@/lib/core/types";
 
 export type PrototypeAuthContext = {
   organization: {

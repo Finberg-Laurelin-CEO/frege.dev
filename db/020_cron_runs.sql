@@ -1,4 +1,4 @@
--- Cron run history + alerting ledger. recordCronRun() (lib/prototype/cron-run.ts)
+-- Cron run history + alerting ledger. recordCronRun() (lib/core/cron-run.ts)
 -- writes one row per tick so a repeatedly-failing cron job is never silent.
 
 create table if not exists cron_runs (

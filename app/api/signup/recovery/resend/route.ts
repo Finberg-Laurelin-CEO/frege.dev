@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { reissueInviteAndSendEmail } from "@/lib/prototype/invites";
-import { normalizeEmail } from "@/lib/prototype/org-guard";
-import { checkRateLimit, rateLimitedResponse } from "@/lib/prototype/rate-limit";
-import { assertSafeOrigin, readJson, routeError } from "@/lib/prototype/request-guards";
+import { reissueInviteAndSendEmail } from "@/lib/core/invites";
+import { normalizeEmail } from "@/lib/core/org-guard";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
+import { assertSafeOrigin, readJson, routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

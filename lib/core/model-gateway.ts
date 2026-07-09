@@ -1,8 +1,8 @@
 import { getSql } from "@/lib/db";
-import { resolveModelConfig, type ResolvedModelConfig } from "@/lib/prototype/model-configs";
-import type { ContextPacket } from "@/lib/prototype/context-gateway";
-import { fetchWithTimeout, isFetchTimeoutError } from "@/lib/prototype/http";
-import type { TrustZone } from "@/lib/prototype/types";
+import { resolveModelConfig, type ResolvedModelConfig } from "@/lib/core/model-configs";
+import type { ContextPacket } from "@/lib/core/context-gateway";
+import { fetchWithTimeout, isFetchTimeoutError } from "@/lib/core/http";
+import type { TrustZone } from "@/lib/core/types";
 
 function modelTimeoutMs(): number {
   const raw = Number(process.env.FREGE_MODEL_TIMEOUT_MS);

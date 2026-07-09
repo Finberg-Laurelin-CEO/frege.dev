@@ -31,7 +31,7 @@ registerHooks({
 });
 
 const { assertActiveActorOrg } = await import(
-  pathToFileURL(path.join(rootDir, "lib/prototype/actor-auth.ts")).href
+  pathToFileURL(path.join(rootDir, "lib/core/actor-auth.ts")).href
 );
 
 // Minimal objects shaped like each FregeActorContext variant. assertActiveActorOrg

@@ -5,7 +5,7 @@ import {
   SESSION_MAX_AGE_SECONDS,
   clearSessionCookie,
   sessionCookie,
-} from "@/lib/prototype/session-cookie";
+} from "@/lib/core/session-cookie";
 
 export { SESSION_COOKIE, clearSessionCookie, sessionCookie };
 

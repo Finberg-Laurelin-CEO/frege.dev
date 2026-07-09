@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { customerAppBaseUrl } from "@/lib/prototype/public-url";
+import { customerAppBaseUrl } from "@/lib/core/public-url";
 
 // Transactional email via Resend. Env-gated like the Stripe/Auth0 clients: when
 // RESEND_API_KEY is unset (dev/preview without email configured), sends become a

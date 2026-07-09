@@ -46,7 +46,7 @@ Do not change these unless the user explicitly opens a backend branch for it:
 ```text
 app/api/**
 db/**
-lib/prototype/**
+lib/core/**
 scripts/**
 packages/frege-cli/**
 package.json

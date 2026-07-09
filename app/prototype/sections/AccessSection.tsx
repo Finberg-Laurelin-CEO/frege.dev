@@ -1,8 +1,8 @@
 "use client";
 
 import { type CSSProperties, useEffect, useState } from "react";
-import { CONSOLE_TRUST_ZONES } from "@/lib/prototype/console-demo";
-import type { SensitivityLabel } from "@/lib/prototype/types";
+import { CONSOLE_TRUST_ZONES } from "@/lib/core/console-demo";
+import type { SensitivityLabel } from "@/lib/core/types";
 import { getJson } from "./realdata";
 import { panel, sectionHeading } from "./ui";
 

@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
-import { hashApiKey, parseStaffApiKey, safelyCompareApiKeyHash } from "@/lib/prototype/keys";
-import type { UserSessionContext } from "@/lib/prototype/session";
+import { hashApiKey, parseStaffApiKey, safelyCompareApiKeyHash } from "@/lib/core/keys";
+import type { UserSessionContext } from "@/lib/core/session";
 
 type StaffKeyRow = {
   key_id: string;

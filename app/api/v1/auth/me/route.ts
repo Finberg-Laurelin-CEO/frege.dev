@@ -1,4 +1,4 @@
-import { authenticateUserRequest, userUnauthorized } from "@/lib/prototype/session";
+import { authenticateUserRequest, userUnauthorized } from "@/lib/core/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

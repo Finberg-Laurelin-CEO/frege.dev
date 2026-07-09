@@ -1,6 +1,6 @@
 import { getSql } from "@/lib/db";
-import type { UserSessionContext, UserSessionMembership } from "@/lib/prototype/session";
-import type { SensitivityLabel } from "@/lib/prototype/types";
+import type { UserSessionContext, UserSessionMembership } from "@/lib/core/session";
+import type { SensitivityLabel } from "@/lib/core/types";
 
 export type HumanOrgContext = {
   user: UserSessionContext["user"];

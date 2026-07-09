@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { recordPlatformAudit } from "@/lib/prototype/platform-audit";
-import { authenticatePlatformStaff } from "@/lib/prototype/platform-auth";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
+import { recordPlatformAudit } from "@/lib/core/platform-audit";
+import { authenticatePlatformStaff } from "@/lib/core/platform-auth";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,5 +1,5 @@
-import { getMembershipForOrg, type HumanOrgContext } from "@/lib/prototype/org-guard";
-import { authenticateUserRequest } from "@/lib/prototype/session";
+import { getMembershipForOrg, type HumanOrgContext } from "@/lib/core/org-guard";
+import { authenticateUserRequest } from "@/lib/core/session";
 
 export type AdminAuthResult =
   | { ok: true; auth: HumanOrgContext }

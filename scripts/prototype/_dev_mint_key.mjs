@@ -1,5 +1,5 @@
 // Dev-only: ensure an 'admin' role + mint an API key for the demo org, using
-// the same hashing as lib/prototype/keys.ts so the real auth path accepts it.
+// the same hashing as lib/core/keys.ts so the real auth path accepts it.
 import { createHash, randomBytes } from "node:crypto";
 import pg from "pg";
 

@@ -1,7 +1,7 @@
 import { getSql } from "@/lib/db";
-import type { HumanOrgContext } from "@/lib/prototype/org-guard";
-import { decryptSecret, encryptSecret } from "@/lib/prototype/secret-box";
-import type { TrustZone } from "@/lib/prototype/types";
+import type { HumanOrgContext } from "@/lib/core/org-guard";
+import { decryptSecret, encryptSecret } from "@/lib/core/secret-box";
+import type { TrustZone } from "@/lib/core/types";
 
 export type ModelProvider = "openrouter" | "ollama" | "vercel-ai-gateway" | "openai-compatible";
 

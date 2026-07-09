@@ -101,11 +101,11 @@ org admin. The link between the two is the org `status` gate.
    - sets `organizations.status = 'active'` (and `activated_at`).
    - `customer.subscription.deleted` / failed payment → org suspended.
 4. **Key issuance (separate, admin-driven).** `POST /api/v1/admin/api-keys` calls
-   `generateApiKey()` (`lib/prototype/keys.ts`) and inserts a row into `api_keys`.
+   `generateApiKey()` (`lib/core/keys.ts`) and inserts a row into `api_keys`.
    - Key format: `frg_live_<prefix>_<secret>`.
    - Storage: only `key_prefix` + `key_hash` are stored. `key_hash = sha256(rawKey | FREGE_API_KEY_SALT)`.
      The raw key is shown **once** at creation and never persisted.
-5. **Key usage is gated by activation.** On each request, `lib/prototype/auth.ts` resolves
+5. **Key usage is gated by activation.** On each request, `lib/core/auth.ts` resolves
    the key by prefix, timing-safe compares the hash, checks key `status`/expiry, then
    `assertActiveOrg(auth)` returns **403 `org_inactive`** unless `org.status === 'active'`.
 

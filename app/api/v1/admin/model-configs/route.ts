@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { listModelConfigs, upsertModelConfig } from "@/lib/prototype/model-configs";
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { assertActiveHumanOrg } from "@/lib/prototype/org-guard";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { listModelConfigs, upsertModelConfig } from "@/lib/core/model-configs";
+import { authenticateAdminRequest } from "@/lib/core/admin-auth";
+import { assertActiveHumanOrg } from "@/lib/core/org-guard";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

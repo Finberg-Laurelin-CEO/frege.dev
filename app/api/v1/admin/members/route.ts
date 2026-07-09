@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { getSql } from "@/lib/db";
-import { authenticateAdminRequest } from "@/lib/prototype/admin-auth";
-import { sendInviteEmail } from "@/lib/prototype/email";
-import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/prototype/invites";
-import { assertActiveHumanOrg, normalizeEmail } from "@/lib/prototype/org-guard";
-import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/prototype/request-guards";
-import { logTelemetryEvent } from "@/lib/prototype/telemetry";
+import { authenticateAdminRequest } from "@/lib/core/admin-auth";
+import { sendInviteEmail } from "@/lib/core/email";
+import { generateInviteToken, hashInviteToken, inviteLinkForToken } from "@/lib/core/invites";
+import { assertActiveHumanOrg, normalizeEmail } from "@/lib/core/org-guard";
+import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

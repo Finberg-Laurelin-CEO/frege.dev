@@ -1,4 +1,4 @@
-import type { DocumentLinkType, SensitivityLabel } from "@/lib/prototype/types";
+import type { DocumentLinkType, SensitivityLabel } from "@/lib/core/types";
 
 export type DemoRole = {
   slug: "reader" | "writer" | "admin";

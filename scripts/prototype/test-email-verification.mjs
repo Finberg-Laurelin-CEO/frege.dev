@@ -29,7 +29,7 @@ const {
   hashEmailVerificationToken,
   issueEmailVerificationToken,
   verifyEmailVerificationToken,
-} = await import(pathToFileURL(path.join(rootDir, "lib/prototype/email-verification.ts")).href);
+} = await import(pathToFileURL(path.join(rootDir, "lib/core/email-verification.ts")).href);
 
 function queryText(strings) {
   return strings.join(" ").replace(/\s+/g, " ").trim();
