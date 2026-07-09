@@ -1,9 +1,68 @@
 # Customer OAuth Setup (Google + GitHub) — Step by Step
 
 This guide turns on "Continue with Google" / "Continue with GitHub" for customer
-sign-in. The OAuth code is already deployed but **inert** until you add the four
-env vars below — the login/signup pages hide the buttons and the start routes
-return `oauth_not_configured` while any provider's pair is missing.
+sign-in. **Clerk mode (below) is the current path**; the hand-rolled provider
+integration further down stays in the tree as a dormant fallback.
+
+---
+
+## Clerk mode (current)
+
+Founder decision: Clerk is the OAuth **broker only** — it runs the Google/GitHub
+handshake, we verify the resulting Clerk session JWT server-side
+(`POST /api/v1/auth/clerk/bridge`), link-or-create the user through the same
+`user_identities` store as the hand-rolled flow, mint our own `frege_session`
+cookie, and sign the browser out of Clerk again. Password login is unchanged and
+Frege's session model stays the single source of truth. Identity rows are
+written as `(provider: 'google'|'github', provider_subject)` — identical to the
+hand-rolled flow, so no migration beyond `db/025_user_identities.sql` is needed
+and both flows can coexist.
+
+Two environment variables switch it on (both must be set; otherwise the login
+page hides the buttons and the bridge returns `oauth_not_configured`):
+
+| Variable | What it is |
+|---|---|
+| `CLERK_SECRET_KEY` | Server-side key; verifies session JWTs and reads the Clerk user |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Public key; boots CDN-loaded clerk-js on the login page |
+
+Setup:
+
+1. `vercel integration add clerk` (Vercel marketplace) — provisions both keys on
+   the project automatically. Pull them locally with `vercel env pull`.
+2. In the [Clerk dashboard](https://dashboard.clerk.com): **User & authentication
+   → Social connections** — enable **Google** and **GitHub**. On a Clerk
+   **development instance** that is all: Clerk ships instant shared OAuth
+   credentials, no Google/GitHub console work needed.
+3. **Production instance**: Clerk requires your own OAuth credentials for
+   custom domains. Create the Google client / GitHub app exactly as described in
+   sections 2–3 below, but register the **Clerk callback URLs shown in the
+   dashboard** (e.g. `https://clerk.frege.dev/v1/oauth_callback`) instead of the
+   `/api/v1/auth/oauth/...` ones, and paste the credentials into the social
+   connection settings.
+4. Redeploy. The login page shows both buttons whenever the publishable key is
+   present; the Clerk handshake finishes on `/login?clerk=cb`, which POSTs the
+   Clerk token to the bridge and then redirects into the console with the normal
+   `frege_session` cookie set.
+
+Notes:
+
+- We deliberately use `@clerk/backend` only (no `@clerk/nextjs`, no
+  ClerkProvider, no middleware changes). The browser loads `@clerk/clerk-js@5`
+  from the CDN lazily on the login page.
+- Hermetic tests: `node --test scripts/prototype/test-clerk-auth.mjs`.
+- Users who signed up through Clerk with email codes (no Google/GitHub account)
+  are linked/created by verified email without an identity row.
+
+---
+
+## Hand-rolled mode (dormant fallback)
+
+Everything below covers the direct provider integration. It remains deployed
+but **inert** until you add the four env vars below — the login/signup pages
+hide the buttons and the start routes return `oauth_not_configured` while any
+provider's pair is missing. When Clerk mode is enabled it takes precedence in
+the UI; the hand-rolled routes stay functional for a fallback or rollback.
 
 Customer OAuth is hand-rolled against the provider endpoints directly (explicit
 founder decision: **no Auth0 for customers** — Auth0 stays staff-only for the
