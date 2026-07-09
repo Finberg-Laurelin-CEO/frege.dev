@@ -1,15 +1,9 @@
 import { rollupUsage } from "@/lib/core/usage";
-import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
+import { cronDisabledResponse, cronsEnabled, isCronAuthorized } from "@/lib/cron-guard";
 import { recordCronRun } from "@/lib/core/cron-run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function isCronAuthorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const authorization = req.headers.get("authorization");
-  return Boolean(secret && authorization === `Bearer ${secret}`);
-}
 
 export async function GET(req: Request) {
   if (!isCronAuthorized(req)) {

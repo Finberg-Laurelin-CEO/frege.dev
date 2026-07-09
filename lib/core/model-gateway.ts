@@ -1,24 +1,8 @@
 import { getSql } from "@/lib/db";
-import { resolveModelConfig, type ResolvedModelConfig } from "@/lib/core/model-configs";
+import { resolveModelConfig } from "@/lib/core/model-configs";
 import type { ContextPacket } from "@/lib/core/context-gateway";
-import { fetchWithTimeout, isFetchTimeoutError } from "@/lib/core/http";
-import type { TrustZone } from "@/lib/core/types";
-
-function modelTimeoutMs(): number {
-  const raw = Number(process.env.FREGE_MODEL_TIMEOUT_MS);
-  return Number.isFinite(raw) && raw > 0 ? raw : 60000;
-}
-
-// fetch() a model endpoint with a hard timeout; a timeout surfaces as model_timeout
-// so a hung upstream fails deterministically instead of holding the request open.
-async function fetchModel(url: string, init: RequestInit): Promise<Response> {
-  try {
-    return await fetchWithTimeout(url, init, { timeoutMs: modelTimeoutMs() });
-  } catch (err) {
-    if (isFetchTimeoutError(err)) throw new Error("model_timeout");
-    throw err;
-  }
-}
+import { postOllamaChat, postOpenAiCompatibleChat } from "@/lib/core/provider-call";
+import { estimateTokens, type TrustZone } from "@/lib/core/types";
 
 export type ModelInvokeInput = {
   orgId: string;
@@ -46,28 +30,9 @@ type ContextBuildRow = {
   query: string;
 };
 
-function estimateTokens(value: string): number {
-  return Math.max(1, Math.ceil(value.length / 4));
-}
-
 function maxTrustZone(packet?: ContextPacket, fallback: TrustZone = "green"): TrustZone {
   if (!packet) return fallback;
   return packet.trust_zone;
-}
-
-function defaultBaseUrl(config: ResolvedModelConfig): string {
-  if (config.base_url) return config.base_url.replace(/\/+$/, "");
-  if (config.provider === "openrouter") return "https://openrouter.ai/api/v1";
-  if (config.provider === "vercel-ai-gateway") return "https://ai-gateway.vercel.sh/v1";
-  if (config.provider === "openai-compatible") throw new Error("model_base_url_missing");
-  return "http://localhost:11434";
-}
-
-function openAiCompatibleHeaders(config: ResolvedModelConfig): Record<string, string> {
-  return {
-    ...(config.api_key ? { Authorization: `Bearer ${config.api_key}` } : {}),
-    "Content-Type": "application/json",
-  };
 }
 
 async function resolveContext(orgId: string, contextBuildId?: string): Promise<ContextBuildRow | null> {
@@ -105,21 +70,12 @@ export async function invokeModel(input: ModelInvokeInput): Promise<ModelInvokeR
     if ((config.provider === "openrouter" || config.provider === "vercel-ai-gateway") && !config.api_key) {
       throw new Error("model_api_key_missing");
     }
-    const response = await fetchModel(`${defaultBaseUrl(config)}/chat/completions`, {
-      method: "POST",
-      headers: openAiCompatibleHeaders(config),
-      body: JSON.stringify({
-        model: config.model_name,
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: input.maxTokens ?? 800,
-      }),
+    const json = await postOpenAiCompatibleChat({
+      config,
+      prompt,
+      maxTokens: input.maxTokens ?? 800,
+      errorStyle: "status_only",
     });
-
-    if (!response.ok) throw new Error(`model_provider_error_${response.status}`);
-    const json = (await response.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-    };
 
     return {
       provider: config.provider,
@@ -132,27 +88,12 @@ export async function invokeModel(input: ModelInvokeInput): Promise<ModelInvokeR
     };
   }
 
-  const response = await fetchModel(`${defaultBaseUrl(config)}/api/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: config.model_name,
-      stream: false,
-      messages: [{ role: "user", content: prompt }],
-      options: {
-        num_predict: input.maxTokens ?? 800,
-      },
-    }),
+  const json = await postOllamaChat({
+    config,
+    prompt,
+    maxTokens: input.maxTokens ?? 800,
+    errorStyle: "status_only",
   });
-
-  if (!response.ok) throw new Error(`model_provider_error_${response.status}`);
-  const json = (await response.json()) as {
-    message?: { content?: string };
-    prompt_eval_count?: number;
-    eval_count?: number;
-  };
   const content = json.message?.content ?? "";
 
   return {

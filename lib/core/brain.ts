@@ -2,11 +2,13 @@ import { getSql } from "@/lib/db";
 import type { FregeActorContext } from "@/lib/core/actor-auth";
 import { parseBrainLinks, slugifyBrain } from "@/lib/core/brain-links";
 import type { HumanOrgContext } from "@/lib/core/org-guard";
-import type {
-  BrainSessionEventType,
-  MemoryProposalStatus,
-  MemoryProposalType,
-  TrustZone,
+import {
+  estimateTokens,
+  trustZonesForActor,
+  type BrainSessionEventType,
+  type MemoryProposalStatus,
+  type MemoryProposalType,
+  type TrustZone,
 } from "@/lib/core/types";
 
 const MAX_LEDGER_BODY_CHARS = 100_000;
@@ -154,10 +156,6 @@ function capability(actor: FregeActorContext, key: keyof FregeActorContext["capa
   return Boolean(actor.capabilities[key]);
 }
 
-function trustZonesForActor(actor: FregeActorContext): TrustZone[] {
-  return actor.allowedLabels.includes("restricted") ? ["green", "red"] : ["green"];
-}
-
 function canUseTrustZone(actor: FregeActorContext, trustZone: TrustZone): boolean {
   return trustZone === "green" || trustZonesForActor(actor).includes("red");
 }
@@ -215,10 +213,6 @@ function makeSnippet(body: string, query: string): string {
   const start = Math.max(0, index - 80);
   const end = Math.min(normalized.length, index + query.length + 160);
   return `${start > 0 ? "..." : ""}${normalized.slice(start, end)}${end < normalized.length ? "..." : ""}`;
-}
-
-function estimateTokens(value: string): number {
-  return Math.max(1, Math.ceil(value.length / 4));
 }
 
 async function refreshBrainPageLinks(input: {

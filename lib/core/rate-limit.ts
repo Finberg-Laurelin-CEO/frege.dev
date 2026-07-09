@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { clientIp } from "@/lib/core/client-ip";
 import { getSql } from "@/lib/db";
 
 export type RateLimitResult = {
@@ -15,16 +16,14 @@ type RateLimitOptions = {
   keyParts?: Array<string | null | undefined>;
 };
 
+// Rate limiting deliberately does NOT reuse hashIp from lib/core/client-ip:
+// its hashes are persisted as auth_rate_limits.bucket_key, so they need a static
+// salt (no day rotation) to stay stable within a window, and they cover non-IP
+// key parts (e.g. emails) too. Do not change the format without a bucket reset.
 function secretSalt(): string {
   if (process.env.IP_HASH_SALT) return process.env.IP_HASH_SALT;
   if (process.env.NODE_ENV === "production") throw new Error("IP_HASH_SALT is not set.");
   return "frege-dev-rate-limit-salt";
-}
-
-function clientIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
 }
 
 function hashPart(value: string): string {

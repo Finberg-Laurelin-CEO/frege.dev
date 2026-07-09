@@ -1,7 +1,12 @@
 import { getSql } from "@/lib/db";
-import { estimateBrainTokens } from "@/lib/core/brain";
 import type { FregeActorContext } from "@/lib/core/actor-auth";
-import type { DocumentLinkType, SensitivityLabel, TrustZone } from "@/lib/core/types";
+import {
+  estimateTokens,
+  trustZonesForActor,
+  type DocumentLinkType,
+  type SensitivityLabel,
+  type TrustZone,
+} from "@/lib/core/types";
 
 export type ContextBuildInput = {
   query: string;
@@ -118,10 +123,6 @@ function searchPatterns(query: string): string[] | null {
   return [...new Set([query.toLowerCase(), ...terms].filter(Boolean))].map(pattern);
 }
 
-function estimateTokens(value: string): number {
-  return Math.max(1, Math.ceil(value.length / 4));
-}
-
 function maxTrustZone(documents: ContextDocument[]): TrustZone {
   return documents.some((document) => document.trust_zone === "red") ? "red" : "green";
 }
@@ -131,10 +132,6 @@ function maxPacketTrustZone(documents: ContextDocument[], brainPages: ContextBra
     brainPages.some((page) => page.trust_zone === "red")
     ? "red"
     : "green";
-}
-
-function trustZonesForActor(actor: FregeActorContext): TrustZone[] {
-  return actor.allowedLabels.includes("restricted") ? ["green", "red"] : ["green"];
 }
 
 function actorKeyId(actor: FregeActorContext): string | null {
@@ -344,7 +341,7 @@ export async function buildContextPacket(actor: FregeActorContext, input: Contex
     return {
       ...page,
       body_md: body,
-      token_count: estimateBrainTokens(body),
+      token_count: estimateTokens(body),
     };
   });
 

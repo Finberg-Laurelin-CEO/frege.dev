@@ -1,5 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { getSql } from "@/lib/db";
+import { clientIp, hashIp } from "@/lib/core/client-ip";
 import type { PrototypeAuthContext } from "@/lib/core/auth";
 import type { HumanOrgContext } from "@/lib/core/org-guard";
 import type { TrustZone } from "@/lib/core/types";
@@ -52,22 +53,6 @@ const SENSITIVE_METADATA_KEYS = new Set([
   "proposed_body_md",
   "authorization",
 ]);
-
-function clientIp(req?: Request): string {
-  if (!req) return "system";
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
-}
-
-function hashIp(ip: string): string {
-  const day = new Date().toISOString().slice(0, 10);
-  const salt = process.env.IP_HASH_SALT;
-  if (!salt && process.env.NODE_ENV === "production") {
-    throw new Error("IP_HASH_SALT is not set");
-  }
-  return createHash("sha256").update(`${ip}|${day}|${salt ?? "frege-dev-salt"}`).digest("hex");
-}
 
 function orgIdForActor(actor: TelemetryActor): string | null {
   if (actor.type === "api_key") return actor.auth.organization.id;
@@ -149,7 +134,7 @@ export async function logTelemetryEvent(input: TelemetryInput): Promise<void> {
         ${input.outputTokens ?? null},
         ${input.estimatedCostUsd ?? null},
         ${input.trustZone ?? null},
-        ${hashIp(clientIp(input.req))},
+        ${hashIp(clientIp(input.req), { requireSalt: true })},
         ${input.req?.headers.get("user-agent") ?? null},
         ${input.sessionId ?? null},
         ${input.sessionEventId ?? null},

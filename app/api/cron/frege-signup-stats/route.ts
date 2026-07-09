@@ -1,17 +1,10 @@
 import { getFregeSignupStats, type FregeSignupStats } from "@/lib/frege-signup-stats";
 import { postHermesEvent } from "@/lib/hermes-webhook";
-import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
+import { cronDisabledResponse, cronsEnabled, isCronAuthorized } from "@/lib/cron-guard";
 import { recordCronRun } from "@/lib/core/cron-run";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function isCronAuthorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const authorization = req.headers.get("authorization");
-
-  return Boolean(secret && authorization === `Bearer ${secret}`);
-}
 
 async function postHermesStats(stats: FregeSignupStats) {
   return postHermesEvent({

@@ -1,4 +1,5 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { requiredEnv } from "@/lib/core/env-check";
 
 const RAW_KEY_PATTERN = /^frg_live_([a-f0-9]{12})_(.+)$/;
 const STAFF_KEY_PATTERN = /^frg_admin_([a-f0-9]{12})_(.+)$/;
@@ -15,11 +16,7 @@ export type ParsedApiKey = {
 };
 
 export function getApiKeySalt(): string {
-  const salt = process.env.FREGE_API_KEY_SALT;
-  if (!salt) {
-    throw new Error("FREGE_API_KEY_SALT is not set.");
-  }
-  return salt;
+  return requiredEnv("FREGE_API_KEY_SALT", "salt for hashing API keys");
 }
 
 export function parseApiKey(rawKey: string): ParsedApiKey | null {

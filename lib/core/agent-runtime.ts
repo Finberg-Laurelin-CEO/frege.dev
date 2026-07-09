@@ -5,7 +5,7 @@ import { buildContextPacket, type ContextPacket } from "@/lib/core/context-gatew
 import { compileFregePrompt } from "@/lib/core/model-gateway";
 import { resolveModelConfig, type ModelProvider } from "@/lib/core/model-configs";
 import type { HumanOrgContext } from "@/lib/core/org-guard";
-import type { SensitivityLabel, TrustZone } from "@/lib/core/types";
+import { trustZonesForActor, type SensitivityLabel, type TrustZone } from "@/lib/core/types";
 
 export type AgentDefinition = {
   id: string;
@@ -133,10 +133,6 @@ function normalizeSlug(value: string): string {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "agent"
   );
-}
-
-function trustZonesForActor(actor: FregeActorContext): TrustZone[] {
-  return actor.allowedLabels.includes("restricted") ? ["green", "red"] : ["green"];
 }
 
 function assertCanUseTrustZone(actor: FregeActorContext, trustZone: TrustZone): void {

@@ -1,6 +1,6 @@
 import { claimAgentRunsForRuntime, completeAgentRunFromRuntime } from "@/lib/core/agent-runtime";
 import { executeAgentPacket } from "@/lib/core/agent-executor";
-import { cronDisabledResponse, cronsEnabled } from "@/lib/cron-guard";
+import { cronDisabledResponse, cronsEnabled, isCronAuthorized } from "@/lib/cron-guard";
 import { recordCronRun } from "@/lib/core/cron-run";
 
 export const runtime = "nodejs";
@@ -12,12 +12,6 @@ const WORKER_ID = "vercel-cron";
 const TICK_BUDGET_MS = 260000;
 const CLAIM_LIMIT = 3;
 const LEASE_SECONDS = 300;
-
-function isCronAuthorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET;
-  const authorization = req.headers.get("authorization");
-  return Boolean(secret && authorization === `Bearer ${secret}`);
-}
 
 export async function GET(req: Request) {
   if (!isCronAuthorized(req)) {

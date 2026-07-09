@@ -1,6 +1,7 @@
-import { createHash, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { getSql } from "@/lib/db";
 import { postHermesEvent } from "@/lib/hermes-webhook";
+import { clientIp, hashIp } from "@/lib/core/client-ip";
 import {
   emailVerificationUrlForToken,
   issueEmailVerificationToken,
@@ -89,22 +90,6 @@ async function sendHermesSignupWebhook(signup: SignupWebhookRow): Promise<void> 
   });
 }
 
-/** Hash the client IP with a day-rotating salt so we never store a raw IP. */
-function hashIp(ip: string): string {
-  const day = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
-  const salt = process.env.IP_HASH_SALT;
-  if (!salt && process.env.NODE_ENV === "production") {
-    throw new Error("IP_HASH_SALT is not set");
-  }
-  return createHash("sha256").update(`${ip}|${day}|${salt ?? "frege-dev-salt"}`).digest("hex");
-}
-
-function clientIp(req: Request): string {
-  const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") ?? "unknown";
-}
-
 async function uniqueOrgSlug(sql: ReturnType<typeof getSql>, base: string): Promise<string> {
   const root = slugifyOrg(base);
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -163,7 +148,8 @@ export async function POST(req: Request) {
   }
 
   const email = normalizeEmail(data.work_email);
-  const ip_hash = hashIp(clientIp(req));
+  // Strict: a missing IP_HASH_SALT in production fails the request.
+  const ip_hash = hashIp(clientIp(req), { requireSalt: true });
   const user_agent = req.headers.get("user-agent") ?? null;
 
   try {

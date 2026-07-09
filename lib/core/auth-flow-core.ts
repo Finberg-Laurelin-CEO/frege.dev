@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import { assertSafeOrigin, readJson } from "@/lib/core/request-guards";
 
 export type AuthFlowSql = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<Record<string, unknown>[]>;
 
@@ -97,31 +98,6 @@ function normalizeEmail(email: string): string {
 
 function hashInviteToken(rawToken: string): string {
   return createHash("sha256").update(rawToken).digest("hex");
-}
-
-function assertSafeOrigin(req: Request): Response | null {
-  const origin = req.headers.get("origin");
-  if (!origin) return null;
-
-  const host = req.headers.get("host");
-  if (!host) return Response.json({ error: "missing_host" }, { status: 400 });
-
-  try {
-    const originUrl = new URL(origin);
-    if (originUrl.host === host) return null;
-  } catch {
-    return Response.json({ error: "invalid_origin" }, { status: 400 });
-  }
-
-  return Response.json({ error: "forbidden_origin" }, { status: 403 });
-}
-
-async function readJson(req: Request): Promise<{ ok: true; value: unknown } | { ok: false; response: Response }> {
-  try {
-    return { ok: true, value: await req.json() };
-  } catch {
-    return { ok: false, response: Response.json({ error: "invalid_json" }, { status: 400 }) };
-  }
 }
 
 export async function handleLoginRequest(req: Request, deps: LoginFlowDeps): Promise<Response> {

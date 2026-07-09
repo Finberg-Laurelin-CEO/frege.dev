@@ -4,6 +4,20 @@ export type SensitivityLabel = (typeof SENSITIVITY_LABELS)[number];
 export const TRUST_ZONES = ["green", "red"] as const;
 export type TrustZone = (typeof TRUST_ZONES)[number];
 
+/**
+ * Trust zones an actor may read: only actors allowed to read "restricted"
+ * documents may enter the red zone. (Shared by brain, context-gateway, and
+ * agent-runtime; structurally typed so this module stays import-free.)
+ */
+export function trustZonesForActor(actor: { allowedLabels: SensitivityLabel[] }): TrustZone[] {
+  return actor.allowedLabels.includes("restricted") ? ["green", "red"] : ["green"];
+}
+
+/** Cheap ~4-chars-per-token estimate used when providers don't report usage. */
+export function estimateTokens(value: string): number {
+  return Math.max(1, Math.ceil(value.length / 4));
+}
+
 export const DOCUMENT_STATUSES = ["draft", "published", "archived"] as const;
 export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
 

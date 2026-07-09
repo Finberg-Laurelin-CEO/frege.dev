@@ -1,17 +1,55 @@
 #!/usr/bin/env node
 import test from "node:test";
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
+import { existsSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { handleInviteAcceptRequest, handleLoginRequest } from "../../lib/core/auth-flow-core.ts";
-import {
+// auth-flow-core.ts and keys.ts import shared modules through the TypeScript "@/"
+// path alias, which plain `node --test` cannot resolve. Register the same resolve
+// hook as test-agent-runtime.mjs mapping "@/<x>" -> <repoRoot>/<x>. request-guards
+// pulls in "@/lib/core/session" (only for assertSafeBrowserMutation, unused here);
+// stub it so the test stays hermetic and never loads the DB driver. The project
+// modules are imported dynamically AFTER the hooks are registered.
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+const VIRTUAL = {
+  "@/lib/core/session": "export const readSessionToken = () => null;",
+};
+
+function resolveRealAlias(specifier) {
+  const base = path.join(rootDir, specifier.slice(2));
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts")]) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return `${base}.ts`;
+}
+
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier in VIRTUAL) return { url: `virtual:${specifier}`, shortCircuit: true };
+    if (specifier.startsWith("@/")) return { url: pathToFileURL(resolveRealAlias(specifier)).href, shortCircuit: true };
+    return nextResolve(specifier, context);
+  },
+  load(url, context, nextLoad) {
+    if (url.startsWith("virtual:")) {
+      return { format: "module", source: VIRTUAL[url.slice("virtual:".length)], shortCircuit: true };
+    }
+    return nextLoad(url, context);
+  },
+});
+
+const { handleInviteAcceptRequest, handleLoginRequest } = await import("../../lib/core/auth-flow-core.ts");
+const {
   generateApiKey,
   hashApiKey,
   parseApiKey,
   parseStaffApiKey,
   safelyCompareApiKeyHash,
-} from "../../lib/core/keys.ts";
-import { hashPassword, verifyPassword } from "../../lib/core/password.ts";
-import { clearSessionCookie, cookieDomainForHost, sessionCookie } from "../../lib/core/session-cookie.ts";
+} = await import("../../lib/core/keys.ts");
+const { hashPassword, verifyPassword } = await import("../../lib/core/password.ts");
+const { clearSessionCookie, cookieDomainForHost, sessionCookie } = await import("../../lib/core/session-cookie.ts");
 
 const TEST_PASSWORD = "correct horse battery staple";
 const TEST_SALT = "00112233445566778899aabbccddeeff";
