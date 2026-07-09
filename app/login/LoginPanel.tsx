@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import styles from "../admin/admin.module.css";
+import "../auth.css";
 
 const loginStatusText: Record<string, string> = {
   invalid_credentials: "Email or password is incorrect.",
@@ -64,48 +64,51 @@ export default function LoginPanel() {
   }
 
   return (
-    <main id="main" className={styles.shell}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>login</h1>
-          <p className={styles.meta}>Frege customer workspace</p>
-        </div>
-        <a className="lnk" href="/">home</a>
-      </div>
-
-      <form className={styles.form} onSubmit={submit}>
-        <label className={styles.field}>
-          <span className={styles.label}>email</span>
-          <input
-            className={styles.input}
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-          />
-        </label>
-        <label className={styles.field}>
-          <span className={styles.label}>password</span>
-          <input
-            className={styles.input}
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </label>
-        <div className={styles.buttonRow}>
-          <button className={styles.button} type="submit" disabled={pending}>
-            login
-          </button>
-          <span className={styles.status}>{status}</span>
-        </div>
-        <p className={`${styles.meta} ${styles.fieldWide}`}>
-          <a className="lnk" href="/forgot-password">Forgot your password?</a>
+    <main id="main" className="auth">
+      <section className="auth__card" aria-label="Sign in to Frege">
+        <p className="line">
+          <span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege login</span>
         </p>
-      </form>
+        <h1 className="auth__title">login</h1>
+        <p className="auth__meta">Frege customer workspace</p>
+
+        <form className="auth__form" onSubmit={submit}>
+          <label className="auth__field">
+            <span className="auth__label">email</span>
+            <input
+              className="auth__input"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          <label className="auth__field">
+            <span className="auth__label">password</span>
+            <input
+              className="auth__input"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+          <div className="auth__row">
+            <button className="button button--primary" type="submit" disabled={pending}>
+              login
+            </button>
+            <span className="auth__status" role="status">{status}</span>
+          </div>
+        </form>
+
+        <p className="auth__links">
+          <a className="lnk" href="/forgot-password">Forgot your password?</a>
+          <a className="lnk" href="/signup">Create an account</a>
+          <a className="lnk" href="/">Home</a>
+        </p>
+      </section>
     </main>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import styles from "../admin/admin.module.css";
+import "../auth.css";
 
 const resetStatusText: Record<string, string> = {
   invalid_or_expired_token: "That reset link is invalid or expired. Request a fresh one.",
@@ -49,56 +49,60 @@ export default function ResetPasswordPanel({ initialToken }: { initialToken: str
   }
 
   return (
-    <main id="main" className={styles.shell}>
-      <div className={styles.header}>
-        <div>
-          <h1 className={styles.title}>set new password</h1>
-          <p className={styles.meta}>Frege customer workspace</p>
-        </div>
-        <a className="lnk" href="/login">login</a>
-      </div>
+    <main id="main" className="auth">
+      <section className="auth__card" aria-label="Set a new password">
+        <p className="line">
+          <span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">frege password --set</span>
+        </p>
+        <h1 className="auth__title">set new password</h1>
+        <p className="auth__meta">Frege customer workspace</p>
 
-      {!token ? (
-        <section className={styles.section}>
-          <p className={styles.meta}>This reset link is missing a token.</p>
-          <p className={styles.meta}>
-            <a className="lnk" href="/forgot-password">Request a fresh reset link</a>.
-          </p>
-        </section>
-      ) : (
-        <form className={styles.form} onSubmit={submit}>
-          <label className={`${styles.field} ${styles.fieldWide}`}>
-            <span className={styles.label}>new password</span>
-            <input
-              className={styles.input}
-              type="password"
-              autoComplete="new-password"
-              minLength={12}
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </label>
-          <label className={`${styles.field} ${styles.fieldWide}`}>
-            <span className={styles.label}>confirm password</span>
-            <input
-              className={styles.input}
-              type="password"
-              autoComplete="new-password"
-              minLength={12}
-              required
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-            />
-          </label>
-          <div className={`${styles.buttonRow} ${styles.fieldWide}`}>
-            <button className={styles.button} type="submit" disabled={pending}>
-              {pending ? "resetting..." : "reset password"}
-            </button>
-            <span className={styles.status}>{status}</span>
-          </div>
-        </form>
-      )}
+        {!token ? (
+          <>
+            <p className="auth__note">This reset link is missing a token.</p>
+            <p className="auth__note">
+              <a className="lnk" href="/forgot-password">Request a fresh reset link</a>.
+            </p>
+          </>
+        ) : (
+          <form className="auth__form" onSubmit={submit}>
+            <label className="auth__field">
+              <span className="auth__label">new password</span>
+              <input
+                className="auth__input"
+                type="password"
+                autoComplete="new-password"
+                minLength={12}
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </label>
+            <label className="auth__field">
+              <span className="auth__label">confirm password</span>
+              <input
+                className="auth__input"
+                type="password"
+                autoComplete="new-password"
+                minLength={12}
+                required
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+            </label>
+            <div className="auth__row">
+              <button className="button button--primary" type="submit" disabled={pending}>
+                {pending ? "resetting..." : "reset password"}
+              </button>
+              <span className="auth__status" role="status">{status}</span>
+            </div>
+          </form>
+        )}
+
+        <p className="auth__links">
+          <a className="lnk" href="/login">Back to login</a>
+        </p>
+      </section>
     </main>
   );
 }

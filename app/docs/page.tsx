@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SiteFooter from "../components/SiteFooter";
 
 const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
 
@@ -25,7 +26,7 @@ const quickFacts: [string, string, string][] = [
 ];
 
 const fastPath: [string, string, string][] = [
-  ["1", "Create the account", "The user signs up, pays or enters a Frege code in Stripe, then opens the Frege control plane."],
+  ["1", "Create the account", "The user signs up, activates billing through Stripe, then opens the Frege control plane."],
   ["2", "Create an API key", "An admin creates a scoped key for an active org and a specific role. The raw key is shown once."],
   ["3", "Hand setup to an agent", "Give the agent the prompt below plus the key through a private channel. The agent installs the CLI and verifies the key."],
   ["4", "Use Frege from MCP", "The MCP client calls frege_status first, then searches, reads, builds context, and pushes approved docs."],
@@ -84,12 +85,12 @@ Steps:
 10. From the MCP client, call frege_status and confirm it matches frege doctor.`;
 
 export const metadata: Metadata = {
-  title: "Frege Docs",
+  title: "Docs — Frege",
   description:
     "Setup documentation for Frege orgs, API keys, MCP clients, CLI installation, and governed agent memory.",
   alternates: { canonical: "https://frege.dev/docs" },
   openGraph: {
-    title: "Frege Docs",
+    title: "Docs — Frege",
     description:
       "Setup documentation for Frege orgs, API keys, MCP clients, CLI installation, and governed agent memory.",
     url: "https://frege.dev/docs",
@@ -110,7 +111,7 @@ export default function DocsPage() {
           </p>
           <div className="hero__actions">
             <a className="button button--primary" href="/signup">Start now</a>
-            <a className="button" href="/login?next=/admin">Open control plane</a>
+            <a className="button" href="/login?next=/console">Open control plane</a>
             <a className="button" href="/architecture">Architecture</a>
             <a className="button" href={githubUrl}>GitHub</a>
           </div>
@@ -178,7 +179,7 @@ export default function DocsPage() {
               ))}
             </div>
             <p>
-              Admins use the protected <a className="lnk" href="/login?next=/admin">control plane</a>{" "}
+              Admins use the protected <a className="lnk" href="/login?next=/console">control plane</a>{" "}
               to create organizations, invite members, define roles, generate API keys,
               inspect sessions, and review memory proposals.
             </p>
@@ -192,7 +193,7 @@ export default function DocsPage() {
               that role is allowed to see.
             </p>
             <ol className="docs__checklist">
-              <li>Open <a className="lnk" href="/login?next=/admin">the control plane</a>.</li>
+              <li>Open <a className="lnk" href="/login?next=/console">the control plane</a>.</li>
               <li>Choose the organization.</li>
               <li>Create or select an agent role.</li>
               <li>Create an API key for that role and owner.</li>
@@ -407,6 +408,8 @@ frege doctor`}</code></pre>
           </section>
         </div>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

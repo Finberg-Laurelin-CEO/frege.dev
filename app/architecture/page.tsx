@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import SiteFooter from "../components/SiteFooter";
 
 const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
 
@@ -58,12 +59,12 @@ const subsystems: [string, string, string][] = [
 ];
 
 export const metadata: Metadata = {
-  title: "Frege Architecture",
+  title: "Architecture — Frege",
   description:
     "How Frege works: a hosted SaaS control plane and brain database with a thin MCP/CLI client. Governed context, role-scoped access, reviewable memory, and full observability.",
   alternates: { canonical: "https://frege.dev/architecture" },
   openGraph: {
-    title: "Frege Architecture",
+    title: "Architecture — Frege",
     description:
       "How Frege works: a hosted control plane and brain database with a thin MCP/CLI client, governed context, reviewable memory, and full observability.",
     url: "https://frege.dev/architecture",
@@ -292,6 +293,8 @@ export default function ArchitecturePage() {
       </section>
         </div>
       </div>
+
+      <SiteFooter />
     </main>
   );
 }

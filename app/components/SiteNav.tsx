@@ -9,7 +9,7 @@ export default function SiteNav() {
         <a className="lnk" href="/architecture">architecture</a>
         <a className="lnk" href="/pricing">pricing</a>
         <a className="lnk" href={githubUrl}>github</a>
-        <a className="lnk" href="/login?next=/admin">sign in</a>
+        <a className="lnk" href="/login?next=/console">sign in</a>
         <a className="lnk lnk--cta" href="/signup">sign up</a>
       </nav>
     </header>
