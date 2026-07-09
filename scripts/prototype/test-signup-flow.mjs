@@ -157,6 +157,8 @@ function makeDeps(sql, overrides = {}) {
   const welcomeEmails = [];
   const verificationEmails = [];
   const hermesEvents = [];
+  const monitorEvents = [];
+  const hotLeadAlerts = [];
   const deps = {
     getSql: () => sql,
     checkRateLimit: async () => ({ allowed: true, attempts: 1, limit: 5, retryAfterSeconds: 0 }),
@@ -185,9 +187,16 @@ function makeDeps(sql, overrides = {}) {
       hermesEvents.push(payload);
       return { ok: true };
     },
+    recordSignupMonitorEvent: async (eventType, payload) => {
+      monitorEvents.push({ eventType, payload });
+    },
+    maybeSendHotLeadAlert: async (lead, signup) => {
+      hotLeadAlerts.push({ lead, signup });
+      return { sent: false, reason: "not_configured" };
+    },
     ...overrides,
   };
-  return { deps, telemetry, sessions, welcomeEmails, verificationEmails, hermesEvents };
+  return { deps, telemetry, sessions, welcomeEmails, verificationEmails, hermesEvents, monitorEvents, hotLeadAlerts };
 }
 
 async function readJson(response) {

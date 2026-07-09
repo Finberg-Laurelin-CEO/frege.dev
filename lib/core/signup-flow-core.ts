@@ -3,6 +3,8 @@ import type { getSql as getDefaultSql } from "@/lib/db";
 import type { HermesWebhookResult } from "@/lib/hermes-webhook";
 import { clientIp, hashIp } from "@/lib/core/client-ip";
 import { buildEmailVerificationToken, emailVerificationUrlForToken } from "@/lib/core/email-verification";
+import type { HotLeadSignupSummary } from "@/lib/core/lead-alert";
+import { scoreLead, type LeadScore } from "@/lib/core/lead-score";
 import { defaultAgentRoleStatements, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
 import { customerAppBaseUrl } from "@/lib/core/public-url";
 import { assertSafeOrigin } from "@/lib/core/request-guards";
@@ -65,6 +67,8 @@ export type SignupFlowDeps = {
     verificationUrl: string;
   }) => Promise<{ sent: boolean }>;
   postHermesEvent: (payload: unknown) => Promise<HermesWebhookResult>;
+  recordSignupMonitorEvent: (eventType: "frege.signup.created", payload: unknown) => Promise<unknown>;
+  maybeSendHotLeadAlert: (lead: LeadScore, signup: HotLeadSignupSummary) => Promise<unknown>;
 };
 
 const NEXT_PATH = "/console?view=account";
@@ -106,11 +110,10 @@ function toIsoString(value: Date | string): string {
   return date.toISOString();
 }
 
-async function sendHermesSignupWebhook(deps: SignupFlowDeps, signup: SignupWebhookRow): Promise<void> {
-  const created_at = toIsoString(signup.created_at);
-  const payload = {
+function signupCreatedPayload(signup: SignupWebhookRow, lead: LeadScore) {
+  return {
     event: "frege.signup.created",
-    created_at,
+    created_at: toIsoString(signup.created_at),
     signup: {
       id: signup.id,
       name: signup.name,
@@ -126,9 +129,16 @@ async function sendHermesSignupWebhook(deps: SignupFlowDeps, signup: SignupWebho
       decision_timeline: signup.decision_timeline,
       main_pain_point: signup.main_pain_point,
       other_comments: signup.other_comments,
+      score: lead.score,
+      band: lead.band,
     },
   };
+}
 
+async function sendHermesSignupWebhook(
+  deps: SignupFlowDeps,
+  payload: ReturnType<typeof signupCreatedPayload>,
+): Promise<void> {
   const result = await deps.postHermesEvent(payload);
   if (result.ok || result.skipped) return;
 
@@ -200,6 +210,19 @@ export async function handleSignupRequest(req: Request, deps: SignupFlowDeps): P
   // Strict: a missing IP_HASH_SALT in production fails the request.
   const ip_hash = hashIp(clientIp(req), { requireSalt: true });
   const user_agent = req.headers.get("user-agent") ?? null;
+
+  // Lead scoring is pure and deterministic; computed once here and persisted
+  // with the row (score + band columns, db/026).
+  const lead = scoreLead({
+    work_email: email,
+    company_size: data.company_size,
+    expected_users: data.expected_users,
+    current_agent_tools: data.current_agent_tools,
+    monthly_ai_spend: data.monthly_ai_spend,
+    willing_to_pay: data.willing_to_pay,
+    decision_timeline: data.decision_timeline,
+    main_pain_point: data.main_pain_point,
+  });
 
   try {
     const sql = deps.getSql();
@@ -329,6 +352,8 @@ export async function handleSignupRequest(req: Request, deps: SignupFlowDeps): P
               main_pain_point = ${data.main_pain_point},
               other_comments = ${data.other_comments},
               permission_to_contact = ${data.permission_to_contact},
+              score = ${lead.score},
+              band = ${lead.band},
               status = 'qualified',
               qualified_at = coalesce(qualified_at, now()),
               owner_user_id = ${userId},
@@ -347,6 +372,7 @@ export async function handleSignupRequest(req: Request, deps: SignupFlowDeps): P
               expected_users, current_agent_tools, other_tool, monthly_ai_spend,
               willing_to_pay, decision_timeline, main_pain_point, other_comments,
               permission_to_contact,
+              score, band,
               status, qualified_at, owner_user_id
             ) values (
               ${randomUUID()}, ${ip_hash}, ${user_agent},
@@ -354,6 +380,7 @@ export async function handleSignupRequest(req: Request, deps: SignupFlowDeps): P
               ${data.expected_users}, ${data.current_agent_tools}, ${data.other_tool}, ${data.monthly_ai_spend},
               ${data.willing_to_pay}, ${data.decision_timeline}, ${data.main_pain_point}, ${data.other_comments},
               ${data.permission_to_contact},
+              ${lead.score}, ${lead.band},
               'qualified', now(), ${userId}
             )
             returning
@@ -385,11 +412,28 @@ export async function handleSignupRequest(req: Request, deps: SignupFlowDeps): P
     const signup = (results[signupStatementIndex] as SignupWebhookRow[] | undefined)?.[0];
 
     // ── Side effects only after the batch commits ────────────────────────
-    // Webhook, emails, session mint, and telemetry are deliberately outside
-    // the transaction (they are not statements and must not fire on rollback),
-    // in the same order the route ran them before.
+    // Monitor record, webhook, alert, emails, session mint, and telemetry are
+    // deliberately outside the transaction (they are not statements and must
+    // not fire on rollback). In-app monitor record first (Frege-native
+    // monitoring), then the env-gated external webhook, then the hot-lead
+    // alert; none of them throw, so signup success never depends on them.
     if (signup) {
-      await sendHermesSignupWebhook(deps, signup);
+      const monitorPayload = signupCreatedPayload(signup, lead);
+      await deps.recordSignupMonitorEvent("frege.signup.created", monitorPayload);
+      await sendHermesSignupWebhook(deps, monitorPayload);
+      await deps.maybeSendHotLeadAlert(lead, {
+        name: signup.name,
+        work_email: signup.work_email,
+        company: signup.company,
+        role: signup.role,
+        company_size: signup.company_size,
+        expected_users: signup.expected_users,
+        current_agent_tools: signup.current_agent_tools,
+        monthly_ai_spend: signup.monthly_ai_spend,
+        willing_to_pay: signup.willing_to_pay,
+        decision_timeline: signup.decision_timeline,
+        main_pain_point: signup.main_pain_point,
+      });
     }
 
     const verificationUrl = emailVerificationUrlForToken(verification.rawToken);

@@ -149,6 +149,8 @@ type SignupRow = {
   work_email: string;
   company: string | null;
   status: string;
+  score: number | null;
+  band: "cold" | "warm" | "hot" | null;
   willing_to_pay: string | null;
   expected_users: number | null;
   invited_at: string | null;
@@ -358,6 +360,18 @@ function TicketSlaBadge({ ticket }: { ticket: { status: string; first_response_a
     return <Badge tone="warn" label="awaiting first response" />;
   }
   return <Badge tone="ok" label="responded" />;
+}
+
+// Lead-score band → visual heat. Hot leads should pop like high-severity items.
+const bandTone: Record<string, BadgeTone> = {
+  hot: "danger",
+  warm: "warn",
+  cold: "muted",
+};
+
+function BandBadge({ band, score }: { band: SignupRow["band"]; score: number | null }) {
+  if (!band) return <span className={styles.status}>—</span>;
+  return <Badge tone={bandTone[band] ?? "neutral"} label={score !== null ? `${band} · ${score}` : band} />;
 }
 
 function platformErrorMessage(json: unknown, status: number, action: string): string {
@@ -906,6 +920,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
   // --- Derived summary / count values (from already-loaded data) ---
   const pendingApprovals = signups.filter((s) => !s.invite_id && !s.owner_user_email).length;
+  const hotLeads = signups.filter((s) => s.band === "hot").length;
   const activeStripePromoCodes = stripePromoCodes.filter((c) => c.status === "active").length;
   const activeOrgs = orgs.filter((o) => o.status === "active").length;
   const highQueue = queue.filter((q) => q.severity === "high").length;
@@ -948,6 +963,13 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
       value: num(pendingApprovals),
       hint: pendingApprovals > 0 ? "awaiting invite" : "none waiting",
       alert: pendingApprovals > 0,
+    },
+    {
+      key: "hot-leads",
+      label: "Hot leads",
+      value: num(hotLeads),
+      hint: `${num(signups.length)} recent signups`,
+      alert: hotLeads > 0,
     },
     {
       key: "orgs",
@@ -1281,13 +1303,14 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>email</th><th>company</th><th>status</th><th>willing to pay</th><th>paid</th><th>action</th></tr>
+                  <tr><th>email</th><th>company</th><th>band</th><th>status</th><th>willing to pay</th><th>paid</th><th>action</th></tr>
                 </thead>
                 <tbody>
                   {signups.map((s) => (
                     <tr key={s.id}>
                       <td>{s.work_email}</td>
                       <td>{s.company ?? "—"}</td>
+                      <td><BandBadge band={s.band} score={s.score} /></td>
                       <td><Badge status={s.status} /></td>
                       <td>{s.willing_to_pay ?? "—"}</td>
                       <td>{s.paid_at ? shortDay(s.paid_at) : "—"}</td>
