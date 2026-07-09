@@ -7,9 +7,27 @@ export type HermesWebhookResult =
   | { ok: false; skipped: true; message: string }
   | { ok: false; skipped?: false; status?: number; statusText?: string; message?: string };
 
+/**
+ * Founder decision (2026-07): no external monitoring service runs against
+ * Frege's data for now. Outbound Hermes webhook POSTs are opt-in via
+ * FREGE_EXTERNAL_MONITOR_ENABLED=true (default off); signup monitor events
+ * are persisted in-app instead (lib/core/signup-monitor.ts, db/026).
+ */
+export function externalMonitorEnabled(): boolean {
+  return process.env.FREGE_EXTERNAL_MONITOR_ENABLED === "true";
+}
+
 export async function postHermesEvent(payload: unknown): Promise<HermesWebhookResult> {
   const webhookUrl = process.env.HERMES_FREGE_SIGNUP_WEBHOOK_URL;
   const webhookSecret = process.env.HERMES_FREGE_WEBHOOK_SECRET;
+
+  if (!externalMonitorEnabled()) {
+    return {
+      ok: false,
+      skipped: true,
+      message: "external monitor disabled (set FREGE_EXTERNAL_MONITOR_ENABLED=true to enable)",
+    };
+  }
 
   if (!webhookUrl || !webhookSecret) {
     return { ok: false, skipped: true, message: "Hermes webhook is not configured" };

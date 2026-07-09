@@ -70,6 +70,25 @@ type EmailVerificationEmailInput = {
   verificationUrl: string;
 };
 
+type HotLeadAlertEmailInput = {
+  to: string;
+  signup: {
+    name: string;
+    work_email: string;
+    company: string;
+    role: string;
+    company_size: string;
+    expected_users: number;
+    current_agent_tools: string[];
+    monthly_ai_spend: string;
+    willing_to_pay: string;
+    decision_timeline: string;
+    main_pain_point: string;
+  };
+  score: number;
+  highSignals: string[];
+};
+
 function inviteSubject(orgName: string): string {
   return `You're approved for Frege — set up ${orgName}`;
 }
@@ -395,6 +414,72 @@ function passwordResetHtmlBody(input: PasswordResetEmailInput): string {
 </html>`;
 }
 
+function hotLeadAlertSubject(input: HotLeadAlertEmailInput): string {
+  return `Hot lead: ${input.signup.company} (${input.signup.work_email})`;
+}
+
+// The fields docs/HERMES.md says to surface when notifying Joe about a
+// high-signal signup, in triage order.
+function hotLeadAlertFields(input: HotLeadAlertEmailInput): [string, string][] {
+  const s = input.signup;
+  return [
+    ["Name", s.name],
+    ["Email", s.work_email],
+    ["Company", s.company],
+    ["Role", s.role],
+    ["Company size", s.company_size],
+    ["Expected users", String(s.expected_users)],
+    ["Willing to pay", s.willing_to_pay],
+    ["Monthly AI spend", s.monthly_ai_spend],
+    ["Decision timeline", s.decision_timeline],
+    ["Current agent tools", s.current_agent_tools.join(", ") || "—"],
+    ["Main pain point", s.main_pain_point],
+  ];
+}
+
+function hotLeadAlertTextBody(input: HotLeadAlertEmailInput): string {
+  return [
+    `A hot lead just signed up (score ${input.score}/100).`,
+    "",
+    "High signals:",
+    ...input.highSignals.map((signal) => `  - ${signal}`),
+    "",
+    ...hotLeadAlertFields(input).map(([label, value]) => `${label}: ${value}`),
+    "",
+    "Full row is in the signups table and on /platform (Signups tab).",
+  ].join("\n");
+}
+
+function hotLeadAlertHtmlBody(input: HotLeadAlertEmailInput): string {
+  const rows = hotLeadAlertFields(input)
+    .map(
+      ([label, value]) =>
+        `<tr><td style="padding:4px 12px 4px 0;color:#666;white-space:nowrap;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:4px 0;">${escapeHtml(value)}</td></tr>`,
+    )
+    .join("\n          ");
+  const signals = input.highSignals
+    .map((signal) => `<li>${escapeHtml(signal)}</li>`)
+    .join("");
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:24px;background:#f5f5f5;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+      <tr><td>
+        <h1 style="font-size:20px;margin:0 0 16px;">Hot lead — score ${input.score}/100</h1>
+        <p style="font-size:15px;line-height:1.5;margin:0 0 12px;">High signals:</p>
+        <ul style="font-size:15px;line-height:1.6;margin:0 0 20px;padding-left:20px;">${signals}</ul>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.5;margin:0 0 24px;">
+          ${rows}
+        </table>
+        <p style="font-size:13px;color:#666;line-height:1.5;margin:0;">
+          Full row is in the signups table and on /platform (Signups tab).
+        </p>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -509,6 +594,28 @@ export async function sendEmailVerificationEmail(input: EmailVerificationEmailIn
 
   if (error) {
     console.error("email verification send failed", { to: input.to, message: error.message });
+    return { sent: false, reason: error.message };
+  }
+  return { sent: true, id: data?.id };
+}
+
+export async function sendHotLeadAlertEmail(input: HotLeadAlertEmailInput): Promise<SendResult> {
+  if (!isEmailConfigured()) {
+    console.warn("email not configured; hot lead alert skipped", { to: input.to });
+    return { sent: false, reason: "not_configured" };
+  }
+
+  const { data, error } = await getResend().emails.send({
+    from: fromAddress(),
+    to: input.to,
+    replyTo: replyToAddress(),
+    subject: hotLeadAlertSubject(input),
+    text: hotLeadAlertTextBody(input),
+    html: hotLeadAlertHtmlBody(input),
+  });
+
+  if (error) {
+    console.error("hot lead alert email send failed", { to: input.to, message: error.message });
     return { sent: false, reason: error.message };
   }
   return { sent: true, id: data?.id };

@@ -7,6 +7,9 @@ import {
   issueEmailVerificationToken,
 } from "@/lib/core/email-verification";
 import { sendEmailVerificationEmail, sendSignupWelcomeEmail } from "@/lib/core/email";
+import { maybeSendHotLeadAlert } from "@/lib/core/lead-alert";
+import { scoreLead, type LeadScore } from "@/lib/core/lead-score";
+import { recordSignupMonitorEvent } from "@/lib/core/signup-monitor";
 import { ensureDefaultAgentRoles, normalizeEmail, slugifyOrg } from "@/lib/core/org-guard";
 import { hashPassword } from "@/lib/core/password";
 import { customerAppBaseUrl } from "@/lib/core/public-url";
@@ -57,9 +60,9 @@ function toIsoString(value: Date | string): string {
   return date.toISOString();
 }
 
-async function sendHermesSignupWebhook(signup: SignupWebhookRow): Promise<void> {
+function signupCreatedPayload(signup: SignupWebhookRow, lead: LeadScore) {
   const created_at = toIsoString(signup.created_at);
-  const payload = {
+  return {
     event: "frege.signup.created",
     created_at,
     signup: {
@@ -77,9 +80,13 @@ async function sendHermesSignupWebhook(signup: SignupWebhookRow): Promise<void> 
       decision_timeline: signup.decision_timeline,
       main_pain_point: signup.main_pain_point,
       other_comments: signup.other_comments,
+      score: lead.score,
+      band: lead.band,
     },
   };
+}
 
+async function sendHermesSignupWebhook(payload: ReturnType<typeof signupCreatedPayload>): Promise<void> {
   const result = await postHermesEvent(payload);
   if (result.ok || result.skipped) return;
 
@@ -151,6 +158,19 @@ export async function POST(req: Request) {
   // Strict: a missing IP_HASH_SALT in production fails the request.
   const ip_hash = hashIp(clientIp(req), { requireSalt: true });
   const user_agent = req.headers.get("user-agent") ?? null;
+
+  // Lead scoring is pure and deterministic; computed once here and persisted
+  // with the row (score + band columns, db/026).
+  const lead = scoreLead({
+    work_email: email,
+    company_size: data.company_size,
+    expected_users: data.expected_users,
+    current_agent_tools: data.current_agent_tools,
+    monthly_ai_spend: data.monthly_ai_spend,
+    willing_to_pay: data.willing_to_pay,
+    decision_timeline: data.decision_timeline,
+    main_pain_point: data.main_pain_point,
+  });
 
   try {
     const sql = getSql();
@@ -264,6 +284,8 @@ export async function POST(req: Request) {
             main_pain_point = ${data.main_pain_point},
             other_comments = ${data.other_comments},
             permission_to_contact = ${data.permission_to_contact},
+            score = ${lead.score},
+            band = ${lead.band},
             status = 'qualified',
             qualified_at = coalesce(qualified_at, now()),
             owner_user_id = ${user.id},
@@ -282,6 +304,7 @@ export async function POST(req: Request) {
             expected_users, current_agent_tools, other_tool, monthly_ai_spend,
             willing_to_pay, decision_timeline, main_pain_point, other_comments,
             permission_to_contact,
+            score, band,
             status, qualified_at, owner_user_id
           ) values (
             ${ip_hash}, ${user_agent},
@@ -289,6 +312,7 @@ export async function POST(req: Request) {
             ${data.expected_users}, ${data.current_agent_tools}, ${data.other_tool}, ${data.monthly_ai_spend},
             ${data.willing_to_pay}, ${data.decision_timeline}, ${data.main_pain_point}, ${data.other_comments},
             ${data.permission_to_contact},
+            ${lead.score}, ${lead.band},
             'qualified', now(), ${user.id}
           )
           returning
@@ -300,7 +324,25 @@ export async function POST(req: Request) {
 
     const signup = signupRows[0] as SignupWebhookRow | undefined;
     if (signup) {
-      await sendHermesSignupWebhook(signup);
+      const monitorPayload = signupCreatedPayload(signup, lead);
+      // In-app monitor record first (Frege-native monitoring), then the
+      // env-gated external webhook, then the hot-lead alert. None of these
+      // throw, so signup success never depends on them.
+      await recordSignupMonitorEvent("frege.signup.created", monitorPayload);
+      await sendHermesSignupWebhook(monitorPayload);
+      await maybeSendHotLeadAlert(lead, {
+        name: signup.name,
+        work_email: signup.work_email,
+        company: signup.company,
+        role: signup.role,
+        company_size: signup.company_size,
+        expected_users: signup.expected_users,
+        current_agent_tools: signup.current_agent_tools,
+        monthly_ai_spend: signup.monthly_ai_spend,
+        willing_to_pay: signup.willing_to_pay,
+        decision_timeline: signup.decision_timeline,
+        main_pain_point: signup.main_pain_point,
+      });
     }
 
     const selectedBilling = billingSelection(data.plan, data.seats);
