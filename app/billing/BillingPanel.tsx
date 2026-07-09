@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { resolveBillingPanelView, type BillingSummaryPayload } from "@/lib/core/billing-view-core";
 import styles from "../admin/admin.module.css";
 
 type Membership = {
@@ -16,14 +17,7 @@ type BillingSummary = {
   organization: { id: string; slug: string; name: string; status: string };
   membership: { role: string; status: string; can_manage_billing: boolean };
   user: { email: string; email_verified_at: string | null };
-  billing: {
-    plan: string | null;
-    billing_interval: string | null;
-    seats: number | null;
-    subscription_status: string | null;
-    current_period_end: string | null;
-    updated_at: string | null;
-  } | null;
+  billing: BillingSummaryPayload | null;
 };
 
 type PaymentsData = {
@@ -92,42 +86,6 @@ function statusBadgeClass(status: string | null | undefined): string {
   if (status === "inactive" || status === "incomplete" || status === "past_due" || status === "trialing" || status === "open") return styles.badgeWarn;
   if (status === "suspended" || status === "unpaid" || status === "revoked" || status === "uncollectible" || status === "void") return styles.badgeDanger;
   return styles.badgeMuted;
-}
-
-function accountBillingStatus(input: {
-  emailVerified: boolean;
-  orgStatus: string | null | undefined;
-  subscriptionStatus: string | null | undefined;
-  hasSubscription: boolean;
-}): { label: string; detail: string } {
-  if (!input.emailVerified) {
-    return {
-      label: "email pending",
-      detail: "Verify your email before starting Stripe billing.",
-    };
-  }
-  if (input.subscriptionStatus === "canceled" || input.subscriptionStatus === "unpaid") {
-    return {
-      label: "canceled",
-      detail: "Billing is no longer active. Manage the subscription in Stripe or start a new checkout.",
-    };
-  }
-  if (input.orgStatus === "active") {
-    return {
-      label: "active",
-      detail: "Billing has activated this organization.",
-    };
-  }
-  if (input.hasSubscription || input.subscriptionStatus) {
-    return {
-      label: "payment pending",
-      detail: "Stripe has a subscription record, but the organization is not active yet.",
-    };
-  }
-  return {
-    label: "ready for billing",
-    detail: "Choose a plan and start secure checkout with Stripe.",
-  };
 }
 
 export default function BillingPanel({ memberships, embedded = false }: { memberships: Membership[]; embedded?: boolean }) {
@@ -217,14 +175,19 @@ export default function BillingPanel({ memberships, embedded = false }: { member
     billingSummary?.membership.can_manage_billing ?? (selectedOrg?.role === "owner" || selectedOrg?.role === "admin"),
   );
   const sub = payments?.subscription ?? null;
-  const hasSubscription = Boolean(sub ?? billing?.subscription_status);
   const emailVerified = Boolean(billingSummary?.user.email_verified_at);
-  const billingStatus = accountBillingStatus({
+  // Which panel to render: the billed-org dashboard (plan + invoices + portal)
+  // or the first-checkout plan picker. An org can be active without a Stripe
+  // customer (staff/promo activation): it still gets the dashboard, minus the
+  // portal button, so it never sees the plan picker again.
+  const view = resolveBillingPanelView({
     emailVerified,
     orgStatus: selectedOrgStatus,
     subscriptionStatus: sub?.status ?? billing?.subscription_status,
-    hasSubscription,
+    hasLiveSubscription: Boolean(sub),
+    hasStripeCustomer: Boolean(billing?.has_stripe_customer),
   });
+  const stripeManaged = view.kind === "active" && view.stripeManaged;
 
   const renewIso = sub?.current_period_end ?? billing?.current_period_end ?? null;
   const daysLeft = daysUntil(renewIso);
@@ -346,44 +309,52 @@ export default function BillingPanel({ memberships, embedded = false }: { member
               You can view this organization&apos;s plan. Ask an owner or admin to change plans, view invoices, or manage payment.
             </p>
           </div>
-        ) : hasSubscription ? (
-          // ── Active subscription: full billing dashboard ──
+        ) : view.kind === "active" ? (
+          // ── Billed org: plan dashboard, invoices, and subscription management ──
           <>
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
                 <div>
                   <span className={styles.kicker}>// current plan</span>
                   <h2 className={styles.sectionTitle}>
-                    {billingLabel(billing?.plan)} {billing?.billing_interval ? `· ${billingLabel(billing.billing_interval)}` : ""}
+                    {billing?.plan
+                      ? `${billingLabel(billing.plan)}${billing.billing_interval ? ` · ${billingLabel(billing.billing_interval)}` : ""}`
+                      : "No plan on record"}
                   </h2>
                 </div>
-                <span className={`${styles.badge} ${statusBadgeClass(sub?.status ?? billing?.subscription_status)}`}>
-                  {billingLabel(sub?.status ?? billing?.subscription_status)}
+                <span className={`${styles.badge} ${statusBadgeClass(sub?.status ?? billing?.subscription_status ?? selectedOrgStatus)}`}>
+                  {billingLabel(sub?.status ?? billing?.subscription_status ?? selectedOrgStatus)}
                 </span>
               </div>
               {orgPicker}
 
               <div className={styles.summaryBar}>
-                <div className={styles.summaryCard}>
-                  <span className={styles.summaryLabel}>Next charge</span>
-                  <span className={styles.summaryValue}>{nextChargeCents != null ? formatMoney(nextChargeCents, sub?.currency) : "-"}</span>
-                  <span className={styles.summaryHint}>{sub?.interval ? `per ${sub.interval}` : billingLabel(billing?.billing_interval)}</span>
-                </div>
-                <div className={styles.summaryCard}>
-                  <span className={styles.summaryLabel}>Renews</span>
-                  <span className={styles.summaryValue} style={{ fontSize: 18 }}>{formatDate(renewIso)}</span>
-                  <span className={styles.summaryHint}>{daysLeft != null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in cycle` : "no renewal date"}</span>
-                </div>
+                {stripeManaged ? (
+                  <div className={styles.summaryCard}>
+                    <span className={styles.summaryLabel}>Next charge</span>
+                    <span className={styles.summaryValue}>{nextChargeCents != null ? formatMoney(nextChargeCents, sub?.currency) : "-"}</span>
+                    <span className={styles.summaryHint}>{sub?.interval ? `per ${sub.interval}` : billingLabel(billing?.billing_interval)}</span>
+                  </div>
+                ) : null}
+                {stripeManaged || renewIso ? (
+                  <div className={styles.summaryCard}>
+                    <span className={styles.summaryLabel}>Renews</span>
+                    <span className={styles.summaryValue} style={{ fontSize: 18 }}>{formatDate(renewIso)}</span>
+                    <span className={styles.summaryHint}>{daysLeft != null ? `${daysLeft} day${daysLeft === 1 ? "" : "s"} left in cycle` : "no renewal date"}</span>
+                  </div>
+                ) : null}
                 <div className={styles.summaryCard}>
                   <span className={styles.summaryLabel}>Seats</span>
                   <span className={styles.summaryValue}>{(sub?.quantity ?? billing?.seats) ?? "-"}</span>
                   <span className={styles.summaryHint}>{sub?.cancel_at_period_end ? "cancels at period end" : "active seats"}</span>
                 </div>
-                <div className={styles.summaryCard}>
-                  <span className={styles.summaryLabel}>Paid to date</span>
-                  <span className={styles.summaryValue}>{payments ? formatMoney(paidToDate, sub?.currency) : "-"}</span>
-                  <span className={styles.summaryHint}>{payments ? `${payments.invoices.filter((iv) => iv.status === "paid").length} invoices` : "from Stripe"}</span>
-                </div>
+                {stripeManaged ? (
+                  <div className={styles.summaryCard}>
+                    <span className={styles.summaryLabel}>Paid to date</span>
+                    <span className={styles.summaryValue}>{payments ? formatMoney(paidToDate, sub?.currency) : "-"}</span>
+                    <span className={styles.summaryHint}>{payments ? `${payments.invoices.filter((iv) => iv.status === "paid").length} invoices` : "from Stripe"}</span>
+                  </div>
+                ) : null}
               </div>
 
               {renewIso ? (
@@ -404,44 +375,54 @@ export default function BillingPanel({ memberships, embedded = false }: { member
                 </p>
               ) : null}
 
-              <div className={styles.buttonRow} style={{ marginTop: 14 }}>
-                <button type="button" className={styles.button} disabled={busy} onClick={openPortal}>
-                  Manage or cancel in Stripe →
-                </button>
-                <button type="button" className={styles.buttonSecondary} disabled={busy} onClick={openPortal}>
-                  Change plan or seats
-                </button>
-              </div>
-              <p className={styles.meta} style={{ marginTop: 10 }}>
-                Plan changes, card updates, and cancellation run through the Stripe-hosted customer portal. Cancelling stops billing at the end of the current cycle.
-              </p>
-            </div>
-
-            <div className={styles.section}>
-              <div className={styles.sectionHeader}>
-                <div>
-                  <h2 className={styles.sectionTitle}>Payment method</h2>
-                </div>
-              </div>
-              {payments?.card ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <span style={{ fontSize: 15, color: "var(--ink)", textTransform: "capitalize" }}>
-                    {payments.card.brand} •••• {payments.card.last4}
-                  </span>
-                  <span className={styles.summaryHint}>
-                    expires {String(payments.card.exp_month).padStart(2, "0")}/{String(payments.card.exp_year).slice(-2)} · managed by Stripe
-                  </span>
-                </div>
+              {stripeManaged ? (
+                <>
+                  <div className={styles.buttonRow} style={{ marginTop: 14 }}>
+                    <button type="button" className={styles.button} disabled={busy} onClick={openPortal}>
+                      {busy ? "Opening portal..." : "Manage subscription"}
+                    </button>
+                  </div>
+                  <p className={styles.meta} style={{ marginTop: 10 }}>
+                    Change plan, seats, or payment method in the Stripe portal.
+                  </p>
+                </>
               ) : (
-                <p className={styles.meta}>No card on file is visible here. Update it in the Stripe portal.</p>
+                <p className={styles.meta} style={{ marginTop: 14 }}>
+                  Billing for this organization is managed by Frege staff.{" "}
+                  <a className={styles.linkButton} href="/contact">Contact us</a> to change plan, seats, or payment details.
+                </p>
               )}
             </div>
+
+            {stripeManaged ? (
+              <div className={styles.section}>
+                <div className={styles.sectionHeader}>
+                  <div>
+                    <h2 className={styles.sectionTitle}>Payment method</h2>
+                  </div>
+                </div>
+                {payments?.card ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 15, color: "var(--ink)", textTransform: "capitalize" }}>
+                      {payments.card.brand} •••• {payments.card.last4}
+                    </span>
+                    <span className={styles.summaryHint}>
+                      expires {String(payments.card.exp_month).padStart(2, "0")}/{String(payments.card.exp_year).slice(-2)} · managed by Stripe
+                    </span>
+                  </div>
+                ) : (
+                  <p className={styles.meta}>No card on file is visible here. Update it in the Stripe portal.</p>
+                )}
+              </div>
+            ) : null}
 
             <div className={styles.section}>
               <div className={styles.sectionHeader}>
                 <div>
                   <h2 className={styles.sectionTitle}>Invoices</h2>
-                  <p className={styles.meta}>Receipts and payment history, synced from Stripe.</p>
+                  <p className={styles.meta}>
+                    {stripeManaged ? "Receipts and payment history, synced from Stripe." : "Receipts and payment history."}
+                  </p>
                 </div>
               </div>
               {payments && payments.invoices.length > 0 ? (
@@ -481,33 +462,29 @@ export default function BillingPanel({ memberships, embedded = false }: { member
                 </div>
               ) : (
                 <div className={styles.empty}>
-                  <strong>No invoices yet</strong>
-                  <span>Invoices appear here after your first Stripe charge.</span>
+                  <strong>No payments yet</strong>
+                  <span>
+                    {stripeManaged
+                      ? "Invoices appear here after your first Stripe charge."
+                      : "Payments for this organization are handled by Frege staff."}
+                  </span>
                 </div>
               )}
             </div>
           </>
         ) : (
-          // ── No subscription yet: account billing status ──
+          // ── Never billed: plan picker + Stripe checkout ──
           <div className={styles.section}>
             <div className={styles.sectionHeader}>
               <div>
                 <span className={styles.kicker}>// billing status</span>
-                <h2 className={styles.sectionTitle}>{billingStatus.label}</h2>
-                <p className={styles.sectionLead}>{billingStatus.detail}</p>
+                <h2 className={styles.sectionTitle}>{view.status.label}</h2>
+                <p className={styles.sectionLead}>{view.status.detail}</p>
               </div>
-              <span className={`${styles.badge} ${statusBadgeClass(billingStatus.label === "ready for billing" ? "trialing" : selectedOrgStatus)}`}>
-                {billingStatus.label}
-              </span>
             </div>
             {orgPicker}
 
             <div className={styles.summaryBar}>
-              <div className={styles.summaryCard}>
-                <span className={styles.summaryLabel}>Current status</span>
-                <span className={styles.summaryValue} style={{ fontSize: 18 }}>{billingStatus.label}</span>
-                <span className={styles.summaryHint}>{billingLabel(selectedOrgStatus)}</span>
-              </div>
               <div className={styles.summaryCard}>
                 <span className={styles.summaryLabel}>Selected plan</span>
                 <span className={styles.summaryValue} style={{ fontSize: 18 }}>{selectedPlan.label}</span>
