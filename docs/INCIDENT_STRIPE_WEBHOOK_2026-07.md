@@ -1,7 +1,38 @@
-# INCIDENT — Stripe live-mode webhook deliveries failing (open)
+# INCIDENT — Stripe live-mode webhook deliveries failing (RESOLVED 2026-07-10)
 
-Opened: 2026-07-09. Severity: **critical** — Stripe disables the endpoint **2026-07-16 05:56:55 UTC**.
-Owner: Joe (needs Frege Stripe dashboard access for the final step). Investigation: Claude, 2026-07-09.
+Opened: 2026-07-09. Resolved: 2026-07-10. Severity was **critical**.
+
+## RESOLUTION
+
+**Root cause: `STRIPE_WEBHOOK_SECRET` in Vercel production never matched the live
+endpoint's signing secret.** Every delivery since the endpoint's creation (2026-06-23)
+reached the function and got a 400 from signature verification — before the ledger
+write, which is why `stripe_webhook_events` was empty and the failure looked
+transport-level. Stripe's email bucketing the 400s as "other errors" sent the
+investigation through DNS/DNSSEC/firewall/IP-space dead ends; Vercel runtime logs
+(`vercel logs` during a live `stripe events resend`) provided the ground truth.
+
+Actions taken (Claude, with Joe's live key, 2026-07-10):
+1. Created replacement endpoint `we_1Tri3aHNWHq5KubIprPIHL3I` →
+   `https://frege.dev/api/v1/billing/webhook` (same 6 event types); captured its
+   signing secret at creation (the only moment Stripe reveals it).
+2. Replaced `STRIPE_WEBHOOK_SECRET` in Vercel production (sensitive) and redeployed.
+3. Resent all 6 pending events (2 checkouts + 2 subscription.created + 2 invoice.paid)
+   → all `processed` in the ledger.
+4. **Both stranded customers activated**: `kismet` (team annual, 2 seats — real revenue,
+   stranded 3 days) and `test` (solo monthly). `signups.paid_at` 1 → 3.
+5. Deleted the broken endpoint `we_1TlasVHNWHq5KubIDIuzqhnq`; Stripe's disable
+   deadline is moot.
+6. Stripe's 15 published webhook egress IPs added to Vercel firewall System Bypass
+   (done during investigation; harmless and recommended, kept).
+7. Live key + new signing secret stored in `.env.stripe-live.local` (gitignored).
+
+Still open: the hardening follow-ups at the bottom (webhook-silence alert especially),
+and Joe's call on whether to email kismet an apology for the 3-day activation delay.
+
+---
+
+Original investigation notes below (pre-resolution).
 
 ## Stripe's notice (received 2026-07-09)
 
