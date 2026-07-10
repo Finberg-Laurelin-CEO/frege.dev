@@ -30,6 +30,14 @@ documents:
     tags: [frege, billing, stripe]
   - path: docs/PROTOTYPE_OPERATIONS.md
     tags: [frege, operations]
+  - path: docs/YC_APP_VIDEO_SCRIPT.md
+    slug: yc-app-video-script
+    title: YC Application Video Script
+    tags: [frege, demo, investors, yc]
+  - path: docs/DEMO_OPERATOR_CHECKLIST.md
+    slug: demo-operator-checklist
+    title: Demo Operator Checklist
+    tags: [frege, demo, operations]
   # Red-zone demo docs for the governed-denial beat in the investor Loom.
   # sensitivity: restricted maps to trust_zone red server-side. Syncing these
   # entries requires a key whose role carries the `restricted` label (e.g. the
