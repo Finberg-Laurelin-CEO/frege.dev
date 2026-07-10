@@ -62,8 +62,10 @@ of `frege-local` before recording; invite it from `/admin` if not.
 frege docs sync frege.docs.yml --dry-run
 ```
 
-Expected: 11 planned documents, including the two restricted entries
+Expected: 13 planned documents (includes `yc-app-video-script` and
+`demo-operator-checklist`), including the two restricted entries
 (`security-provider-key-handling`, `security-red-zone-handling`), and no errors.
+All 13 were synced to the live org on 2026-07-09.
 
 ## 6. Red-zone docs are imported
 
@@ -89,11 +91,17 @@ node --env-file=./.vercel/.env.production.local \
 rm -rf .vercel
 ```
 
-## 7. Green-only writer key for the denial beat
+## 7. Green-only writer key for the denial beat — **JOE ONLY, ~60 seconds**
 
-The admin demo key can read red-zone docs, so the on-camera denial must run through
-a writer-role key whose labels are `public,internal` only. Create it in the console
-(connect → API keys) and export it in a hidden prompt before recording:
+> This is the one staging item nobody else (human or agent) can do for you — it
+> requires holding a raw key that shouldn't leave your hands. Everything else on
+> this checklist was pre-verified on 2026-07-09; this is the last gate before
+> pressing record.
+
+The admin demo key holds the `restricted` label, so **the denial beat will not fire
+with it** — the on-camera denial must run through a writer-role key whose labels are
+`public,internal` only. Create it in the console (connect → API keys) and export it
+in a hidden prompt before recording:
 
 ```bash
 export FREGE_WRITER_KEY=frg_live_...   # never on screen
