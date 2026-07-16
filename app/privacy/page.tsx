@@ -1,31 +1,135 @@
 import type { Metadata } from "next";
+import SiteFooter from "../components/SiteFooter";
+import v2Styles from "../secondary-public-v2.module.css";
+
+const publicSiteV2 = process.env.FREGE_PUBLIC_SITE_V2 === "true";
 
 export const metadata: Metadata = {
   title: "Privacy — Frege",
   description:
-    "Frege privacy policy: what we collect during signup, why, how it is stored, and your rights.",
+    "How Frege handles account data, organizational content, agent activity, billing records, and service telemetry.",
 };
+
+const rows: [string, React.ReactNode][] = [
+  [
+    "data we process",
+    <>
+      Account and organization information; memberships and roles; documents, source material,
+      revisions, and metadata you choose to add; agent sessions, context builds, proposals, and
+      related events; support messages; billing and subscription status; and technical data such
+      as IP address, user agent, request outcome, latency, token counts, and estimated cost.
+    </>,
+  ],
+  [
+    "credentials",
+    <>
+      Passwords are stored as one-way hashes or handled by an identity provider. Frege-issued API
+      keys are stored in protected form. Provider credentials you configure are encrypted before
+      storage. Do not place raw secrets inside documents, prompts, or support messages.
+    </>,
+  ],
+  [
+    "how content is used",
+    <>
+      We process organizational content to store and retrieve governed memory, assemble scoped
+      context, maintain revisions and proposals, operate agent sessions, provide support, secure
+      the service, and improve reliability. We do not sell customer content or use it for
+      advertising.
+    </>,
+  ],
+  [
+    "models and integrations",
+    <>
+      When you configure a model provider or integration, Frege sends the context and request data
+      needed to perform the action you initiated. Those providers process data under their own
+      terms and your configuration. Frege does not silently send restricted content to an
+      unconfigured provider.
+    </>,
+  ],
+  [
+    "service providers",
+    <>
+      We use vendors for hosting, databases, authentication, payments, transactional email,
+      analytics, and support. They process data on our instructions to provide their services.
+      Stripe processes payment-card details; Frege stores customer, subscription, and payment
+      status rather than complete card numbers.
+    </>,
+  ],
+  [
+    "cookies and analytics",
+    <>
+      Frege uses authentication and security cookies where needed and Vercel Analytics to
+      understand aggregate site usage and performance. We do not run an advertising network or
+      sell behavioral profiles.
+    </>,
+  ],
+  [
+    "retention and deletion",
+    <>
+      We retain account and organizational data while the service is active and as reasonably
+      needed for security, backups, dispute resolution, and legal obligations. Account deletion
+      requests are applied to active systems and age out of backups on their normal lifecycle,
+      subject to records we must retain.
+    </>,
+  ],
+  [
+    "security",
+    <>
+      We use access controls, tenant scoping, encryption in transit, protected credential storage,
+      and operational monitoring. No online service can guarantee absolute security. Report a
+      suspected vulnerability to <a className="lnk" href="mailto:security@frege.dev">security@frege.dev</a>.
+    </>,
+  ],
+  [
+    "your choices",
+    <>
+      Organization administrators control members, agent keys, sources, and configured providers.
+      Email <a className="lnk" href="mailto:privacy@frege.dev">privacy@frege.dev</a> to request
+      access, correction, export, or deletion. We may need to verify your identity and authority
+      over the organization before acting.
+    </>,
+  ],
+  [
+    "children",
+    <>Frege is a business service and is not directed to children under 13.</>,
+  ],
+  [
+    "contact",
+    <>
+      Privacy questions: <a className="lnk" href="mailto:privacy@frege.dev">privacy@frege.dev</a>.
+      General support: <a className="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a>.
+    </>,
+  ],
+];
 
 export default function Privacy() {
   return (
-    <>
-      <main id="main" className="screen">
-        <section aria-label="Privacy policy">
-          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <span className="cmd">cat privacy-policy.txt</span></p>
-          <p className="out wrap cmt"># frege privacy policy · last updated 2026-07-06. plain language, no dark patterns.</p>
-          <dl className="rows policy">
-            <div><dt>what we collect</dt><dd>what you type during signup: name, work email, company, password (stored only as a hash), role/title if provided, org size, optional other info, billing status from Stripe, and permission to contact you. nothing else.</dd></div>
-            <div><dt>what we never collect</dt><dd>we do not ask for, store, or transmit your company documents, source code, customer data, or API keys through this site. there is no tracking pixel, no third-party analytics, and no advertising cookie on this page.</dd></div>
-            <div><dt>why we collect it</dt><dd>to create your account, provision your organization, process billing, support the product, and contact you about Frege.</dd></div>
-            <div><dt>how it is stored</dt><dd>account and signup records are written to a private Postgres database. billing is handled by Stripe. data is encrypted in transit (TLS) and at rest.</dd></div>
-            <div><dt>sharing</dt><dd>we do not sell your data and do not share it with advertisers. limited processors (database host, Stripe, email) act on our instructions under contract.</dd></div>
-            <div><dt>retention</dt><dd>we keep account and billing records while your account is active and as needed for security, legal, and operational purposes.</dd></div>
-            <div><dt>your rights</dt><dd>email <a className="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a> any time to access, correct, or delete your data, or to opt out of contact. we will action it.</dd></div>
-            <div><dt>contact</dt><dd><a className="lnk" href="mailto:hello@frege.dev">hello@frege.dev</a></dd></div>
-          </dl>
-          <p className="line"><span className="prompt">agent@frege</span><span className="path">:~</span><span className="sigil">$</span> <a className="lnk" href="/">cd ~</a><span className="cursor" aria-hidden="true">█</span></p>
-        </section>
-      </main>
-    </>
+    <main
+      id="main"
+      className={publicSiteV2 ? `${v2Styles.page} ${v2Styles.policyPage}` : "screen"}
+    >
+      <section aria-labelledby="privacy-title">
+        <p className="eyebrow">Data handling</p>
+        <h1
+          className={publicSiteV2 ? `hero-tag ${v2Styles.policyTitle}` : "hero-tag"}
+          id="privacy-title"
+        >Privacy at Frege.</h1>
+        <p className={publicSiteV2 ? `out wrap ${v2Styles.policyLead}` : "out wrap"}>
+          This notice describes the information Frege processes when people and agents use the
+          website, hosted control plane, CLI, MCP gateway, and related services.
+        </p>
+        <p className={publicSiteV2 ? `out wrap cmt ${v2Styles.policyDate}` : "out wrap cmt"}>Last updated July 15, 2026.</p>
+        <dl className={publicSiteV2 ? `rows policy ${v2Styles.legalRows}` : "rows policy"}>
+          {rows.map(([title, copy]) => (
+            <div key={title}><dt>{title}</dt><dd>{copy}</dd></div>
+          ))}
+        </dl>
+        <p className={publicSiteV2 ? `out wrap cmt ${v2Styles.policyTail}` : "out wrap cmt"}>
+          We may update this notice as Frege changes. Material changes will be posted here with a
+          new effective date.
+        </p>
+      </section>
+      <SiteFooter />
+    </main>
   );
 }

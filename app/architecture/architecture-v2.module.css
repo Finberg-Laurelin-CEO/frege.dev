@@ -1,0 +1,1624 @@
+@font-face {
+  font-family: "Newsreader Frege";
+  src: url("/fonts/Newsreader-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+/* Local-only until Frege has a production Migra web license. */
+@font-face {
+  font-family: "Migra Frege";
+  src: local("Migra Italic"), local("MigraItalic");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+
+main.architectureV2 {
+  --architectureV2Field: #0a3f33;
+  --architectureV2Paper: #f6f7f5;
+  --architectureV2Muted: rgba(246, 247, 245, 0.82);
+  --architectureV2Faint: rgba(246, 247, 245, 0.72);
+  --architectureV2Rule: rgba(246, 247, 245, 0.17);
+  --architectureV2RuleStrong: rgba(246, 247, 245, 0.3);
+  --architectureV2Signal: #a6ffcb;
+  --architectureV2Gutter: max(clamp(20px, 5vw, 72px), calc((100vw - 1420px) / 2));
+  width: 100%;
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  overflow: clip;
+  padding: 0 var(--architectureV2Gutter) clamp(56px, 9vw, 110px);
+  color: var(--architectureV2Paper);
+  background: var(--architectureV2Field);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  letter-spacing: 0;
+}
+
+.architectureNavigator {
+  position: sticky;
+  top: calc(var(--bar-h) + 28px);
+  align-self: start;
+  min-width: 0;
+  max-height: calc(100svh - var(--bar-h) - 56px);
+  overflow-y: auto;
+  padding: 0 clamp(18px, 2.4vw, 34px) 18px 0;
+  color: var(--architectureV2Muted);
+  font-family: var(--mono);
+  scrollbar-width: thin;
+  scrollbar-color: var(--architectureV2RuleStrong) transparent;
+}
+
+.architectureNavigatorHead {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 13px 0 17px;
+  border-top: 1px solid var(--architectureV2RuleStrong);
+  color: var(--architectureV2Muted);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.architectureNavigatorHead strong {
+  grid-column: 2 / -1;
+  overflow: hidden;
+  color: var(--architectureV2Paper);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.architectureNavigatorPulse {
+  width: 6px;
+  height: 6px;
+  border: 1px solid var(--architectureV2Signal);
+  box-shadow: 0 0 10px rgba(166, 255, 203, 0.45);
+  transform: rotate(45deg);
+  animation: architecture-navigator-pulse 2.8s steps(2, end) infinite;
+}
+
+.architectureNavigatorList {
+  position: relative;
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 2px 0 0;
+  list-style: none;
+}
+
+.architectureNavigatorList::before {
+  position: absolute;
+  top: 14px;
+  bottom: 14px;
+  left: 8px;
+  width: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    var(--architectureV2RuleStrong) 8%,
+    var(--architectureV2RuleStrong) 92%,
+    transparent
+  );
+}
+
+.architectureNavigatorList li {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.architectureNavigatorLink {
+  position: relative;
+  display: grid;
+  grid-template-columns: 19px 25px minmax(0, 1fr);
+  gap: 5px;
+  align-items: baseline;
+  min-width: 0;
+  padding: 6px 0;
+  color: var(--architectureV2Muted);
+  font-size: 10px;
+  letter-spacing: 0.055em;
+  line-height: 1.45;
+  text-decoration: none;
+  transition: color 150ms ease, transform 150ms ease;
+}
+
+.architectureNavigatorBranch {
+  position: relative;
+  z-index: 1;
+  color: rgba(166, 255, 203, 0.72);
+  letter-spacing: 0;
+  background: var(--architectureV2Field);
+}
+
+.architectureNavigatorNumber {
+  color: rgba(166, 255, 203, 0.84);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.architectureNavigatorLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.architectureNavigatorLink:hover,
+.architectureNavigatorLink:focus-visible {
+  color: var(--architectureV2Paper);
+  transform: translateX(3px);
+}
+
+.architectureNavigatorList li[data-active="true"] .architectureNavigatorLink {
+  color: var(--architectureV2Paper);
+}
+
+.architectureNavigatorList li[data-active="true"] .architectureNavigatorBranch,
+.architectureNavigatorList li[data-active="true"] .architectureNavigatorNumber {
+  color: var(--architectureV2Signal);
+  text-shadow: 0 0 10px rgba(166, 255, 203, 0.44);
+}
+
+@keyframes architecture-navigator-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: 820px) {
+  .architectureNavigator {
+    z-index: 8;
+    top: var(--bar-h);
+    width: 100%;
+    max-height: none;
+    overflow: hidden;
+    padding: 11px 0 8px;
+    border-top: 1px solid var(--architectureV2Rule);
+    border-bottom: 1px solid var(--architectureV2RuleStrong);
+    background: color-mix(in srgb, var(--architectureV2Field) 98%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .architectureNavigatorHead {
+    display: flex;
+    gap: 9px;
+    min-width: 0;
+    padding: 0 0 5px;
+    border: 0;
+  }
+
+  .architectureNavigatorHead strong {
+    min-width: 0;
+    margin-left: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .architectureNavigatorList {
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+    padding: 0;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .architectureNavigatorList::-webkit-scrollbar { display: none; }
+  .architectureNavigatorList::before { display: none; }
+
+  .architectureNavigatorList li {
+    flex: 0 0 auto;
+    scroll-snap-align: center;
+  }
+
+  .architectureNavigatorLink {
+    grid-template-columns: 17px 23px auto;
+    align-items: center;
+    min-height: 44px;
+    padding: 6px 24px 5px 0;
+    white-space: nowrap;
+  }
+
+  .architectureNavigatorLink:hover,
+  .architectureNavigatorLink:focus-visible {
+    transform: none;
+  }
+
+  .architectureNavigatorList li[data-active="true"] .architectureNavigatorLink {
+    text-decoration: underline;
+    text-decoration-color: rgba(166, 255, 203, 0.62);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 7px;
+  }
+
+  .architectureNavigatorLabel {
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  .architectureV2.architectureV2 :global(.docs__layout) {
+    gap: clamp(38px, 7vw, 58px);
+  }
+
+  .architectureV2.architectureV2 :global(.docs__main > section) {
+    scroll-margin-top: calc(var(--bar-h) + 92px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .architectureNavigatorPulse { animation: none; opacity: 0.72; }
+  .architectureNavigatorLink { transition: none; }
+  .architectureNavigatorList { scroll-behavior: auto; }
+}
+
+.architectureV2 *::selection {
+  color: var(--architectureV2Field);
+  background: var(--architectureV2Signal);
+}
+
+.architectureV2 :where(a):focus-visible {
+  outline: 2px solid var(--architectureV2Signal);
+  outline-offset: 4px;
+}
+
+.architectureV2 :global(.docs__head) {
+  position: relative;
+  display: grid;
+  width: 100vw;
+  grid-template-columns: minmax(0, 760px);
+  grid-template-areas:
+    "trace"
+    "eyebrow"
+    "title"
+    "copy"
+    "actions";
+  min-height: max(680px, calc(100svh - var(--bar-h)));
+  gap: 1.2rem;
+  align-content: center;
+  margin: 0 0 0 calc(var(--architectureV2Gutter) * -1);
+  padding: clamp(92px, 10vw, 158px) var(--architectureV2Gutter) clamp(76px, 9vw, 128px);
+  border-bottom: 1px solid var(--architectureV2RuleStrong);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.architectureV2 :global(.docs__head)::after {
+  grid-area: trace;
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  justify-self: start;
+  content: "+-- identity --> context --> model --+";
+  color: rgba(166, 255, 203, 0.78);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+  white-space: nowrap;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.94);
+}
+
+.architectureHeroArt {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #061b14;
+}
+
+.architectureHeroArt picture,
+.architectureHeroArt img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.architectureHeroArt img {
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(0.98) contrast(1.04) brightness(0.94);
+  transform: scale(1.008);
+}
+
+.architectureHeroAscii {
+  z-index: 2;
+}
+
+.architectureHeroArt::before,
+.architectureHeroArt::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.architectureHeroArt::before {
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(2, 19, 14, 0.98) 0%, rgba(2, 19, 14, 0.94) 34%, rgba(2, 19, 14, 0.82) 52%, rgba(2, 19, 14, 0.24) 75%, rgba(2, 19, 14, 0.08) 100%),
+    linear-gradient(180deg, rgba(2, 19, 14, 0.28), transparent 42%, rgba(2, 19, 14, 0.74));
+}
+
+.architectureHeroArt::after {
+  z-index: 2;
+  opacity: 0.26;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 3px,
+    rgba(255, 246, 225, 0.12) 4px
+  );
+  mix-blend-mode: soft-light;
+}
+
+.architectureHeroArt figcaption {
+  position: absolute;
+  z-index: 3;
+  right: var(--architectureV2Gutter);
+  bottom: 22px;
+  left: var(--architectureV2Gutter);
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  color: rgba(255, 242, 218, 0.95);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.95);
+  text-transform: uppercase;
+}
+
+.architectureV2 :global(.docs__head .eyebrow) {
+  position: relative;
+  z-index: 2;
+  grid-area: eyebrow;
+  margin: 0;
+  color: var(--architectureV2Signal);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.architectureV2 :global(.docs__head .eyebrow)::before {
+  color: var(--architectureV2Faint);
+}
+
+.architectureV2 :global(.docs__head h1) {
+  position: relative;
+  z-index: 2;
+  grid-area: title;
+  max-width: 8ch;
+  margin: 0;
+  color: var(--architectureV2Paper);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-size: clamp(64px, 8vw, 124px);
+  font-weight: 430;
+  line-height: 0.88;
+  letter-spacing: -0.055em;
+  text-wrap: balance;
+}
+
+.architectureV2 :global(.docs__head h1 em) {
+  color: rgba(246, 247, 245, 0.78);
+  font-family: "Migra Frege", "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: -0.065em;
+}
+
+.architectureV2 :global(.docs__head > p:not(.eyebrow)) {
+  position: relative;
+  z-index: 2;
+  grid-area: copy;
+  align-self: center;
+  max-width: 43ch;
+  margin: 0;
+  color: var(--architectureV2Muted);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-size: clamp(18px, 1.55vw, 22px);
+  line-height: 1.6;
+}
+
+.architectureV2 :global(.hero__actions) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 14px;
+}
+
+.architectureV2 :global(.docs__head .hero__actions) {
+  position: relative;
+  z-index: 2;
+  grid-area: actions;
+}
+
+.architectureV2 :global(.button),
+.architectureV2 :global(.button.button--primary) {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  min-height: auto;
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(166, 255, 203, 0.62);
+  color: var(--architectureV2Signal);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.architectureV2 :global(.button)::before,
+.architectureV2 :global(.button.button--primary)::before {
+  content: "[ ";
+  color: currentColor;
+  opacity: 0.85;
+}
+
+.architectureV2 :global(.button)::after,
+.architectureV2 :global(.button.button--primary)::after {
+  content: " → ]";
+  margin-left: 2px;
+  opacity: 0.72;
+}
+
+.architectureV2 :global(.button:hover),
+.architectureV2 :global(.button:focus),
+.architectureV2 :global(.button.button--primary:hover),
+.architectureV2 :global(.button.button--primary:focus) {
+  border-bottom-color: var(--architectureV2Paper);
+  color: var(--architectureV2Paper);
+  background: transparent;
+  text-decoration: none;
+}
+
+.architectureV2 :global(.docs__layout) {
+  display: grid;
+  grid-template-columns: minmax(185px, 0.25fr) minmax(0, 1fr);
+  gap: clamp(42px, 7vw, 112px);
+  align-items: start;
+  padding-top: clamp(78px, 9vw, 132px);
+}
+
+.architectureV2 :global(.docs__sidebar) {
+  position: sticky;
+  top: calc(var(--bar-h) + 24px);
+  display: flex;
+  max-height: calc(100vh - var(--bar-h) - 48px);
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  padding: 25px clamp(18px, 3vw, 38px) 25px 0;
+  border-top: 1px solid var(--architectureV2Rule);
+  border-right: 1px solid var(--architectureV2Rule);
+  border-bottom: 1px solid var(--architectureV2Rule);
+  font-family: var(--mono);
+  scrollbar-width: thin;
+}
+
+.architectureV2 :global(.docs__sidebar)::before {
+  margin-bottom: 13px;
+  content: "index / system map";
+  color: var(--architectureV2Faint);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.architectureV2 :global(.docs__sidebar a) {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: baseline;
+  padding: 6px 0;
+  color: var(--architectureV2Muted);
+  font-size: 10px;
+  letter-spacing: 0.045em;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.architectureV2 :global(.docs__sidebar a)::before {
+  content: attr(data-n);
+  color: var(--architectureV2Signal);
+  font-size: 9px;
+}
+
+.architectureV2 :global(.docs__sidebar a:hover),
+.architectureV2 :global(.docs__sidebar a:focus) {
+  color: var(--architectureV2Paper);
+}
+
+.architectureV2 :global(.docs__main) {
+  min-width: 0;
+}
+
+.architectureV2 :global(.docs__main > section) {
+  position: relative;
+  scroll-margin-top: calc(var(--bar-h) + 20px);
+  padding: clamp(70px, 8vw, 116px) 0;
+  border-top: 1px solid var(--architectureV2RuleStrong);
+}
+
+.architectureV2 :global(.docs__main > section:first-of-type) {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.architectureV2 :global(.docs__main > section)::before {
+  position: absolute;
+  top: -7px;
+  left: 0;
+  padding-right: 8px;
+  content: "+";
+  color: var(--architectureV2Faint);
+  background: var(--architectureV2Field);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.architectureV2 :global(.docs__main > section:first-of-type)::before {
+  display: none;
+}
+
+.architectureV2 :global(.docs__main) h2 {
+  max-width: 14ch;
+  margin: 0 0 clamp(18px, 2vw, 28px);
+  color: var(--architectureV2Paper);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-size: clamp(38px, 4.3vw, 64px);
+  font-weight: 430;
+  line-height: 0.98;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.architectureV2 :global(.docs__main) h2::before {
+  content: "├─ ";
+  color: var(--architectureV2Faint);
+  font-family: var(--mono);
+  font-size: 0.24em;
+  letter-spacing: 0;
+  vertical-align: 0.55em;
+}
+
+.architectureV2 p,
+.architectureV2 ul,
+.architectureV2 ol {
+  max-width: 62ch;
+  color: var(--architectureV2Muted);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-size: clamp(17px, 1.3vw, 19px);
+  line-height: 1.64;
+}
+
+/* The legacy docs stylesheet is loaded after CSS-module chunks and its
+   `.docs p` rule has the same base specificity. Keep long-form V2 copy on the
+   deliberately light editorial tone instead of inheriting the legacy gray. */
+.architectureV2 :global(.docs__main) p,
+.architectureV2 :global(.docs__main) ul,
+.architectureV2 :global(.docs__main) ol {
+  color: var(--architectureV2Muted);
+}
+
+.architectureV2 p {
+  margin: 12px 0 0;
+}
+
+.architectureV2 ul,
+.architectureV2 ol {
+  margin: 22px 0 0;
+  padding-left: 1.15em;
+}
+
+.architectureV2 li {
+  margin: 9px 0;
+  padding-left: 0.35em;
+}
+
+.architectureV2 :global(.docs__main) li::marker {
+  color: var(--architectureV2Signal);
+}
+
+.architectureV2 b,
+.architectureV2 strong {
+  color: var(--architectureV2Paper);
+  font-weight: 550;
+}
+
+.architectureV2 :global(.docs__main) code {
+  padding: 0 0.16em;
+  border-bottom: 1px solid rgba(166, 255, 203, 0.38);
+  color: var(--architectureV2Signal);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 0.82em;
+  overflow-wrap: anywhere;
+}
+
+.architectureV2 :global(.docs__main .diagram),
+.architectureV2 :global(.docs__main pre.diagram) {
+  position: relative;
+  max-width: 100%;
+  margin: clamp(30px, 4vw, 48px) 0 0;
+  padding: clamp(24px, 3vw, 38px) clamp(18px, 2.5vw, 32px);
+  overflow-x: auto;
+  border: 0;
+  border-top: 1px solid var(--architectureV2RuleStrong);
+  border-bottom: 1px solid var(--architectureV2RuleStrong);
+  color: var(--architectureV2Paper);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: clamp(9px, 1vw, 12px);
+  line-height: 1.75;
+  letter-spacing: 0.025em;
+  white-space: pre;
+  scrollbar-width: thin;
+}
+
+.architectureV2 :global(.docs__main .diagram)::selection,
+.architectureV2 :global(.docs__main pre.diagram)::selection {
+  color: var(--architectureV2Field);
+  background: var(--architectureV2Signal);
+}
+
+.architectureV2 :global(.docs__note) {
+  position: relative;
+  max-width: 62ch;
+  margin: 28px 0 0;
+  padding: 18px 0 18px clamp(25px, 3vw, 42px);
+  border: 0;
+  border-top: 1px solid var(--architectureV2Rule);
+  border-bottom: 1px solid var(--architectureV2Rule);
+  color: var(--architectureV2Muted);
+  background: transparent;
+  font-size: 16px;
+}
+
+.architectureV2 :global(.docs__note)::before {
+  position: absolute;
+  top: 18px;
+  left: 0;
+  content: "├─";
+  color: var(--architectureV2Signal);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
+.architectureV2 :global(.caps) {
+  display: grid;
+  gap: 0;
+  margin-top: clamp(34px, 5vw, 62px);
+}
+
+.architectureV2 :global(.caps__row) {
+  display: grid;
+  grid-template-columns: minmax(12rem, 0.42fr) minmax(0, 0.58fr);
+  gap: clamp(26px, 5vw, 72px);
+  align-items: baseline;
+  padding: clamp(22px, 3vw, 34px) 0;
+  border-top: 1px solid var(--architectureV2Rule);
+}
+
+.architectureV2 :global(.caps__row:last-child) {
+  border-bottom: 1px solid var(--architectureV2Rule);
+}
+
+.architectureV2 :global(.caps__row dt) {
+  color: var(--architectureV2Paper);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-size: clamp(22px, 2.2vw, 31px);
+  line-height: 1.08;
+}
+
+.architectureV2 :global(.caps__row dt)::before {
+  content: "├─ ";
+  color: var(--architectureV2Signal);
+  font-family: var(--mono);
+  font-size: 0.34em;
+  vertical-align: 0.52em;
+}
+
+.architectureV2 :global(.caps__row:last-child dt)::before {
+  content: "└─ ";
+}
+
+.architectureV2 :global(.caps__row dd) {
+  margin: 0;
+  color: var(--architectureV2Muted);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-size: clamp(16px, 1.25vw, 18px);
+  line-height: 1.62;
+}
+
+.architectureV2 :global(.rule) {
+  width: 100%;
+  max-width: none;
+  height: auto;
+  margin: 0;
+  overflow: hidden;
+  border: 0;
+  color: var(--architectureV2Faint);
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.architectureV2 :global(.rule)::before {
+  content: "├──────────────── memory / identity / context / provenance ────────────────┤";
+}
+
+.architectureV2 :global(.docs__main > #mcp) {
+  padding-bottom: clamp(96px, 12vw, 168px);
+}
+
+.architectureV2 :global(.docs__main > #mcp .hero__actions) {
+  margin-top: 34px;
+}
+
+/* V2 uses matching green chrome. These overrides only affect the literal
+   legacy footer when the environment gate is off during local comparisons. */
+.architectureV2 :global(.foot) {
+  color: var(--architectureV2Faint);
+}
+
+.architectureV2 :global(.foot__top) {
+  color: var(--architectureV2RuleStrong);
+}
+
+.architectureV2 :global(.foot a) {
+  color: var(--architectureV2Muted);
+}
+
+.architectureV2 :global(.foot a:hover),
+.architectureV2 :global(.foot a:focus) {
+  color: var(--architectureV2Signal);
+}
+
+@media (max-width: 1080px) {
+  .architectureV2 :global(.docs__head) {
+    grid-template-columns: minmax(0, 680px);
+  }
+
+  .architectureV2 :global(.docs__layout) {
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: clamp(34px, 5vw, 68px);
+  }
+}
+
+@media (max-width: 820px) {
+  .architectureV2 :global(.docs__head) {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "trace"
+      "eyebrow"
+      "title"
+      "copy"
+      "actions";
+    min-height: max(760px, calc(100svh - var(--bar-h)));
+    padding: 88px var(--architectureV2Gutter) 88px;
+  }
+
+  .architectureHeroArt::before {
+    background:
+      linear-gradient(180deg, rgba(2, 18, 13, 0.96) 0%, rgba(2, 18, 13, 0.9) 44%, rgba(2, 18, 13, 0.7) 66%, rgba(2, 18, 13, 0.16) 83%, rgba(2, 18, 13, 0.72) 100%),
+      linear-gradient(90deg, rgba(2, 18, 13, 0.76), transparent 88%);
+  }
+
+  .architectureV2 :global(.docs__head)::after {
+    justify-self: start;
+  }
+
+  .architectureV2 :global(.docs__head h1) {
+    max-width: 8ch;
+    font-size: clamp(58px, 15vw, 92px);
+  }
+
+  .architectureV2 :global(.docs__head > p:not(.eyebrow)) {
+    margin-top: 10px;
+    font-size: 17px;
+    line-height: 1.5;
+  }
+
+  .architectureHeroArt img {
+    object-position: center bottom;
+    filter: saturate(0.96) contrast(1.03) brightness(0.88);
+  }
+
+  .architectureHeroArt figcaption span:last-child {
+    display: none;
+  }
+
+  .architectureV2 :global(.docs__layout) {
+    grid-template-columns: 1fr;
+    gap: clamp(66px, 10vw, 92px);
+    padding-top: 64px;
+  }
+
+  .architectureV2 :global(.docs__sidebar) {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 18px;
+    max-height: none;
+    padding: 21px 0;
+    border-right: 0;
+  }
+
+  .architectureV2 :global(.docs__sidebar)::before {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 620px) {
+  .architectureV2 :global(.hero__actions) {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .architectureV2 :global(.docs__sidebar) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .architectureV2 :global(.docs__main > section) {
+    padding: 76px 0;
+  }
+
+  .architectureV2 :global(.docs__main) h2 {
+    max-width: 12ch;
+    font-size: clamp(38px, 12vw, 58px);
+  }
+
+  .architectureV2 :global(.caps__row) {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .architectureV2 :global(.docs__main .diagram),
+  .architectureV2 :global(.docs__main pre.diagram) {
+    width: calc(100% + 20px);
+    margin-right: -20px;
+    padding-right: 20px;
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .architectureV2 :global(.docs__sidebar) {
+    grid-template-columns: 1fr;
+  }
+
+  .architectureV2 :global(.docs__sidebar a) {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .architectureV2 * {
+    scroll-behavior: auto;
+  }
+}
+
+/* User-supplied corridor, transformed locally through ASCII Magic. This
+   full-viewport projection opens the subsystem inventory: image, structural
+   ASCII, dither, and a governed system trace. */
+.architectureV2 :global(.docs__main > #subsystems) {
+  padding-top: 0;
+}
+
+.architectureV2 :global(.docs__main > #subsystems)::before {
+  display: none;
+}
+
+.architectureRequestVisual {
+  position: relative;
+  width: 100vw;
+  min-height: max(760px, calc(100svh - var(--bar-h)));
+  margin-left: calc(100% - 100vw + var(--architectureV2Gutter));
+  margin-top: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #061f1a;
+}
+
+.architectureRequestCopy {
+  position: absolute;
+  z-index: 6;
+  top: clamp(52px, 9vh, 108px);
+  left: var(--architectureV2Gutter);
+  width: min(43ch, calc(48vw - var(--architectureV2Gutter)));
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.9);
+}
+
+.architectureV2 .architectureRequestCopy h2 {
+  max-width: 9ch;
+  margin-bottom: clamp(14px, 2vw, 24px);
+  color: #fff;
+  font-size: clamp(54px, 7vw, 104px);
+  line-height: 0.88;
+}
+
+.architectureV2 .architectureRequestCopy h2::before {
+  color: rgba(246, 247, 245, 0.74);
+}
+
+.architectureV2 .architectureRequestCopy p {
+  max-width: 39ch;
+  margin-top: 0;
+  color: #fff;
+  font-size: clamp(16px, 1.35vw, 20px);
+  line-height: 1.55;
+}
+
+.architectureV2 .architectureRequestCopy p.architectureRequestEyebrow {
+  margin-bottom: 18px;
+  color: var(--architectureV2Signal);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.architectureRequestEyebrow::before {
+  content: "+-- ";
+  color: rgba(246, 247, 245, 0.68);
+}
+
+.architectureRequestNext {
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: clamp(22px, 3vh, 34px);
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(166, 255, 203, 0.68);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.architectureRequestNext > span:first-child {
+  color: var(--architectureV2Signal);
+  font-size: 9px;
+  letter-spacing: 0.11em;
+}
+
+.architectureRequestNext:hover,
+.architectureRequestNext:focus-visible {
+  color: var(--architectureV2Signal);
+  border-bottom-color: #fff;
+}
+
+.architecturePathArt {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.architecturePathArt picture,
+.architecturePathArt img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.architecturePathArt picture {
+  overflow: hidden;
+}
+
+.architecturePathArt img {
+  object-fit: cover;
+  object-position: center 49%;
+  filter: contrast(1.08) saturate(0.72) brightness(0.74);
+  transform: scale(1.015);
+}
+
+.architecturePathArt::before,
+.architecturePathArt::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.architecturePathArt::before {
+  background:
+    linear-gradient(90deg, rgba(1, 17, 13, 0.96) 0%, rgba(1, 17, 13, 0.9) 28%, rgba(1, 17, 13, 0.76) 54%, rgba(1, 17, 13, 0.32) 70%, rgba(1, 17, 13, 0.62) 100%),
+    linear-gradient(180deg, rgba(1, 17, 13, 0.28), transparent 38%, rgba(1, 17, 13, 0.82));
+}
+
+.architecturePathArt::after {
+  opacity: 0.3;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 3px,
+    rgba(246, 247, 245, 0.11) 4px
+  );
+  mix-blend-mode: soft-light;
+}
+
+.architecturePathArt figcaption {
+  position: absolute;
+  z-index: 6;
+  right: var(--architectureV2Gutter);
+  bottom: 22px;
+  left: var(--architectureV2Gutter);
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  margin: 0;
+  color: rgba(246, 247, 245, 0.94);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
+  text-transform: uppercase;
+}
+
+.architectureV2.architectureV2 .architecturePathGlyphs,
+.architectureV2.architectureV2 .architecturePathDither {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.architecturePathAscii {
+  z-index: 2;
+}
+
+.architecturePathGlyphs {
+  position: absolute;
+  z-index: 3;
+  top: clamp(24px, 5vw, 72px);
+  right: var(--architectureV2Gutter);
+  max-width: calc(50vw - var(--architectureV2Gutter));
+  margin: 0;
+  overflow: hidden;
+  color: rgba(246, 247, 245, 0.9);
+  font-family: var(--mono);
+  font-size: clamp(7px, 0.74vw, 11px);
+  line-height: 1.48;
+  letter-spacing: 0.025em;
+  white-space: pre;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.94);
+  animation: none;
+}
+
+.architecturePathDither {
+  position: absolute;
+  z-index: 2;
+  top: 20%;
+  right: 2vw;
+  width: min(54vw, 820px);
+  margin: 0;
+  overflow: hidden;
+  color: rgba(3, 25, 18, 0.58);
+  font-family: var(--mono);
+  font-size: clamp(8px, 0.88vw, 13px);
+  line-height: 1.22;
+  letter-spacing: 0.08em;
+  white-space: pre;
+  mix-blend-mode: multiply;
+  transform: perspective(720px) rotateX(57deg) rotateZ(-0.8deg) scaleX(1.35);
+  transform-origin: 50% 0;
+  animation: none;
+}
+
+.architecturePathTrace {
+  position: absolute;
+  z-index: 4;
+  top: 15%;
+  left: 50%;
+  display: grid;
+  width: 1px;
+  height: 42%;
+  grid-template-rows: repeat(4, 1fr);
+  color: var(--architectureV2Signal);
+  background: linear-gradient(180deg, transparent, var(--architectureV2Signal) 14%, var(--architectureV2Signal) 86%, transparent);
+  box-shadow: 0 0 18px rgba(166, 255, 203, 0.46);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.architecturePathTrace span {
+  position: relative;
+  left: 0;
+  width: max-content;
+  padding-left: 14px;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.94);
+}
+
+.architecturePathTrace span::before {
+  position: absolute;
+  top: 0.35em;
+  left: -3px;
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  content: "";
+  background: #0a3f33;
+  transform: rotate(45deg);
+  animation: architecture-path-node 3.2s steps(2, end) infinite;
+}
+
+.architecturePathTrace span:nth-child(2)::before { animation-delay: -0.8s; }
+.architecturePathTrace span:nth-child(3)::before { animation-delay: -1.6s; }
+.architecturePathTrace span:nth-child(4)::before { animation-delay: -2.4s; }
+
+@keyframes architecture-path-projection {
+  0% { opacity: 0.7; transform: translate3d(0, 0, 0); }
+  54% { opacity: 1; transform: translate3d(5px, -3px, 0); }
+  100% { opacity: 0.82; transform: translate3d(-3px, 4px, 0); }
+}
+
+@keyframes architecture-path-floor {
+  0% {
+    opacity: 0.32;
+    transform: perspective(720px) rotateX(57deg) rotateZ(-0.8deg) scaleX(1.35)
+      translate3d(0, -7%, 0);
+  }
+  55% { opacity: 0.76; }
+  100% {
+    opacity: 0.42;
+    transform: perspective(720px) rotateX(57deg) rotateZ(-0.8deg) scaleX(1.35)
+      translate3d(0, 11%, 0);
+  }
+}
+
+@keyframes architecture-path-node {
+  0%, 62%, 100% { opacity: 0.34; box-shadow: none; }
+  70%, 84% {
+    opacity: 1;
+    box-shadow: 0 0 17px rgba(166, 255, 203, 0.8);
+  }
+}
+
+@media (max-width: 820px) {
+  .architectureRequestVisual {
+    min-height: max(720px, calc(100svh - var(--bar-h)));
+  }
+
+  .architectureRequestCopy {
+    top: 42px;
+    right: var(--architectureV2Gutter);
+    width: auto;
+  }
+
+  .architecturePathArt::before {
+    background:
+      linear-gradient(180deg, rgba(1, 17, 13, 0.97) 0%, rgba(1, 17, 13, 0.9) 35%, rgba(1, 17, 13, 0.78) 58%, rgba(1, 17, 13, 0.32) 72%, rgba(1, 17, 13, 0.92) 100%),
+      linear-gradient(90deg, rgba(1, 17, 13, 0.82), transparent 82%);
+  }
+
+  .architectureV2 .architectureRequestCopy h2 {
+    font-size: clamp(50px, 17vw, 76px);
+  }
+
+  .architectureV2 .architectureRequestCopy p {
+    max-width: 34ch;
+    font-size: 16px;
+    line-height: 1.48;
+  }
+
+  .architectureRequestNext {
+    margin-top: 18px;
+    font-size: 9px;
+  }
+
+  .architecturePathGlyphs {
+    top: 43%;
+    left: var(--architectureV2Gutter);
+    right: var(--architectureV2Gutter);
+    max-width: none;
+    font-size: clamp(5.5px, 1.5vw, 7px);
+    line-height: 1.42;
+  }
+
+  .architecturePathDither {
+    top: 25%;
+    right: -36%;
+    width: 110vw;
+    font-size: 8px;
+    opacity: 0.8;
+  }
+
+  .architecturePathTrace {
+    top: 45%;
+    height: 18%;
+  }
+
+  .architecturePathArt figcaption span:last-child {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .architecturePathGlyphs,
+  .architecturePathDither,
+  .architecturePathTrace span::before {
+    animation: none;
+  }
+}
+
+/* Evelyn De Morgan's paired morning and evening stars become the context
+   gateway: one governed source, resolved once, then cited across interfaces.
+   The celestial orbit deliberately avoids the corridor chapter's lattice. */
+.architectureV2 :global(.docs__main > #context-detail) {
+  padding: 0;
+}
+
+.architectureV2 :global(.docs__main > #context-detail)::before {
+  display: none;
+}
+
+.architectureContextVisual {
+  position: relative;
+  width: 100vw;
+  min-height: max(860px, calc(100svh - var(--bar-h)));
+  margin-left: calc(100% - 100vw + var(--architectureV2Gutter));
+  overflow: hidden;
+  isolation: isolate;
+  background: #081d16;
+}
+
+.architectureContextArt {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+.architectureContextArt picture,
+.architectureContextArt img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.architectureContextArt img {
+  object-fit: cover;
+  object-position: center;
+  filter: saturate(0.94) contrast(1.04) brightness(0.82);
+  transform: scale(1.012);
+}
+
+.architectureContextArt::before,
+.architectureContextArt::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.architectureContextArt::before {
+  background:
+    linear-gradient(90deg, rgba(2, 19, 14, 0.97) 0%, rgba(2, 19, 14, 0.92) 28%, rgba(2, 19, 14, 0.82) 64%, rgba(2, 19, 14, 0.36) 78%, transparent 88%),
+    linear-gradient(180deg, rgba(3, 20, 15, 0.34), transparent 36%, rgba(3, 18, 13, 0.78) 100%);
+}
+
+.architectureContextArt::after {
+  opacity: 0.34;
+  background:
+    repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(255, 246, 225, 0.13) 4px),
+    radial-gradient(circle at 73% 18%, rgba(255, 207, 128, 0.19), transparent 24%);
+  mix-blend-mode: soft-light;
+}
+
+.architectureContextCopy {
+  position: absolute;
+  z-index: 6;
+  top: clamp(58px, 8vh, 94px);
+  left: max(calc(var(--architectureV2Gutter) + clamp(206px, 18vw, 276px)), 24vw);
+  width: min(48ch, 39vw);
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.92);
+}
+
+.architectureV2 .architectureContextCopy h2 {
+  max-width: 8ch;
+  margin-bottom: clamp(16px, 2vw, 24px);
+  color: #fff9ed;
+  font-size: clamp(54px, 6.6vw, 98px);
+  line-height: 0.88;
+}
+
+.architectureV2 .architectureContextCopy h2::before {
+  content: "* ";
+  color: #e4a15a;
+  text-shadow: 0 0 16px rgba(228, 161, 90, 0.58);
+}
+
+.architectureV2 .architectureContextCopy p {
+  max-width: 48ch;
+  margin-top: 0;
+  color: #fff9ed;
+  font-size: clamp(15px, 1.18vw, 18px);
+  line-height: 1.55;
+}
+
+.architectureV2 .architectureContextCopy p.architectureContextEyebrow {
+  margin-bottom: 17px;
+  color: #ffd29b;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.architectureContextEyebrow::before {
+  content: ". * . ";
+  color: rgba(255, 249, 237, 0.76);
+}
+
+.architectureContextNext {
+  display: inline-grid;
+  grid-template-columns: auto auto auto;
+  gap: 8px;
+  align-items: baseline;
+  margin-top: clamp(22px, 3vh, 34px);
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(239, 186, 116, 0.76);
+  color: #fff9ed;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  text-transform: uppercase;
+}
+
+.architectureContextNext > span:first-child {
+  color: #efba74;
+  font-size: 9px;
+  letter-spacing: 0.11em;
+}
+
+.architectureContextNext:hover,
+.architectureContextNext:focus-visible {
+  border-bottom-color: #fff9ed;
+  color: #efba74;
+}
+
+.architectureV2.architectureV2 .architectureContextOrbit,
+.architectureV2.architectureV2 .architectureContextPolicy {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.architectureContextAscii {
+  z-index: 2;
+}
+
+.architectureContextOrbit,
+.architectureContextPolicy {
+  position: absolute;
+  z-index: 4;
+  margin: 0;
+  overflow: hidden;
+  font-family: var(--mono);
+  white-space: pre;
+  pointer-events: none;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.94);
+}
+
+.architectureContextOrbit {
+  right: clamp(24px, 5vw, 76px);
+  bottom: clamp(104px, 12vh, 148px);
+  color: rgba(255, 235, 199, 0.9);
+  font-size: clamp(6px, 0.72vw, 10px);
+  line-height: 1.42;
+  letter-spacing: 0.055em;
+  text-align: center;
+  animation: none;
+}
+
+.architectureContextPolicy {
+  right: clamp(28px, 5.5vw, 84px);
+  top: clamp(46px, 7vh, 82px);
+  color: rgba(239, 186, 116, 0.92);
+  font-size: clamp(6px, 0.63vw, 9px);
+  line-height: 1.52;
+  letter-spacing: 0.07em;
+  animation: none;
+}
+
+.architectureContextStars {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  color: #f0b66d;
+  font-family: var(--mono);
+  pointer-events: none;
+}
+
+.architectureContextStars span {
+  position: absolute;
+  font-size: clamp(9px, 1vw, 15px);
+  text-shadow: 0 0 14px currentColor;
+  animation: architecture-context-star 3.2s steps(5, end) infinite;
+}
+
+.architectureContextStars span:nth-child(1) { top: 9%; left: 45%; }
+.architectureContextStars span:nth-child(2) { top: 31%; left: 62%; animation-delay: -2s; }
+.architectureContextStars span:nth-child(3) { top: 16%; right: 8%; animation-delay: -4s; }
+.architectureContextStars span:nth-child(4) { right: 36%; bottom: 12%; animation-delay: -1s; }
+.architectureContextStars span:nth-child(5) { right: 12%; bottom: 36%; animation-delay: -3s; }
+.architectureContextStars span:nth-child(6) { bottom: 8%; left: 48%; animation-delay: -5s; }
+
+.architectureContextArt figcaption {
+  position: absolute;
+  z-index: 6;
+  right: var(--architectureV2Gutter);
+  bottom: 22px;
+  left: var(--architectureV2Gutter);
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  margin: 0;
+  color: rgba(255, 242, 218, 0.94);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.95);
+  text-transform: uppercase;
+}
+
+@keyframes architecture-context-orbit {
+  0% { opacity: 0.72; transform: translate3d(0, 0, 0) rotate(-0.2deg); }
+  55% { opacity: 1; transform: translate3d(-5px, -3px, 0) rotate(0.15deg); }
+  100% { opacity: 0.84; transform: translate3d(3px, 4px, 0) rotate(-0.1deg); }
+}
+
+@keyframes architecture-context-policy {
+  0% { opacity: 0.68; transform: translate3d(0, 0, 0); }
+  100% { opacity: 0.94; transform: translate3d(4px, 3px, 0); }
+}
+
+@keyframes architecture-context-star {
+  0%, 100% { opacity: 0.34; }
+  50% { opacity: 1; }
+}
+
+@media (max-width: 1100px) {
+  .architectureContextCopy {
+    left: max(calc(var(--architectureV2Gutter) + 210px), 25vw);
+    width: min(46ch, 45vw);
+  }
+
+  .architectureContextOrbit {
+    right: 2vw;
+    font-size: 6px;
+  }
+}
+
+@media (max-width: 820px) {
+  .architectureContextVisual {
+    min-height: max(980px, calc(100svh - var(--bar-h)));
+  }
+
+  .architectureContextArt img {
+    object-position: center 48%;
+    filter: saturate(0.92) contrast(1.04) brightness(0.72);
+  }
+
+  .architectureContextArt::before {
+    background:
+      linear-gradient(180deg, rgba(2, 18, 13, 0.97) 0%, rgba(2, 18, 13, 0.9) 44%, rgba(2, 18, 13, 0.82) 64%, rgba(2, 18, 13, 0.32) 78%, rgba(2, 18, 13, 0.9) 100%),
+      linear-gradient(90deg, rgba(2, 18, 13, 0.68), transparent 72%);
+  }
+
+  .architectureContextCopy {
+    top: 42px;
+    right: var(--architectureV2Gutter);
+    left: var(--architectureV2Gutter);
+    width: auto;
+  }
+
+  .architectureV2 .architectureContextCopy h2 {
+    max-width: 8ch;
+    font-size: clamp(50px, 17vw, 76px);
+  }
+
+  .architectureV2 .architectureContextCopy p {
+    max-width: 38ch;
+    font-size: 15px;
+    line-height: 1.47;
+  }
+
+  .architectureContextNext {
+    margin-top: 18px;
+    font-size: 9px;
+  }
+
+  .architectureContextPolicy {
+    display: none;
+  }
+
+  .architectureContextOrbit {
+    right: 50%;
+    bottom: 86px;
+    width: 700px;
+    color: rgba(255, 235, 199, 0.82);
+    font-size: 6px;
+    line-height: 1.38;
+    transform: translateX(50%);
+  }
+
+  .architectureContextStars span:nth-child(even) {
+    display: none;
+  }
+
+  .architectureContextArt figcaption span:last-child {
+    display: none;
+  }
+}
+
+@keyframes architecture-context-orbit-mobile {
+  0% { opacity: 0.72; transform: translateX(50%) translate3d(0, 0, 0); }
+  55% { opacity: 1; transform: translateX(50%) translate3d(-3px, -2px, 0); }
+  100% { opacity: 0.84; transform: translateX(50%) translate3d(2px, 3px, 0); }
+}
+
+@media (max-width: 420px) {
+  .architectureContextVisual {
+    min-height: 1020px;
+  }
+
+  .architectureV2 .architectureContextCopy p {
+    font-size: 14px;
+  }
+
+  .architectureContextOrbit {
+    bottom: 84px;
+    width: 650px;
+    font-size: 5.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .architectureContextOrbit,
+  .architectureContextPolicy,
+  .architectureContextStars span {
+    animation: none;
+  }
+}

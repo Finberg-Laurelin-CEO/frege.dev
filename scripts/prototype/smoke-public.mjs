@@ -50,13 +50,22 @@ async function main() {
   const bust = `smoke=${Date.now()}`;
 
   const routes = [
-    { path: "/", needles: ["Start now", "Frege"] },
+    {
+      path: "/",
+      needles: ["Frege"],
+      anyNeedles: [
+        ["Start now"],
+        ["Your agents share", "Many agents"],
+      ],
+    },
     { path: "/signup", needles: ["Full name", "Work email", "Password", "Org size", "verify your email", "open account"] },
     { path: "/docs", needles: ["Set up Frege", "register MCP", "frege doctor"] },
     { path: "/architecture", needles: ["Architecture", "control plane", "trust zone"] },
+    { path: "/roadmap", needles: ["Available now", "Building next", "Later"] },
     { path: "/pricing", needles: ["$20", "$15", "Enterprise"] },
     { path: "/contact", needles: ["hello@frege.dev", "Contact"] },
-    { path: "/privacy", needles: ["privacy policy", "org size"] },
+    { path: "/privacy", needles: ["Privacy at Frege", "data we process"] },
+    { path: "/terms", needles: ["Terms for using Frege", "customer content"] },
     { path: "/login", needles: ["login", "Frege customer workspace"] },
   ];
 
@@ -67,6 +76,12 @@ async function main() {
       const text = await fetchText(`${baseUrl}${route.path}${separator}${bust}`);
       for (const needle of route.needles) {
         assert(text.includes(needle), `${route.path} missing text: ${needle}`);
+      }
+      for (const alternatives of route.anyNeedles || []) {
+        assert(
+          alternatives.some((needle) => text.includes(needle)),
+          `${route.path} missing one of: ${alternatives.join(", ")}`,
+        );
       }
     });
   }

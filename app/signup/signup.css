@@ -65,6 +65,12 @@
   transition: border-color 0.15s ease;
 }
 
+.field input::placeholder,
+.field textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
 .field input:hover,
 .field select:hover,
 .field textarea:hover {
@@ -188,7 +194,7 @@
 
 .field .hintline {
   display: block;
-  color: var(--fg-3);
+  color: var(--fg-2);
   font-size: 12px;
   margin: 4px 0 0;
 }

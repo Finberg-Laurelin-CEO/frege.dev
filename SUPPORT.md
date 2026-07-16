@@ -1,0 +1,31 @@
+# Frege Support
+
+Frege supports the hosted Frege service and the current published version of
+`@frege-dev/cli`.
+
+## Get help
+
+- Use the [Frege support page](https://frege.dev/support) when signed in.
+- For account, access, billing, or general product help, email
+  [hello@frege.dev](mailto:hello@frege.dev).
+- For a suspected vulnerability, follow [`SECURITY.md`](SECURITY.md) instead of
+  filing a public issue.
+
+Include the organization name, the affected feature, the time the problem
+occurred, and the CLI version from `npm list -g @frege-dev/cli` when relevant.
+Share request IDs and redacted error output if available.
+
+Never send API keys, passwords, provider credentials, session cookies,
+confidential customer content, or unredacted environment files. Frege support
+will ask for a safer transfer method if sensitive diagnostic material is
+necessary.
+
+## Support boundaries
+
+The public repository is source-visible for product transparency. It is not a
+supported self-hosting distribution, and public visibility does not grant a
+license to modify, redistribute, or operate the software.
+
+Frege does not guarantee support response times through this repository or by
+general email. Any response commitments in a written customer agreement take
+precedence.

@@ -1,12 +1,12 @@
 {
   "name": "@frege-dev/cli",
   "version": "0.1.1",
-  "description": "Frege CLI and MCP thin client for agent-side org memory access.",
+  "description": "Source-visible proprietary Frege CLI and MCP client for governed organizational memory.",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Finberg-Laurelin-CEO/frege.dev.git",
+    "url": "https://github.com/Finberg-Laurelin-CEO/frege.dev.git",
     "directory": "packages/frege-cli"
   },
   "publishConfig": {
@@ -19,7 +19,8 @@
   "files": [
     "bin",
     "README.md",
-    "INSTALL_FOR_AGENTS.md"
+    "INSTALL_FOR_AGENTS.md",
+    "LICENSE.md"
   ],
   "engines": {
     "node": ">=20"
