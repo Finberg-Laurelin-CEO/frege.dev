@@ -1,0 +1,95 @@
+.cascade {
+  --ascii-cascade-opacity: 0.72;
+  --ascii-cascade-opacity-compact: 0.56;
+  --ascii-cascade-blend: screen;
+  --ascii-cascade-wash: #00ba2f;
+  --ascii-cascade-wash-opacity: 0.22;
+  --ascii-cascade-wash-opacity-compact: 0.15;
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  contain: strict;
+  pointer-events: none;
+  user-select: none;
+}
+
+.cascade::before {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(246, 247, 245, 0.08) 0,
+    rgba(246, 247, 245, 0.08) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  mix-blend-mode: soft-light;
+  opacity: 0.12;
+}
+
+.cascade::after {
+  position: absolute;
+  z-index: 3;
+  inset: -12%;
+  content: "";
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 46%, transparent 0 42%, rgba(0, 20, 12, 0.24) 82%),
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 150 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.84' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.58'/%3E%3C/svg%3E");
+  background-size: auto, 150px 150px;
+  mix-blend-mode: soft-light;
+  opacity: 0.06;
+  will-change: transform;
+  animation: ascii-cascade-grain 0.46s steps(2, end) infinite;
+}
+
+.canvas {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: var(--ascii-cascade-opacity);
+  mix-blend-mode: var(--ascii-cascade-blend);
+  filter: saturate(1.08) contrast(1.04);
+}
+
+.wash {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: var(--ascii-cascade-wash);
+  opacity: var(--ascii-cascade-wash-opacity);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.cascade[data-ascii-cascade-active="false"]::after {
+  animation-play-state: paused;
+}
+
+@keyframes ascii-cascade-grain {
+  0% { transform: translate3d(-3%, 2%, 0); }
+  24% { transform: translate3d(2%, -4%, 0); }
+  48% { transform: translate3d(4%, 3%, 0); }
+  72% { transform: translate3d(-4%, -2%, 0); }
+  100% { transform: translate3d(1%, 4%, 0); }
+}
+
+@media (max-width: 700px) {
+  .cascade::before { opacity: 0.09; }
+  .cascade::after { opacity: 0.04; }
+  .canvas { opacity: var(--ascii-cascade-opacity-compact); }
+  .wash { opacity: var(--ascii-cascade-wash-opacity-compact); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cascade::after { animation: none; }
+}

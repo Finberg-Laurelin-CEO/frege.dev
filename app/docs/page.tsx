@@ -1,7 +1,34 @@
 import type { Metadata } from "next";
+import AsciiImageCascade from "../components/AsciiImageCascade";
+import CopyableCodeBlock from "../components/CopyableCodeBlock";
 import SiteFooter from "../components/SiteFooter";
+import v2Styles from "./docs-v2.module.css";
 
+const publicSiteV2 = process.env.FREGE_PUBLIC_SITE_V2 === "true";
 const githubUrl = "https://github.com/Finberg-Laurelin-CEO/frege.dev";
+
+const ALL_SOULS_STRUCTURE = String.raw`
+                                  /\              /\
+                                 /||\            /||\
+                                /_||_\          /_||_\
+                           _____| || |__________| || |_____
+                    _..---'_____|_||_|__________|_||_|_____\---.._
+              |||||||   ||   ||   ||   ||   ||   ||   ||   |||||||
+              ||    |___||___||___||___||___||___||___|    ||
+              ||    |   ||   ||   ||   ||   ||   ||   |    ||
+              ||____|___||___||___||___||___||___||___|____||
+              +--------------------------------------------------+
+                 source  ->  page  ->  revision  ->  context
+              +--------------------------------------------------+
+`;
+
+const ALL_SOULS_SIGNAL = String.raw`
+SOURCE_01 :::::::::::::::::::::::::::::::::::: VERIFIED
+SOURCE_02 ::::::::::::::::::: SCOPE / ROLE / PROVENANCE
+SOURCE_03 :::::::::::::::::::::::::::::::::::: REVIEWED
+
+     [ shared record ] ---- [ bounded context ] ---- [ agent ]
+`;
 
 const toc: [string, string, string][] = [
   ["01", "overview", "Fast path"],
@@ -35,24 +62,37 @@ const fastPath: [string, string, string][] = [
 const responsibilityRows: [string, string, string][] = [
   ["User/admin", "Create account, choose plan, create roles, generate keys, review memory proposals.", "Browser app"],
   ["Local agent", "Install @frege-dev/cli, run frege connect, register frege mcp serve, push approved markdown.", "Terminal"],
-  ["Frege", "Validate the key, enforce org and role scope, audit reads and writes, reject inactive orgs.", "Hosted API"],
+  ["Frege", "Validate the key, enforce org and role scope, record supported context and write paths, reject inactive orgs.", "Hosted API"],
 ];
 
 const mcpTools: [string, string][] = [
   ["frege_status", "Confirm org, role, key prefix, and connectivity."],
   ["frege_brain_status", "Inspect hosted brain status, indexed pages, and source counts."],
+  ["frege_list_sources", "List hosted brain sources visible to the caller."],
   ["frege_search_pages", "Search brain pages the caller is allowed to see."],
   ["frege_get_page", "Read a specific page and its revisions."],
+  ["frege_list_vault", "List visible pages with outgoing-link and backlink counts."],
+  ["frege_page_links", "Inspect outgoing links, backlinks, and unresolved links for a page."],
+  ["frege_traverse", "Traverse a visible neighborhood in the hosted page-link graph."],
+  ["frege_find_connections", "Find a visible link path between two hosted pages."],
+  ["frege_add_source_proposal", "Propose a new source for administrator review."],
   ["frege_build_context", "Assemble scoped, cited context for a task before answering."],
   ["frege_create_document", "Create a document from user-approved markdown."],
   ["frege_read_document", "Read a visible document by slug."],
+  ["frege_list_documents", "List documents visible to the current API key."],
   ["frege_search_documents", "Search visible documents by text, title, path, or tag."],
   ["frege_write_page_proposal", "Submit a reviewable update instead of editing canonical knowledge."],
+  ["frege_propose_revision", "Propose a revision to a visible legacy document."],
+  ["frege_propose_memory_from_session", "Create a memory proposal backed by recorded session evidence."],
   ["frege_start_session", "Open a session ledger for a substantial workflow."],
   ["frege_append_session_event", "Record task activity onto the active session."],
+  ["frege_get_session", "Read a visible agent session and its events."],
+  ["frege_search_sessions", "Search organization-visible sessions when the role permits it."],
   ["frege_list_agents", "List Frege-hosted agents available to this org and role."],
   ["frege_run_agent", "Queue hosted agent work when the key has execution permission."],
   ["frege_get_agent_run", "Read status and output for a hosted agent run."],
+  ["frege_audit_events", "List legacy audit events visible to the current role."],
+  ["frege_invoke_model", "Invoke an organization-configured model with governed context."],
 ];
 
 const agentInstallPrompt = `Install Frege MCP for this machine.
@@ -98,37 +138,109 @@ export const metadata: Metadata = {
 };
 
 export default function DocsPage() {
-  return (
-    <main id="main" className="docs docs--withSidebar docs--install">
-      <header className="docs__head docs__head--install">
-        <div>
-          <p className="eyebrow">Documentation</p>
-          <h1>Set up Frege for agents.</h1>
-          <p className="docs__lead">
-            Frege is hosted. Users manage the browser app; agents install a small local CLI.
-            The only MCP server customers run is <code>frege mcp serve</code>, and it only
-            calls Frege APIs with a verified key.
-          </p>
-          <div className="hero__actions">
-            <a className="button button--primary" href="/signup">Start now</a>
-            <a className="button" href="/login?next=/console">Open control plane</a>
-            <a className="button" href="/architecture">Architecture</a>
-            <a className="button" href={githubUrl}>GitHub</a>
-          </div>
-        </div>
+  const heroCopy = (
+    <div className={publicSiteV2 ? v2Styles.heroCopy : undefined}>
+      <p className="eyebrow">Documentation</p>
+      <h1>Set up Frege <span>for agents.</span></h1>
+      <p className="docs__lead">
+        Frege is hosted. Users manage the browser app; agents install a small local CLI.
+        The only MCP server customers run is <code>frege mcp serve</code>, and it only
+        calls Frege APIs with a verified key.
+      </p>
+      <div className="hero__actions">
+        <a className="button button--primary" href="/signup">Start now</a>
+        <a className="button" href="/login?next=/console">Open control plane</a>
+        <a className="button" href="/architecture">Architecture</a>
+        {publicSiteV2 ? <a className="button" href="/roadmap">Roadmap</a> : null}
+        <a className="button" href={githubUrl}>GitHub</a>
+      </div>
+    </div>
+  );
 
-        <dl className="docs__facts" aria-label="Frege install facts">
-          {quickFacts.map(([label, value, copy]) => (
-            <div key={label} className="docs__fact">
-              <dt>{label}</dt>
-              <dd>
-                <code>{value}</code>
-                <span>{copy}</span>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </header>
+  const facts = (
+    <dl
+      className={`docs__facts${publicSiteV2 ? ` ${v2Styles.factsAfterHero}` : ""}`}
+      aria-label="Frege install facts"
+    >
+      {quickFacts.map(([label, value, copy]) => (
+        <div key={label} className="docs__fact">
+          <dt>{label}</dt>
+          <dd>
+            <code>{value}</code>
+            <span>{copy}</span>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+
+  return (
+    <main
+      id="main"
+      className={`docs docs--withSidebar docs--install${publicSiteV2 ? ` ${v2Styles.docsV2}` : ""}`}
+    >
+      {publicSiteV2 ? (
+        <>
+          <header className={`docs__head docs__head--install ${v2Styles.docsHero}`}>
+            <figure className={v2Styles.institutionArt}>
+              <picture>
+                <source srcSet="/art/user/all-souls-lattice.avif" type="image/avif" />
+                <img
+                  src="/art/user/all-souls-lattice.webp"
+                  width="1440"
+                  height="810"
+                  loading="eager"
+                  decoding="async"
+                  alt=""
+                />
+              </picture>
+              <AsciiImageCascade
+                className={v2Styles.institutionAsciiStorm}
+                charSet="fregegovernedmemory"
+                cellSize={48}
+                compactCellSize={42}
+                duration={3800}
+                fps={20}
+                opacity={0.32}
+                compactOpacity={0.25}
+                washColor="#285f49"
+                washOpacity={0.03}
+                compactWashOpacity={0.02}
+                shadowColor="#0c1915"
+                midColor="#6e8f80"
+                highlightColor="#d2d9d2"
+                edgeEmphasis={0.58}
+                darkThreshold={0.69}
+                bloom={1}
+                density={0.48}
+                compactDensity={0.4}
+                ditherStrength={0.64}
+                cascadeWidth={0.105}
+                focusX={0.5}
+                focusY={0.48}
+                phaseMode="center-out"
+              />
+              <pre className={v2Styles.institutionStructure} aria-hidden="true">
+                {ALL_SOULS_STRUCTURE}
+              </pre>
+              <pre className={v2Styles.institutionSignal} aria-hidden="true">
+                {ALL_SOULS_SIGNAL}
+              </pre>
+              <figcaption>
+                <span>01 / institutional memory</span>
+                <span>All Souls / ordered-dither and character lattice</span>
+              </figcaption>
+            </figure>
+            {heroCopy}
+          </header>
+          {facts}
+        </>
+      ) : (
+        <header className="docs__head docs__head--install">
+          {heroCopy}
+          {facts}
+        </header>
+      )}
 
       <div className="docs__layout">
         <nav className="docs__sidebar" aria-label="Contents">
@@ -212,13 +324,12 @@ export default function DocsPage() {
               Code, or another local coding agent. Provide the API key separately and tell the
               agent not to echo it.
             </p>
-            <div className="docs__codeShell">
-              <div className="docs__codeHead">
-                <span>copy into agent</span>
-                <code>Frege MCP install prompt</code>
-              </div>
-              <pre><code>{agentInstallPrompt}</code></pre>
-            </div>
+            <CopyableCodeBlock
+              value={agentInstallPrompt}
+              label="Frege MCP install prompt"
+              caption="copy into agent"
+              meta="Frege MCP install prompt"
+            />
             <p className="docs__note">
               Browser traffic may land on <code>brain.frege.dev</code>. MCP does not depend on
               that subdomain. It uses <code>https://frege.dev</code> for <code>/api/v1</code> calls
@@ -235,14 +346,14 @@ export default function DocsPage() {
             <div className="docs__twoCol">
               <div className="docs__panel">
                 <h3>Install</h3>
-                <pre><code>{`npm install -g @frege-dev/cli
+                <CopyableCodeBlock label="CLI install commands" value={`npm install -g @frege-dev/cli
 command -v frege
-frege help`}</code></pre>
+frege help`} />
               </div>
               <div className="docs__panel">
                 <h3>Connect</h3>
-                <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>
-frege doctor`}</code></pre>
+                <CopyableCodeBlock label="Frege connect commands" value={`frege connect https://frege.dev --token "$FREGE_API_KEY"
+frege doctor`} />
               </div>
             </div>
             <p>
@@ -258,14 +369,14 @@ frege doctor`}</code></pre>
               If zsh says <code>frege: command not found</code>, add npm&apos;s global bin
               directory to your shell path.
             </p>
-            <pre><code>{`npm config get prefix
+            <CopyableCodeBlock label="zsh path repair commands" value={`npm config get prefix
 
 echo 'export PATH="$(npm config get prefix)/bin:$PATH"' >> ~/.zshrc
 source ~/.zshrc
 hash -r
 
 command -v frege
-frege help`}</code></pre>
+frege help`} />
             <p>
               GUI-launched MCP clients may still miss your shell path. In that case, use the
               full path from <code>command -v frege</code> as the MCP command.
@@ -281,19 +392,19 @@ frege help`}</code></pre>
             <div className="docs__twoCol">
               <div className="docs__panel">
                 <h3>Preferred</h3>
-                <pre><code>{`frege agent install codex
-frege agent install claude`}</code></pre>
+                <CopyableCodeBlock label="preferred MCP registration commands" value={`frege agent install codex
+frege agent install claude`} />
               </div>
               <div className="docs__panel">
                 <h3>Generic MCP JSON</h3>
-                <pre><code>{`{
+                <CopyableCodeBlock label="generic MCP JSON configuration" value={`{
   "mcpServers": {
     "frege": {
       "command": "frege",
       "args": ["mcp", "serve"]
     }
   }
-}`}</code></pre>
+}`} />
               </div>
             </div>
             <p className="docs__note">
@@ -310,12 +421,11 @@ frege agent install claude`}</code></pre>
               exactly what was pushed, and Frege records the write through the same org, role,
               and audit controls as MCP.
             </p>
-            <div className="docs__codeShell">
-              <div className="docs__codeHead">
-                <span>demo workflow</span>
-                <code>push docs into Frege</code>
-              </div>
-              <pre><code>{`# One file
+            <CopyableCodeBlock
+              label="document push workflow"
+              caption="demo workflow"
+              meta="push docs into Frege"
+              value={`# One file
 frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \\
   --sensitivity internal \\
   --tag frege-demo \\
@@ -332,8 +442,8 @@ frege docs push docs \\
 frege docs sync frege.docs.yml --dry-run
 frege docs sync frege.docs.yml
 frege docs list
-frege context "how does Frege signup work?"`}</code></pre>
-            </div>
+frege context "how does Frege signup work?"`}
+            />
             <p className="docs__note">
               Markdown wikilinks such as <code>[[hosted brain architecture]]</code> are
               preserved. For canonical graph-connected brain pages, ask the agent to submit a
@@ -379,14 +489,14 @@ frege context "how does Frege signup work?"`}</code></pre>
             <div className="docs__twoCol">
               <div className="docs__panel">
                 <h3><code>EEXIST</code> during npm install</h3>
-                <pre><code>{`npm uninstall -g @frege/cli @frege-dev/cli
+                <CopyableCodeBlock label="EEXIST repair commands" value={`npm uninstall -g @frege/cli @frege-dev/cli
 rm -f ~/.local/bin/frege ~/.local/bin/frege-mcp
-npm install -g @frege-dev/cli`}</code></pre>
+npm install -g @frege-dev/cli`} />
               </div>
               <div className="docs__panel">
                 <h3>Invalid key</h3>
-                <pre><code>{`frege connect https://frege.dev --token <valid-frg-live-key>
-frege doctor`}</code></pre>
+                <CopyableCodeBlock label="invalid-key reconnect commands" value={`frege connect https://frege.dev --token "$FREGE_API_KEY"
+frege doctor`} />
               </div>
             </div>
             <p>

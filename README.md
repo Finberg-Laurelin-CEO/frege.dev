@@ -1,239 +1,170 @@
 # Frege
 
-Your agents share a company. They should share a brain.
+**Many agents. One organizational reality.**
 
-Frege is one governed brain for your AI agents — agent memory, governed. Teams that need AI agents and employees to use the same trusted context without exposing everything get one controlled place to read, write, version, and audit institutional knowledge through role-based access controls and MCP-native tools.
+Frege is building the operating layer for AI agents. Today, Frege gives
+MCP-connected agents a governed organizational memory: scoped context, source
+citations, revision history, and reviewable updates without tying company
+knowledge to one model or agent client.
 
-## The Problem
+[Website](https://frege.dev) · [Documentation](https://frege.dev/docs) ·
+[Roadmap](https://frege.dev/roadmap) · [Support](SUPPORT.md) ·
+[Security](SECURITY.md)
 
-Companies are adopting agents faster than they are standardizing the memory layer those agents need.
+> [!IMPORTANT]
+> This is a source-visible proprietary product repository, not an open-source
+> project or a supported self-hosting distribution. See [License](LICENSE.md).
 
-Today, teams keep rebuilding the same internal infrastructure:
+## Product status
 
-- A markdown folder or private context server for one agent harness.
-- A different setup for Codex, Claude Code, OpenRouter, Cursor, or an internal agent.
-- Ad hoc rules about which files an agent can read.
-- No shared audit trail for who or what accessed company context.
-- No clean way to track usage, model calls, storage, and cost by user or org.
+Frege separates what the product does today from the broader operating-system
+roadmap.
 
-The issue is not that markdown files are hard. The issue is that institutional context becomes unsafe, fragmented, and expensive to maintain when every team invents its own agent-readable memory layer.
+### Available now
 
-## What We Are Building
+- Organization-scoped users, roles, API keys, and trust zones.
+- Versioned brain pages and documents with source metadata and links.
+- Permission-gated search, reads, and context packets over REST and MCP.
+- Agent sessions and event history for durable task context.
+- Memory proposals that require review before changing canonical knowledge.
+- Audit and telemetry records for product activity.
+- A thin local CLI/MCP client that connects Codex, Claude Code, and compatible
+  stdio MCP clients to the hosted Frege API.
 
-Frege turns institutional knowledge into permission-aware infrastructure.
+### Beta
 
-The first product is a managed knowledge layer where:
+- Configurable model routing and invocation.
+- Hosted agent definitions, queued runs, and run-step history.
 
-- Companies create orgs, departments, roles, users, and API keys.
-- Markdown documents are stored as versioned institutional knowledge.
-- Role-based access control decides what each person or agent can list, read, draft, update, or administer.
-- Agents access approved context through MCP tools.
-- Admins can see audit logs, usage, and estimated cost by user, key, and org.
+These runtime features are early and should not be treated as a general-purpose
+agent orchestration platform.
 
-The customer-facing product should be model agnostic. A company should be able to use Codex, Claude Code, OpenRouter, internal agents, and future MCP-capable tools against the same controlled knowledge layer.
+### Planned
 
-## Public Positioning
+- First-class human, agent, and service principals.
+- Versioned policy decisions and authorization receipts.
+- Governed connectors for external knowledge systems.
+- Durable tasks, workflows, and approval gates.
+- Portable import and export contracts.
+- A first-party Frege agent built on the same permissions as every other agent.
 
-Primary language:
+See the [public roadmap](https://frege.dev/roadmap) for the current sequencing.
 
-> Your agents share a company. They should share a brain.
+## How it works
 
-Alternate:
+```text
+Human administrators
+  -> Frege browser console
+  -> organizations, roles, keys, sources, proposals, and activity
 
-> One governed brain for your AI agents.
->
-> Agent memory, governed.
+AI agent
+  -> frege mcp serve (local stdio process)
+  -> scoped API key
+  -> hosted Frege API
+  -> organization and trust-zone gates
+  -> permitted pages, documents, context, sessions, and proposals
+```
 
-Supporting language:
+The CLI is agent-side glue. It stores local connection configuration, exposes a
+stdio MCP server, and calls the hosted Frege REST API. It does not connect to
+the Frege database.
 
-> Once a team points several agents at shared company knowledge, ad-hoc CLAUDE.md files drift, leak, and go stale. Frege is one governed memory layer: every agent gets scoped, cited context — with access control, audit, and reviewable writes built in.
+Canonical knowledge is separate from task history. Agents can append events to
+a session while they work, but durable knowledge changes go through memory
+proposals and human review. Context responses include only resources allowed by
+the caller's organization, role, capabilities, labels, and trust zone.
 
-Short description:
+## Connect an agent
 
-> A hosted, governed memory layer that gives AI agents scoped, cited company context with role-based access, trust zones, version history, API keys, audit logs, and usage tracking.
+Requirements:
 
-## MVP
+- Node.js 20 or newer.
+- An active Frege organization.
+- A valid Frege API key beginning with `frg_live_`.
 
-The MVP is now a self-serve paid signup flow backed by the hosted Frege app.
-
-Initial scope:
-
-- Single-page public landing site at `frege.dev`.
-- Signup form that creates a user, inactive org, and owner membership.
-- Postgres-backed signup/account storage.
-- Stripe checkout for activation, including promotion-code support.
-- Basic product narrative around secure agent-readable institutional memory.
-
-Product scope:
-
-- Org and user onboarding.
-- Department and role management.
-- API keys for users, agents, and orgs.
-- Markdown document CRUD.
-- Versioned blob storage for markdown revisions.
-- Postgres metadata for document pointers, access rules, users, and audit logs.
-- MCP tools for document search, read, propose edit, and update.
-- Usage and cost tracking per user and org.
-
-## Not MVP
-
-These are later capabilities, not the first build:
-
-- Email bridge.
-- Adcopy generation.
-- Public-facing content publishing.
-- Broad external MCP orchestration.
-- Full enterprise SSO.
-- Complex enterprise approval workflows.
-- General-purpose agent automation.
-
-The first job is to let customers create an account, pay, and connect agents without waiting on manual approval.
-
-## Signup Form
-
-The public site should minimize friction and collect only enough data to create an account and organization.
-
-Required fields:
-
-- Name.
-- Work email.
-- Password.
-- Company.
-- Org size.
-
-Optional fields:
-
-- Role/title.
-- Other setup context.
-
-Operational details such as agent tools, expected users, spend, and timeline can be collected later in the console or during support. The form should not collect confidential company documents or API keys.
-
-## Data Pathway
-
-Signup flow:
-
-1. Visitor submits the signup form.
-2. Frontend validates required fields.
-3. TypeScript backend validates the payload again.
-4. Backend applies basic spam and rate-limit checks.
-5. Backend creates the user, inactive organization, owner membership, and signup row in Postgres.
-6. Backend sets a session and redirects the user to billing.
-7. Stripe checkout activates the organization through webhooks after payment.
-
-Postgres should be the source of truth. Spreadsheet exports are fine for operations, but not as the canonical database.
-
-## Backend Direction
-
-The backend should be TypeScript.
-
-For the validation site, Vercel is a reasonable hosting target. Current Vercel storage guidance supports Postgres through Vercel Marketplace integrations such as Neon, Supabase, or AWS Aurora Postgres. The app should depend on a normal `DATABASE_URL` instead of hard-coding a database vendor.
-
-Expected stack for the first implementation branch:
-
-- Next.js or another Vercel-ready TypeScript web framework.
-- Server-side signup endpoint.
-- Managed Postgres via `DATABASE_URL`.
-- Basic validation and rate limiting.
-- Private environment variables for database credentials.
-
-## Hermes Signup Monitoring
-
-Frege monitoring is app-side:
-
-- `POST /api/signup` creates the user/org path, writes the signup row, then attempts a Hermes webhook.
-- `GET /api/admin/frege-signup-stats` exposes protected aggregate stats for Hermes polling.
-- Vercel Cron calls `GET /api/cron/frege-signup-stats` every 8 hours, which posts a stats snapshot to Hermes.
-
-Server-only Vercel env vars:
-
-| Name | Purpose |
-|---|---|
-| `HERMES_FREGE_SIGNUP_WEBHOOK_URL` | Hermes public webhook ingress URL. Webhooks are skipped unless this and `HERMES_FREGE_WEBHOOK_SECRET` are set. |
-| `HERMES_FREGE_WEBHOOK_SECRET` | Shared webhook secret. Sent as bearer auth and used for `X-Hub-Signature-256` HMAC. |
-| `FREGE_ADMIN_STATS_SECRET` | Bearer token for `GET /api/admin/frege-signup-stats`. |
-| `CRON_SECRET` | Bearer token Vercel sends to `GET /api/cron/frege-signup-stats`. |
-
-Webhook failures do not block signup success. If account creation succeeds, the
-user still gets the normal billing redirect; webhook failures are logged
-server-side only.
-
-Stats endpoint test:
+Install the published client:
 
 ```bash
-curl -sS https://frege.dev/api/admin/frege-signup-stats \
-  -H "Authorization: Bearer $FREGE_ADMIN_STATS_SECRET"
+npm install -g @frege-dev/cli
 ```
 
-Signup webhook payload:
+Connect it to the hosted API and verify access:
+
+```bash
+frege connect https://frege.dev --token <valid-frg_live_key>
+frege doctor
+```
+
+`frege connect` verifies the key, saves configuration at
+`~/.frege/mcp/config.json`, and attempts to register `frege mcp serve` with an
+installed Codex or Claude Code client. Restart an already-running MCP client,
+then call `frege_status` from that client.
+
+For a generic stdio MCP client:
 
 ```json
 {
-  "event": "frege.signup.created",
-  "created_at": "2026-06-08T00:00:00.000Z",
-  "signup": {
-    "id": "uuid",
-    "name": "Jane Smith",
-    "work_email": "jane@example.com",
-    "company": "Example Co",
-    "role": "CTO",
-    "company_size": "51-200",
-    "expected_users": 25,
-    "current_agent_tools": ["Codex", "Claude Code"],
-    "other_tool": "",
-    "monthly_ai_spend": "$2,000-$10,000",
-    "willing_to_pay": "$500-$2,000 / mo",
-    "decision_timeline": "30 days",
-    "main_pain_point": "We need agents to use current internal context safely.",
-    "other_comments": ""
+  "mcpServers": {
+    "frege": {
+      "command": "frege",
+      "args": ["mcp", "serve"]
+    }
   }
 }
 ```
 
-Stats snapshot webhook payload:
+Prefer `frege connect` to placing an API key in MCP JSON. Never commit
+`~/.frege/mcp/config.json`, print the full key in logs, or include it in support
+requests.
 
-```json
-{
-  "event": "frege.signup.stats.snapshot",
-  "created_at": "2026-06-08T00:00:00.000Z",
-  "stats": {
-    "total_signups": 0,
-    "signups_last_8h": 0,
-    "signups_last_24h": 0,
-    "latest_signup_at": null,
-    "latest_signups": []
-  }
-}
+The complete setup and troubleshooting guide is in
+[`packages/frege-cli/README.md`](packages/frege-cli/README.md).
+
+## Repository map
+
+- `app/` — public pages, authenticated consoles, and REST route handlers.
+- `lib/core/` — tenancy, memory, context, proposals, runtime, and telemetry
+  services.
+- `packages/frege-cli/` — the published CLI and local MCP server.
+- `db/` — ordered PostgreSQL migrations.
+- `scripts/prototype/` — maintainer checks, smoke tests, and operational tools.
+
+This repository is the source for the hosted Frege product. Production use
+requires Frege-managed infrastructure and configuration that are not supplied
+as a public self-hosting bundle.
+
+## Maintainer verification
+
+With the required private environment configured, maintainers use:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm build
 ```
 
-## Branch Plan
+For CLI-only development:
 
-Planning branches:
+```bash
+cd packages/frege-cli
+npm link
+frege help
+```
 
-- `plan/product-build`
-- `plan/public-language`
-- `plan/signup-data-pathways`
-- `plan/website-design`
+## Support and security
 
-Implementation branches:
+For product help, billing, or account questions, follow
+[`SUPPORT.md`](SUPPORT.md). Do not post customer data, API keys, credentials, or
+security vulnerabilities in a public issue.
 
-- `feature/landing-page`
-- `feature/signup-form`
-- `feature/signup-api`
-- `feature/signup-database`
-- `feature/lead-scoring`
+Report suspected vulnerabilities privately using the process in
+[`SECURITY.md`](SECURITY.md).
 
-Build the public site first, then the signup backend, then the internal lead workflow.
+## License
 
-## Validation Milestone
+Copyright © 2026 Frege. All rights reserved.
 
-The first target is 200 qualified signups.
-
-Qualified means the company:
-
-- Already uses or is actively evaluating AI agents.
-- Has a real company-context problem.
-- Cares about access control or sensitive data boundaries.
-- Can name a budget owner or internal buyer.
-- Would consider a paid pilot if the product solves the problem.
-
-That evidence should come before building the full Frege platform.
+The code and documentation in this repository are source-visible proprietary
+materials and are not offered under an open-source license. See
+[`LICENSE.md`](LICENSE.md) and [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).

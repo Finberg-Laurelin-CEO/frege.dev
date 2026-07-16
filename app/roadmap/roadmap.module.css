@@ -1,0 +1,874 @@
+@font-face {
+  font-family: "Newsreader Frege";
+  src: url("/fonts/Newsreader-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+/* Migra stays a local-only accent until a production web license is supplied.
+   Newsreader is the deterministic fallback in every deployed environment. */
+@font-face {
+  font-family: "Migra Frege";
+  src: local("Migra Italic"), local("MigraItalic");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+
+.roadmapV2Page {
+  --roadmapV2Field: #0a3f33;
+  --roadmapV2Paper: #f6f7f5;
+  --roadmapV2Muted: rgba(246, 247, 245, 0.82);
+  --roadmapV2Faint: rgba(246, 247, 245, 0.72);
+  --roadmapV2Rule: rgba(246, 247, 245, 0.17);
+  --roadmapV2RuleStrong: rgba(246, 247, 245, 0.3);
+  --roadmapV2Signal: #a6ffcb;
+  --roadmapV2Amber: #ffd39a;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 0 var(--pad) clamp(56px, 9vw, 110px);
+  color: var(--roadmapV2Paper);
+  background: var(--roadmapV2Field);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  letter-spacing: 0;
+}
+
+.roadmapV2Page *::selection {
+  color: var(--roadmapV2Field);
+  background: var(--roadmapV2Signal);
+}
+
+.roadmapV2Page :where(h1, h2, h3, p) {
+  margin-top: 0;
+}
+
+.roadmapV2Page :where(a):focus-visible {
+  outline: 2px solid var(--roadmapV2Signal);
+  outline-offset: 4px;
+}
+
+.roadmapV2HeroContent,
+.roadmapV2Stages,
+.roadmapV2Commitment {
+  width: min(100%, 1420px);
+  margin-inline: auto;
+}
+
+.roadmapV2Hero {
+  position: relative;
+  width: 100vw;
+  min-height: max(760px, calc(100svh - var(--bar-h)));
+  margin-left: calc(50% - 50vw);
+  overflow: hidden;
+  border-bottom: 1px solid var(--roadmapV2RuleStrong);
+  background: #041a16;
+}
+
+.roadmapV2HeroContent {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  grid-template-areas:
+    "eyebrow key"
+    "title key"
+    "summary key"
+    "actions key";
+  min-height: max(760px, calc(100svh - var(--bar-h)));
+  column-gap: clamp(54px, 9vw, 150px);
+  align-content: center;
+  padding: clamp(102px, 10vw, 158px) var(--pad) clamp(136px, 12vw, 176px);
+}
+
+.roadmapV2HeroContent::before {
+  position: absolute;
+  top: clamp(28px, 4vw, 52px);
+  right: var(--pad);
+  content: "+-- memory / policy / action --+";
+  color: var(--roadmapV2Faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  white-space: nowrap;
+}
+
+.roadmapV2HeroContent::after {
+  position: absolute;
+  z-index: -1;
+  inset: 0 32% 0 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(2, 20, 16, 0.68) 0%, rgba(2, 20, 16, 0.6) 72%, transparent 100%);
+}
+
+.roadmapV2Eyebrow,
+.roadmapV2StageEyebrow {
+  margin: 0;
+  color: var(--roadmapV2Signal);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.roadmapV2Eyebrow::before,
+.roadmapV2StageEyebrow::before {
+  content: "// ";
+  opacity: 0.85;
+}
+
+.roadmapV2Eyebrow {
+  grid-area: eyebrow;
+}
+
+.roadmapV2Hero h1 {
+  grid-area: title;
+  max-width: 10ch;
+  margin: 1rem 0 1.6rem;
+  font-size: clamp(58px, 7.5vw, 116px);
+  font-weight: 430;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+  text-shadow: 0 3px 34px rgba(2, 20, 16, 0.84);
+}
+
+.roadmapV2Hero h1 em {
+  color: rgba(246, 247, 245, 0.78);
+  font-family: "Migra Frege", "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: -0.065em;
+}
+
+.roadmapV2Summary {
+  grid-area: summary;
+  max-width: 52ch;
+  margin: 0;
+  color: var(--roadmapV2Muted);
+  font-size: clamp(18px, 1.55vw, 22px);
+  line-height: 1.58;
+  text-shadow: 0 2px 20px rgba(2, 20, 16, 0.94);
+}
+
+.roadmapV2HeroActions {
+  grid-area: actions;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin-top: 34px;
+}
+
+.roadmapV2PrimaryLink,
+.roadmapV2SecondaryLink {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  padding: 5px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(166, 255, 203, 0.62);
+  color: var(--roadmapV2Signal);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.07em;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.roadmapV2PrimaryLink::before,
+.roadmapV2SecondaryLink::before {
+  content: "[ ";
+  opacity: 0.85;
+}
+
+.roadmapV2PrimaryLink::after,
+.roadmapV2SecondaryLink::after {
+  content: " → ]";
+  margin-left: 12px;
+  opacity: 0.72;
+}
+
+.roadmapV2PrimaryLink:hover,
+.roadmapV2PrimaryLink:focus,
+.roadmapV2SecondaryLink:hover,
+.roadmapV2SecondaryLink:focus {
+  border-bottom-color: var(--roadmapV2Paper);
+  color: var(--roadmapV2Paper);
+}
+
+.roadmapV2StatusKey {
+  position: relative;
+  grid-area: key;
+  align-self: center;
+  margin: 0;
+  padding: 30px 0 0 clamp(24px, 4vw, 58px);
+  border-left: 1px solid var(--roadmapV2Rule);
+  font-family: var(--mono);
+  text-shadow: 0 2px 16px rgba(2, 20, 16, 0.92);
+}
+
+.roadmapV2StatusKey::before {
+  position: absolute;
+  top: 0;
+  left: clamp(24px, 4vw, 58px);
+  content: "status / public contract";
+  color: var(--roadmapV2Faint);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.roadmapV2StatusKey div {
+  display: grid;
+  grid-template-columns: 7.25rem minmax(0, 1fr);
+  gap: 1rem;
+  padding: 17px 0;
+  border-top: 1px solid var(--roadmapV2Rule);
+}
+
+.roadmapV2StatusKey div:last-child {
+  border-bottom: 1px solid var(--roadmapV2Rule);
+}
+
+.roadmapV2StatusKey dt {
+  color: var(--roadmapV2Signal);
+  font-size: 10px;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.roadmapV2StatusKey dt::before {
+  content: "├─ ";
+  color: var(--roadmapV2Faint);
+}
+
+.roadmapV2StatusKey div:last-child dt::before {
+  content: "└─ ";
+}
+
+.roadmapV2StatusKey dd {
+  margin: 0;
+  color: var(--roadmapV2Muted);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-size: 15px;
+  line-height: 1.48;
+}
+
+.roadmapV2Stages {
+  color: var(--roadmapV2Paper);
+}
+
+.roadmapV2Stage {
+  padding: clamp(92px, 11vw, 168px) 0;
+  border-bottom: 1px solid var(--roadmapV2RuleStrong);
+  scroll-margin-top: calc(var(--bar-h) + 20px);
+}
+
+.roadmapV2StageHeader {
+  display: grid;
+  grid-template-columns: 5rem minmax(13rem, 0.58fr) minmax(18rem, 0.92fr);
+  gap: clamp(20px, 4vw, 68px);
+  align-items: start;
+  margin-bottom: clamp(50px, 7vw, 92px);
+}
+
+.roadmapV2StageIndex {
+  color: var(--roadmapV2Signal);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  line-height: 1.45;
+}
+
+.roadmapV2StageIndex::before {
+  content: "├─ ";
+  color: var(--roadmapV2Faint);
+}
+
+.roadmapV2Stage:last-child .roadmapV2StageIndex::before {
+  content: "└─ ";
+}
+
+.roadmapV2StageHeader h2 {
+  max-width: 8ch;
+  margin: 0.55rem 0 0;
+  font-size: clamp(42px, 5vw, 76px);
+  font-weight: 430;
+  line-height: 0.96;
+  letter-spacing: -0.045em;
+}
+
+.roadmapV2StageDescription {
+  max-width: 52ch;
+  margin: 0;
+  color: var(--roadmapV2Muted);
+  font-size: clamp(17px, 1.4vw, 20px);
+  line-height: 1.62;
+}
+
+.roadmapV2CapabilityGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(38px, 5vw, 76px) clamp(28px, 4vw, 64px);
+}
+
+.roadmapV2CapabilityCard {
+  position: relative;
+  min-width: 0;
+  padding: 23px 0 0;
+  border-top: 1px solid var(--roadmapV2Rule);
+  background: transparent;
+}
+
+.roadmapV2CapabilityCard::before {
+  position: absolute;
+  top: -7px;
+  left: 0;
+  padding-right: 8px;
+  content: "+";
+  color: var(--roadmapV2Faint);
+  background: var(--roadmapV2Field);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.roadmapV2CapabilityMeta {
+  min-height: 2.8rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--mono);
+}
+
+.roadmapV2StatusBadge {
+  display: inline-flex;
+  align-items: center;
+  color: var(--roadmapV2Signal);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  line-height: 1.35;
+  text-transform: uppercase;
+}
+
+.roadmapV2StatusBadge::before {
+  content: "[●] ";
+  margin-right: 0.4rem;
+  color: var(--roadmapV2Signal);
+  letter-spacing: 0;
+}
+
+.roadmapV2StatusBadge[data-status="beta"] {
+  color: rgba(246, 247, 245, 0.76);
+}
+
+.roadmapV2StatusBadge[data-status="beta"]::before {
+  content: "[◐] ";
+  color: rgba(166, 255, 203, 0.72);
+}
+
+.roadmapV2StatusBadge[data-status="planned"] {
+  color: var(--roadmapV2Faint);
+}
+
+.roadmapV2StatusBadge[data-status="planned"]::before {
+  content: "[○] ";
+  color: var(--roadmapV2Faint);
+}
+
+.roadmapV2CapabilityId {
+  max-width: 17ch;
+  overflow-wrap: anywhere;
+  color: var(--roadmapV2Faint);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  line-height: 1.45;
+  text-align: right;
+  text-transform: uppercase;
+}
+
+.roadmapV2CapabilityCard h3 {
+  max-width: 15ch;
+  margin: 0.65rem 0 0.9rem;
+  font-size: clamp(25px, 2.25vw, 35px);
+  font-weight: 450;
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.roadmapV2CapabilityCard p {
+  max-width: 36ch;
+  margin: 0;
+  color: var(--roadmapV2Muted);
+  font-size: clamp(16px, 1.22vw, 18px);
+  line-height: 1.62;
+}
+
+.roadmapV2Commitment {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(15rem, 0.72fr) minmax(20rem, 1.28fr);
+  gap: 1rem clamp(52px, 9vw, 144px);
+  align-items: start;
+  margin-bottom: clamp(88px, 12vw, 180px);
+  padding: clamp(102px, 12vw, 180px) 0;
+  border-bottom: 1px solid var(--roadmapV2RuleStrong);
+  color: var(--roadmapV2Paper);
+}
+
+.roadmapV2Commitment::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  content: "┌─ identity ─ policy ─ provenance ─ review ─┐";
+  overflow: hidden;
+  color: var(--roadmapV2Faint);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.13em;
+  white-space: nowrap;
+}
+
+.roadmapV2Commitment .roadmapV2Eyebrow {
+  grid-area: auto;
+  grid-column: 1;
+}
+
+.roadmapV2Commitment h2 {
+  grid-column: 1;
+  max-width: 9ch;
+  margin: 0;
+  font-size: clamp(42px, 5.5vw, 82px);
+  font-weight: 430;
+  line-height: 0.94;
+  letter-spacing: -0.05em;
+  text-wrap: balance;
+}
+
+.roadmapV2Commitment p:not(.roadmapV2Eyebrow) {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  max-width: 49ch;
+  margin: 0;
+  color: var(--roadmapV2Muted);
+  font-size: clamp(18px, 1.55vw, 22px);
+  line-height: 1.58;
+}
+
+.roadmapV2Commitment .roadmapV2PrimaryLink {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 1rem;
+}
+
+/* Keep the legacy footer legible when the V2 flag is off. The V2 footer has
+   its own green-field chrome in public-v2.module.css. */
+.roadmapV2Page :global(.foot) {
+  color: var(--roadmapV2Faint);
+}
+
+.roadmapV2Page :global(.foot__top) {
+  color: var(--roadmapV2RuleStrong);
+}
+
+.roadmapV2Page :global(.foot a) {
+  color: var(--roadmapV2Muted);
+}
+
+.roadmapV2Page :global(.foot a:hover),
+.roadmapV2Page :global(.foot a:focus) {
+  color: var(--roadmapV2Signal);
+}
+
+@media (max-width: 980px) {
+  .roadmapV2HeroContent {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "eyebrow"
+      "title"
+      "summary"
+      "actions"
+      "key";
+    min-height: auto;
+  }
+
+  .roadmapV2StatusKey {
+    margin-top: clamp(54px, 8vw, 82px);
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .roadmapV2StatusKey::before {
+    left: 0;
+  }
+
+  .roadmapV2StageHeader {
+    grid-template-columns: 4rem minmax(0, 0.78fr) minmax(0, 1.22fr);
+  }
+
+  .roadmapV2CapabilityGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .roadmapV2HeroContent {
+    padding: 88px var(--pad) 156px;
+  }
+
+  .roadmapV2HeroContent::before {
+    top: 24px;
+    right: auto;
+    left: var(--pad);
+  }
+
+  .roadmapV2Hero h1 {
+    max-width: 9ch;
+    font-size: clamp(54px, 16vw, 82px);
+    line-height: 0.88;
+  }
+
+  .roadmapV2HeroActions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .roadmapV2StatusKey div {
+    grid-template-columns: 6.5rem minmax(0, 1fr);
+  }
+
+  .roadmapV2Stage {
+    padding: 88px 0;
+  }
+
+  .roadmapV2StageHeader {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .roadmapV2StageDescription {
+    margin-top: 18px;
+  }
+
+  .roadmapV2CapabilityGrid {
+    grid-template-columns: 1fr;
+    gap: 42px;
+  }
+
+  .roadmapV2CapabilityCard h3,
+  .roadmapV2CapabilityCard p {
+    max-width: 28ch;
+  }
+
+  .roadmapV2Commitment {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding: 104px 0;
+  }
+
+  .roadmapV2Commitment .roadmapV2Eyebrow,
+  .roadmapV2Commitment h2,
+  .roadmapV2Commitment p:not(.roadmapV2Eyebrow),
+  .roadmapV2Commitment .roadmapV2PrimaryLink {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .roadmapV2Commitment p:not(.roadmapV2Eyebrow) {
+    margin-top: 18px;
+  }
+}
+
+@media (max-width: 420px) {
+  .roadmapV2StatusKey div {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .roadmapV2CapabilityMeta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .roadmapV2CapabilityId {
+    max-width: none;
+    text-align: left;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roadmapV2Page * {
+    scroll-behavior: auto;
+  }
+}
+
+/* User-supplied sundial photograph, reduced to numeric ASCII locally. */
+.roadmapV2HeroAside {
+  grid-area: key;
+  display: grid;
+  gap: clamp(26px, 4vw, 44px);
+  align-self: center;
+  min-width: 0;
+}
+
+.roadmapV2HeroAside .roadmapV2StatusKey {
+  grid-area: auto;
+  align-self: auto;
+  margin: 0;
+}
+
+.roadmapV2TimeArt {
+  position: absolute;
+  z-index: 0;
+  isolation: isolate;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 211, 154, 0.34);
+  border-bottom: 1px solid var(--roadmapV2RuleStrong);
+  background: #041a16;
+}
+
+.roadmapV2TimeArt picture,
+.roadmapV2TimeArt img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.roadmapV2TimeArt img {
+  object-fit: cover;
+  object-position: 50% 55%;
+  filter: saturate(0.78) contrast(1.12) brightness(0.73);
+  transform: scale(1.012);
+}
+
+.roadmapV2AsciiStorm {
+  z-index: 2;
+}
+
+.roadmapV2TimeArt::before,
+.roadmapV2TimeArt::after {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.roadmapV2TimeArt::before {
+  background:
+    linear-gradient(90deg, rgba(2, 20, 16, 0.94) 0%, rgba(2, 20, 16, 0.78) 48%, rgba(2, 20, 16, 0.46) 66%, rgba(2, 20, 16, 0.78) 100%),
+    linear-gradient(180deg, rgba(2, 20, 16, 0.3), transparent 32% 65%, rgba(2, 20, 16, 0.52)),
+    radial-gradient(circle at 50% 62%, rgba(255, 211, 154, 0.18), transparent 11%),
+    linear-gradient(155deg, rgba(255, 190, 126, 0.12), transparent 37%);
+  mix-blend-mode: normal;
+}
+
+.roadmapV2TimeArt::after {
+  opacity: 0.33;
+  background: repeating-linear-gradient(
+    180deg,
+    rgba(246, 247, 245, 0.1) 0,
+    rgba(246, 247, 245, 0.1) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  mix-blend-mode: soft-light;
+}
+
+.roadmapV2TimeAscii {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: var(--mono);
+}
+
+.roadmapV2TimeAscii pre {
+  position: absolute;
+  margin: 0;
+  font-family: inherit;
+  font-weight: 400;
+  white-space: pre;
+}
+
+.roadmapV2TimeDensity {
+  top: 6%;
+  left: -1.5rem;
+  width: calc(100% + 3rem);
+  overflow: hidden;
+  color: rgba(246, 247, 245, 0.43);
+  font-size: clamp(8px, 0.74vw, 12px);
+  line-height: clamp(3.6rem, 8svh, 6.6rem);
+  letter-spacing: clamp(0.12em, 0.32vw, 0.46em);
+  mix-blend-mode: screen;
+  animation: none;
+}
+
+.roadmapV2TimeDial {
+  top: 62%;
+  left: 50%;
+  color: rgba(255, 211, 154, 0.88);
+  font-size: clamp(8px, 0.92vw, 14px);
+  line-height: 1.55;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-shadow: 0 0 18px rgba(255, 190, 126, 0.38);
+  transform: translate(-50%, -50%);
+  transform-origin: 50% 50%;
+  mix-blend-mode: screen;
+  animation: none;
+}
+
+.roadmapV2TimeMeasure {
+  right: clamp(22px, 4vw, 66px);
+  bottom: clamp(78px, 10vh, 118px);
+  color: rgba(246, 247, 245, 0.7);
+  font-size: clamp(8px, 0.72vw, 11px);
+  line-height: 1.92;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-shadow: 0 2px 14px rgba(2, 20, 16, 0.88);
+  mix-blend-mode: screen;
+  animation: none;
+}
+
+.roadmapV2TimeCoordinate,
+.roadmapV2TimeSequence {
+  position: absolute;
+  color: rgba(246, 247, 245, 0.72);
+  font-size: clamp(8px, 0.72vw, 11px);
+  letter-spacing: 0.13em;
+  line-height: 1.4;
+  text-shadow: 0 2px 12px rgba(2, 20, 16, 0.9);
+  text-transform: uppercase;
+}
+
+.roadmapV2TimeCoordinate {
+  top: clamp(24px, 4vw, 54px);
+  left: clamp(22px, 4vw, 66px);
+  color: var(--roadmapV2Amber);
+}
+
+.roadmapV2TimeCoordinate::before {
+  content: "+-- source / temporal facade --+  ";
+  color: rgba(246, 247, 245, 0.54);
+}
+
+.roadmapV2TimeSequence {
+  right: clamp(22px, 4vw, 66px);
+  top: clamp(24px, 4vw, 54px);
+}
+
+.roadmapV2TimeArt figcaption {
+  position: absolute;
+  z-index: 3;
+  right: clamp(22px, 4vw, 66px);
+  bottom: clamp(22px, 4vw, 48px);
+  left: clamp(22px, 4vw, 66px);
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding-top: 13px;
+  border-top: 1px solid rgba(246, 247, 245, 0.38);
+  color: rgba(246, 247, 245, 0.94);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  line-height: 1.5;
+  text-shadow: 0 2px 12px rgba(2, 20, 16, 0.94);
+  text-transform: uppercase;
+}
+
+.roadmapV2TimeArt figcaption span:first-child {
+  color: var(--roadmapV2Amber);
+}
+
+@keyframes roadmap-time-drift {
+  0% { opacity: 0.56; transform: translate(-50%, -50%) rotate(-1.1deg) scale(0.96); }
+  52% { opacity: 0.94; transform: translate(-50%, -53%) rotate(0.7deg) scale(1.04); }
+  100% { opacity: 0.66; transform: translate(-49%, -49%) rotate(-0.4deg) scale(0.99); }
+}
+
+@keyframes roadmap-density-drift {
+  from { opacity: 0.34; transform: translate3d(-1.5%, 0, 0); }
+  to { opacity: 0.7; transform: translate3d(1.5%, 8px, 0); }
+}
+
+@keyframes roadmap-measure-pulse {
+  0% { opacity: 0.38; transform: translate3d(0, 5%, 0); }
+  48% { opacity: 0.94; transform: translate3d(-5%, -2%, 0); }
+  100% { opacity: 0.56; transform: translate3d(2%, -8%, 0); }
+}
+
+@media (max-width: 980px) {
+  .roadmapV2HeroAside {
+    margin-top: clamp(54px, 8vw, 82px);
+  }
+
+  .roadmapV2HeroAside .roadmapV2StatusKey { margin-top: 0; }
+
+  .roadmapV2HeroContent {
+    min-height: max(940px, calc(100svh - var(--bar-h)));
+  }
+}
+
+@media (max-width: 520px) {
+  .roadmapV2TimeArt img {
+    object-position: 50% 50%;
+  }
+
+  .roadmapV2TimeDensity {
+    top: 8%;
+    left: -28rem;
+    width: 72rem;
+    font-size: 8px;
+  }
+
+  .roadmapV2TimeDial {
+    top: 60%;
+    font-size: 7px;
+    letter-spacing: 0.08em;
+  }
+
+  .roadmapV2TimeMeasure {
+    right: 20px;
+    bottom: 88px;
+    font-size: 7px;
+  }
+
+  .roadmapV2TimeSequence {
+    display: none;
+  }
+
+  .roadmapV2TimeCoordinate::before {
+    content: "+-- temporal facade --+  ";
+  }
+
+  .roadmapV2TimeArt figcaption {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roadmapV2TimeDial,
+  .roadmapV2TimeDensity,
+  .roadmapV2TimeMeasure {
+    animation: none;
+  }
+}

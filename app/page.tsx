@@ -1,4 +1,7 @@
 import SiteFooter from "./components/SiteFooter";
+import PublicHomeV2 from "./components/PublicHomeV2";
+
+const publicSiteV2 = process.env.FREGE_PUBLIC_SITE_V2 === "true";
 
 const FREGE_ART = `
 ███████╗ ██████╗  ███████╗  ██████╗  ███████╗
@@ -27,28 +30,26 @@ const transcript: Line[] = [
   { kind: "out", text: "  • EU Enterprise Addendum   [legal/contracts/eu.md]" },
   { kind: "out", text: "  • Escalation Runbook       [support/runbooks/refunds]" },
   { kind: "blank", text: "" },
-  { kind: "no", text: "DENIED   2 sources out of zone (not returned, logged)" },
-  { kind: "no", text: "  • Customer PII export      [zone=red]" },
-  { kind: "no", text: "  • Unreleased pricing model  [zone=red]" },
+  { kind: "no", text: "WITHHELD 2 restricted matches (content not returned)" },
   { kind: "blank", text: "" },
   { kind: "note", text: "agent proposes → memory: \"EU refunds need finance sign-off >$10k\"" },
   { kind: "out", text: "frege  queued as proposal #418 — pending human review" },
 ];
 
 const workflow: [string, string][] = [
-  ["Connect", "Issue a per-user API key and connect Claude Code, Codex, or an internal agent through MCP. No new client to install."],
+  ["Connect", "Install the Frege CLI, issue a per-user API key, and connect Claude Code, Codex, or an internal agent through MCP."],
   ["Build context", "Frege resolves org, role, and trust zone, then returns scoped context with citations — never the whole company."],
-  ["Do work", "The agent uses its own model while Frege records what it read, what was denied, and what it cost."],
+  ["Do work", "The agent uses its own model while Frege records supported context builds, session events, and model telemetry."],
   ["Improve memory", "Useful discoveries land as reviewable proposals. A human accepts before the canonical brain changes."],
 ];
 
 // Honest comparison: when CLAUDE.md is right, and where it breaks for a team.
 const comparison: [string, string, string][] = [
-  ["Shared across agents & people", "Each person copies their own file; it drifts", "One brain, versioned, same answer for everyone"],
+  ["Shared across agents & people", "Each person copies their own file; it drifts", "One versioned memory, with authorized views by role"],
   ["Who can see what", "Everything in the file is visible to everyone", "Role and trust-zone gates on every request"],
-  ["Audit & cost", "No record of what an agent read", "Reads, denials, sessions, and cost logged per org"],
+  ["Activity & cost", "No shared record of the work", "Context builds, sessions, and model usage recorded per org"],
   ["Updating knowledge", "Anyone (or any agent) edits in place", "Agent writes land as proposals, accepted after review"],
-  ["Sensitive sources", "All-or-nothing — paste it in or leave it out", "Restricted sources stay hidden, denial is logged"],
+  ["Sensitive sources", "All-or-nothing — paste it in or leave it out", "Restricted content stays hidden; context builds report withheld counts"],
 ];
 
 const outcomes: [string, string][] = [
@@ -57,7 +58,7 @@ const outcomes: [string, string][] = [
   ["Stop silent knowledge drift", "Durable memory updates are reviewed before they become canonical, so the brain stays trustworthy."],
 ];
 
-export default function Home() {
+function LegacyHome() {
   return (
     <main id="main" className="site">
       <section className="hero" aria-labelledby="hero-title">
@@ -192,4 +193,8 @@ export default function Home() {
       <SiteFooter />
     </main>
   );
+}
+
+export default function Home() {
+  return publicSiteV2 ? <PublicHomeV2 /> : <LegacyHome />;
 }

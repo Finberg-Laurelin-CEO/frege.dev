@@ -62,10 +62,9 @@ of `frege-local` before recording; invite it from `/admin` if not.
 frege docs sync frege.docs.yml --dry-run
 ```
 
-Expected: 13 planned documents (includes `yc-app-video-script` and
-`demo-operator-checklist`), including the two restricted entries
-(`security-provider-key-handling`, `security-red-zone-handling`), and no errors.
-All 13 were synced to the live org on 2026-07-09.
+Expected: 12 planned documents (including `demo-operator-checklist`), including
+the two restricted entries (`security-provider-key-handling`,
+`security-red-zone-handling`), and no errors.
 
 ## 6. Red-zone docs are imported
 

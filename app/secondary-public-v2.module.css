@@ -1,0 +1,653 @@
+@font-face {
+  font-family: "Newsreader Frege";
+  src: url("/fonts/Newsreader-Variable.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 200 800;
+  font-display: swap;
+}
+
+/* Migra stays local-only until a production webfont license is in place. */
+@font-face {
+  font-family: "Migra Frege";
+  src: local("Migra Italic"), local("MigraItalic");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+
+.page {
+  --secondary-night: #062f25;
+  --secondary-field: #0a3f33;
+  --secondary-paper: #f6f7f5;
+  --secondary-muted: rgba(246, 247, 245, 0.82);
+  --secondary-faint: rgba(246, 247, 245, 0.68);
+  --secondary-signal: #a6ffcb;
+  --secondary-rule: rgba(246, 247, 245, 0.17);
+  position: relative;
+  isolation: isolate;
+  min-height: calc(100svh - 56px);
+  overflow-x: clip;
+  color: var(--secondary-paper);
+  background:
+    radial-gradient(circle at 86% 4%, rgba(166, 255, 203, 0.09), transparent 26rem),
+    var(--secondary-field);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  letter-spacing: 0;
+}
+
+.page::before {
+  position: absolute;
+  z-index: -1;
+  top: 34px;
+  right: clamp(18px, 4vw, 64px);
+  color: rgba(166, 255, 203, 0.28);
+  content: "·  ·  ✦  ·  ·  ·  ·  ◇  ·  ·  ·";
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+}
+
+.page *::selection {
+  color: var(--secondary-night);
+  background: var(--secondary-signal);
+}
+
+.page :where(h1, h2, p) {
+  margin-top: 0;
+}
+
+.page :where(h1, h2) {
+  color: var(--secondary-paper);
+  font-family: "Newsreader Frege", Georgia, "Times New Roman", serif;
+  font-weight: 430;
+  letter-spacing: -0.04em;
+}
+
+.page a {
+  color: var(--secondary-signal);
+  text-underline-offset: 0.22em;
+}
+
+.page a:hover,
+.page a:focus {
+  color: var(--secondary-paper);
+}
+
+.page a:focus-visible {
+  outline: 2px solid var(--secondary-signal);
+  outline-offset: 4px;
+}
+
+.page code {
+  padding: 0;
+  color: var(--secondary-signal);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 0.88em;
+}
+
+.page > header,
+.page > section,
+.page > hr {
+  width: min(100% - clamp(36px, 8vw, 128px), 1320px);
+  margin-inline: auto;
+}
+
+.page > header {
+  position: relative;
+  padding: clamp(88px, 11vw, 158px) 0 clamp(62px, 8vw, 108px);
+  border-bottom: 1px solid var(--secondary-rule);
+}
+
+.page > header::after {
+  position: absolute;
+  right: 0;
+  bottom: -6px;
+  padding-left: 14px;
+  color: var(--secondary-signal);
+  background: var(--secondary-field);
+  content: "◇─────────── 00";
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.page :global(.eyebrow) {
+  margin-bottom: 24px;
+  color: var(--secondary-signal);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+}
+
+.page :global(.eyebrow)::before {
+  color: var(--secondary-faint);
+}
+
+.page > header h1 {
+  max-width: 12ch;
+  margin: 0 0 28px;
+  font-size: clamp(54px, 7vw, 104px);
+  line-height: 0.91;
+}
+
+.page > header > p:not(:global(.eyebrow)) {
+  max-width: 67ch;
+  margin: 0;
+  color: var(--secondary-muted);
+  font-size: clamp(18px, 1.6vw, 22px);
+  line-height: 1.58;
+}
+
+.page > section {
+  padding: clamp(66px, 8vw, 116px) 0;
+}
+
+.page > section + section {
+  border-top: 1px solid var(--secondary-rule);
+}
+
+.page > section h2 {
+  margin: 0;
+  font-size: clamp(36px, 4.6vw, 67px);
+  line-height: 0.98;
+}
+
+.page > section > p,
+.page > section li,
+.page > section dd {
+  color: var(--secondary-muted);
+  font-size: clamp(16px, 1.25vw, 19px);
+  line-height: 1.62;
+}
+
+.page :global(.docs__note) {
+  max-width: 78ch;
+  margin: 30px 0 0;
+  padding: 18px 0 0;
+  color: var(--secondary-muted);
+  border: 0;
+  border-top: 1px dashed var(--secondary-rule);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.page :global(.docs__note)::before {
+  color: var(--secondary-signal);
+  content: "[ note ]  ";
+  letter-spacing: 0.06em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 26px;
+  margin-top: 36px;
+}
+
+.page .action {
+  min-height: 48px;
+  padding: 0;
+  color: var(--secondary-signal);
+  border: 0;
+  border-bottom: 1px solid rgba(166, 255, 203, 0.65);
+  background: transparent;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.page .action::before {
+  color: var(--secondary-faint);
+  content: "[";
+}
+
+.page .action::after {
+  margin-left: 10px;
+  color: var(--secondary-faint);
+  content: "↗ ]";
+}
+
+.page .action:hover,
+.page .action:focus {
+  color: var(--secondary-paper);
+  border-color: var(--secondary-paper);
+  background: transparent;
+}
+
+.page .primaryAction {
+  padding: 0 18px;
+  color: var(--secondary-night);
+  border: 1px solid var(--secondary-signal);
+  background: var(--secondary-signal);
+}
+
+.page .primaryAction::before,
+.page .primaryAction::after {
+  color: var(--secondary-night);
+}
+
+.page .primaryAction:hover,
+.page .primaryAction:focus {
+  color: var(--secondary-paper);
+  border-color: var(--secondary-paper);
+  background: var(--secondary-night);
+}
+
+/* Pricing: three editorial columns, separated only by rules. */
+.plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--secondary-rule);
+  border-bottom: 1px solid var(--secondary-rule);
+}
+
+.pricingPage .plan {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  min-height: 610px;
+  flex-direction: column;
+  gap: 0;
+  padding: clamp(28px, 3.4vw, 50px);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.pricingPage .plan + .plan {
+  border-left: 1px solid var(--secondary-rule);
+}
+
+.pricingPage .plan::before {
+  position: absolute;
+  top: -6px;
+  left: clamp(28px, 3.4vw, 50px);
+  color: var(--secondary-faint);
+  background: var(--secondary-field);
+  content: "◆";
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.pricingPage .planFeatured::before,
+.pricingPage .planFeatured .tier {
+  color: var(--secondary-signal);
+}
+
+.pricingPage .tier {
+  margin: 0 0 48px;
+  color: var(--secondary-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.17em;
+  opacity: 1;
+}
+
+.pricingPage .tier::before {
+  margin-right: 10px;
+  content: "//";
+  opacity: 1;
+}
+
+.pricingPage .price {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  min-height: 78px;
+}
+
+.pricingPage .amount {
+  color: var(--secondary-paper);
+  font-family: "Migra Frege", "Newsreader Frege", Georgia, serif;
+  font-size: clamp(48px, 4.8vw, 74px);
+  font-style: italic;
+  font-weight: 300;
+  line-height: 0.94;
+}
+
+.pricingPage .unit,
+.pricingPage .billing,
+.pricingPage .annual {
+  color: var(--secondary-muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.5;
+  opacity: 1;
+}
+
+.pricingPage .billing {
+  margin-top: 12px;
+}
+
+.pricingPage .annual {
+  min-height: 30px;
+  margin-top: 3px;
+  color: var(--secondary-faint);
+}
+
+.pricingPage .featureList {
+  display: grid;
+  gap: 0;
+  margin: 34px 0 44px;
+  padding: 0;
+  font-size: inherit;
+}
+
+.pricingPage .featureList li {
+  position: relative;
+  margin: 0;
+  padding: 13px 0 13px 28px;
+  border-top: 1px dashed var(--secondary-rule);
+  color: var(--secondary-muted);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.pricingPage .featureList li::before {
+  position: absolute;
+  left: 0;
+  color: var(--secondary-signal);
+  content: "→";
+  font-family: var(--mono);
+  opacity: 0.85;
+}
+
+.pricingPage .planCta {
+  margin-top: auto;
+  padding-top: 0;
+}
+
+.pricingPage > hr {
+  height: 1px;
+  border: 0;
+  background: var(--secondary-rule);
+}
+
+.pricingPage > hr::before {
+  content: none;
+}
+
+.pricingPage > section:last-of-type {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.42fr) minmax(0, 1fr);
+  gap: clamp(44px, 8vw, 126px);
+}
+
+.pricingPage > section:last-of-type > :global(.docs__note) {
+  grid-column: 2;
+}
+
+.detailList {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.pricingPage .detailRow {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.34fr) minmax(0, 0.66fr);
+  gap: 24px;
+  align-items: baseline;
+  padding: 20px 0;
+  border-top: 1px dashed var(--secondary-rule);
+}
+
+.pricingPage .detailRow:first-child {
+  border-top-style: solid;
+}
+
+.pricingPage .detailRow dt {
+  color: var(--secondary-signal);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.pricingPage .detailRow dt::before {
+  color: var(--secondary-faint);
+  content: "▸ ";
+}
+
+.pricingPage .detailRow dd {
+  margin: 0;
+}
+
+/* Contact: one direct route in, followed by an unboxed intake ledger. */
+.contactPage > header h1 {
+  max-width: 10ch;
+}
+
+.contactPage > section {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.44fr) minmax(0, 1fr);
+  gap: clamp(50px, 9vw, 150px);
+}
+
+.contactPage > section ul {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--secondary-rule);
+  list-style: none;
+  counter-reset: contact-item;
+}
+
+.contactPage > section li {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr);
+  gap: 12px;
+  margin: 0;
+  padding: 20px 0;
+  border-bottom: 1px dashed var(--secondary-rule);
+  counter-increment: contact-item;
+}
+
+.contactPage > section li::before {
+  color: var(--secondary-signal);
+  content: "0" counter(contact-item) "/";
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.contactPage > section > :global(.docs__note) {
+  grid-column: 2;
+}
+
+/* Policy pages: readable ledgers with a mono index, never cards. */
+.policyPage > section {
+  position: relative;
+  width: min(100% - clamp(36px, 8vw, 128px), 1180px);
+  margin-inline: auto;
+  padding: clamp(92px, 11vw, 158px) 0 clamp(80px, 10vw, 140px);
+}
+
+.policyPage > section::before {
+  display: block;
+  margin-bottom: clamp(56px, 8vw, 104px);
+  color: var(--secondary-faint);
+  content: "[ 00.000 / PUBLIC RECORD / 00.000 ]";
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.policyPage :global(.eyebrow) {
+  margin-bottom: 22px;
+}
+
+.policyPage .policyTitle {
+  max-width: 13ch;
+  margin: 0 0 28px;
+  color: var(--secondary-paper);
+  font-size: clamp(54px, 7vw, 96px);
+  line-height: 0.92;
+}
+
+.policyPage .policyLead {
+  max-width: 64ch;
+  margin: 0 0 12px;
+  color: var(--secondary-muted);
+  font-size: clamp(18px, 1.5vw, 21px);
+  line-height: 1.58;
+}
+
+.policyPage .policyDate {
+  margin: 0;
+  color: var(--secondary-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+
+.legalRows {
+  display: grid;
+  max-width: none;
+  margin: clamp(64px, 8vw, 110px) 0 34px;
+  border-top: 1px solid var(--secondary-rule);
+  counter-reset: policy-row;
+}
+
+.policyPage .legalRows > div {
+  display: grid;
+  grid-template-columns: 48px minmax(190px, 0.3fr) minmax(0, 0.7fr);
+  gap: clamp(16px, 3vw, 42px);
+  padding: clamp(22px, 3vw, 34px) 0;
+  border-bottom: 1px dashed var(--secondary-rule);
+  counter-increment: policy-row;
+}
+
+.policyPage .legalRows > div::before {
+  color: var(--secondary-signal);
+  content: counter(policy-row, decimal-leading-zero) "/";
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.policyPage .legalRows dt {
+  color: var(--secondary-paper);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.policyPage .legalRows dd {
+  margin: 0;
+  color: var(--secondary-muted);
+  font-size: clamp(16px, 1.2vw, 18px);
+  line-height: 1.65;
+}
+
+.policyPage .policyTail {
+  max-width: 70ch;
+  margin: 0 0 0 calc(48px + min(3vw, 42px) + max(190px, 30%));
+  color: var(--secondary-faint);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+@media (max-width: 980px) {
+  .plans {
+    grid-template-columns: 1fr;
+  }
+
+  .pricingPage .plan {
+    min-height: 0;
+  }
+
+  .pricingPage .plan + .plan {
+    border-top: 1px solid var(--secondary-rule);
+    border-left: 0;
+  }
+
+  .pricingPage > section:last-of-type,
+  .contactPage > section {
+    grid-template-columns: 1fr;
+    gap: 42px;
+  }
+
+  .pricingPage > section:last-of-type > :global(.docs__note),
+  .contactPage > section > :global(.docs__note) {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 680px) {
+  .page::before {
+    top: 72px;
+    right: 18px;
+  }
+
+  .page > header,
+  .page > section,
+  .page > hr,
+  .policyPage > section {
+    width: min(100% - 40px, 1320px);
+  }
+
+  .page > header {
+    padding-top: 104px;
+  }
+
+  .page > header h1,
+  .policyPage .policyTitle {
+    font-size: clamp(49px, 15vw, 72px);
+  }
+
+  .actions {
+    display: grid;
+    align-items: start;
+    justify-items: start;
+  }
+
+  .pricingPage .plan {
+    padding: 34px 0;
+  }
+
+  .pricingPage .plan::before {
+    left: 0;
+  }
+
+  .pricingPage .tier {
+    margin-bottom: 30px;
+  }
+
+  .pricingPage .detailRow,
+  .policyPage .legalRows > div {
+    grid-template-columns: 34px minmax(0, 1fr);
+    gap: 12px 14px;
+  }
+
+  .pricingPage .detailRow dt,
+  .pricingPage .detailRow dd,
+  .policyPage .legalRows dd {
+    grid-column: 2;
+  }
+
+  .policyPage .legalRows dt {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .policyPage .legalRows dd {
+    grid-row: 2;
+  }
+
+  .policyPage .policyTail {
+    margin-left: 48px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page {
+    scroll-behavior: auto;
+  }
+}

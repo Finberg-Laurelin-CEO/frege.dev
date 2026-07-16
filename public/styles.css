@@ -856,7 +856,7 @@ a {
 }
 
 .path {
-  color: var(--faint);
+  color: var(--muted);
 }
 
 .sigil {
