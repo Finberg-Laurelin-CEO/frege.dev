@@ -1,6 +1,6 @@
 # API V2 control-plane technical preview
 
-Status: implemented locally as an additive technical preview. It is not deployed, and it does not change the availability or compatibility of `/api/v1`.
+Status: available as an additive technical preview. It does not change the availability or compatibility of `/api/v1`, and access to beta integrations remains explicitly allowlisted.
 
 This slice introduces explicit principals, scoped delegated credentials, immutable policy versions, authorization receipts, and a unified provenance read model. The separately documented [governed GitHub connector beta](GITHUB_CONNECTOR_BETA.md) is the first integration built on these controls. This preview does not add tasks, approval workflows, or a multi-step runtime.
 

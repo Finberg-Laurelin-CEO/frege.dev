@@ -34,6 +34,13 @@ test("public proof names only shipped CLI or MCP surfaces", async () => {
   assert.doesNotMatch(serializePublicProof(), /frege (?:memory|audit)\b/);
 });
 
+test("doctor evidence stays within the command's visible output", () => {
+  const doctor = PUBLIC_PROOF.steps.find((step) => step.id === "resolve-caller");
+  assert.ok(doctor);
+  assert.deepEqual(doctor.evidence, ["API key: set", "organization: active", "role: writer"]);
+  assert.doesNotMatch(`${doctor.result} ${doctor.evidence.join(" ")}`, /key owner|trust zone/i);
+});
+
 test("public proof contains no credential, account, or customer identifiers", () => {
   const serialized = serializePublicProof();
   for (const pattern of PUBLIC_PROOF_FORBIDDEN_PATTERNS) {

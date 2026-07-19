@@ -15,7 +15,7 @@ export const PUBLIC_PROOF = {
   duration: "90 seconds",
   title: "A coding agent asks what can ship. Frege shows the answer and the boundary.",
   summary:
-    "This sanitized, deterministic transcript follows Frege's current CLI, MCP, and API surfaces. Names and contents are fictional; the identity, scoped-context, citation, denial, proposal, review, and audit behaviors are product capabilities.",
+    "This sanitized, deterministic walkthrough uses Frege's current CLI, MCP, and API surfaces. Names and contents are fictional; the identity, scoped-context, citation, denial, proposal, review, and audit behaviors are product capabilities rather than a recording of one customer session.",
   actor: {
     label: "release-agent",
     credential: "scoped API key",
@@ -29,8 +29,8 @@ export const PUBLIC_PROOF = {
       surface: "frege",
       title: "Resolve the caller before retrieval",
       command: "frege doctor",
-      result: "Organization, key owner, writer role, and green trust zone resolved.",
-      evidence: ["actor: release-agent", "role: writer", "zone: green"],
+      result: "The configured key resolves to an active organization and writer role.",
+      evidence: ["API key: set", "organization: active", "role: writer"],
       tone: "neutral",
     },
     {
