@@ -2,6 +2,7 @@
   "name": "frege-dev",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.19.0",
   "bin": {
     "frege": "packages/frege-cli/bin/frege-mcp.mjs",
     "frege-mcp": "packages/frege-cli/bin/frege-mcp.mjs"
@@ -31,6 +32,8 @@
     "smoke:admin": "node scripts/prototype/smoke-admin.mjs",
     "smoke:admin:live": "node scripts/prototype/smoke-admin.mjs --live",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-*.mjs",
+    "test:public-claims": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-public-claims.mjs",
+    "test:public-repository": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-public-repository.mjs",
     "test:auth-flow": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-auth-flow.mjs"
   },
   "dependencies": {

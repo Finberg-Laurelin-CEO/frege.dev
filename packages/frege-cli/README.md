@@ -49,8 +49,10 @@ If a GUI MCP client cannot find `frege`, use the absolute path from `command -v 
 
 ## Connect (one command)
 
+Load the key into `FREGE_API_KEY` through a secure local method first.
+
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 ```
 
 `frege connect` does four things:
@@ -105,7 +107,7 @@ From the Frege repo:
 ```bash
 cd packages/frege-cli
 npm link
-frege connect http://localhost:3000 --token frg_live_...
+frege connect http://localhost:3000 --token "$FREGE_API_KEY"
 frege doctor
 frege mcp serve
 ```
@@ -128,10 +130,10 @@ frege agent install codex
 Use the CLI to push markdown into the Frege document store. Markdown is preserved, including normal links and wikilinks such as `[[self-serve signup]]`.
 
 ```bash
-frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
-  --sensitivity internal \
-  --tag frege-demo \
-  --tag operations
+frege docs push docs/ARCHITECTURE.md \
+  --sensitivity public \
+  --tag frege \
+  --tag architecture
 ```
 
 Push a directory with include/exclude filters:
@@ -139,7 +141,7 @@ Push a directory with include/exclude filters:
 ```bash
 frege docs push docs \
   --include "**/*.md" \
-  --exclude "**/HANDOFF.md" \
+  --exclude "**/draft-*.md" \
   --sensitivity internal \
   --dry-run
 ```
@@ -149,11 +151,10 @@ Use a manifest for repeatable agent-led ingestion:
 ```yaml
 base: .
 defaults:
-  sensitivity: internal
-  tags: [frege, product]
+  sensitivity: public
+  tags: [frege, public-docs]
 documents:
-  - path: docs/INVESTOR_DEMO_WORKFLOW.md
-  - path: docs/HOSTED_BRAIN_ARCHITECTURE.md
+  - path: docs/ARCHITECTURE.md
   - path: docs/FREGE_MCP_INSTALL.md
 ```
 
@@ -199,7 +200,7 @@ node --version
 ### `frege doctor` says the API key is missing or invalid
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 

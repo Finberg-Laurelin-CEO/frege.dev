@@ -423,18 +423,18 @@ frege agent install claude`} />
             </p>
             <CopyableCodeBlock
               label="document push workflow"
-              caption="demo workflow"
+              caption="public documentation workflow"
               meta="push docs into Frege"
               value={`# One file
-frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \\
+frege docs push docs/ARCHITECTURE.md \\
   --sensitivity internal \\
-  --tag frege-demo \\
-  --tag operations
+  --tag architecture \\
+  --tag product
 
 # Preview a directory before writing
 frege docs push docs \\
   --include "**/*.md" \\
-  --exclude "**/HANDOFF.md" \\
+  --exclude "**/private/**" \\
   --sensitivity internal \\
   --dry-run
 

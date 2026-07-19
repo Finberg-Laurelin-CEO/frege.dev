@@ -98,36 +98,36 @@ export const CAPABILITY_GROUPS = [
         id: "agent-service-principals",
         title: "Agent and service principals",
         description:
-          "Represent humans, agents, and services as explicit identities with scoped, delegable credentials.",
-        status: "planned",
+          "Represent humans, agents, and services as explicit identities with scoped, delegable credentials in the V2 technical preview.",
+        status: "beta",
       },
       {
         id: "versioned-policies",
         title: "Versioned authorization policies",
         description:
           "Evaluate principal, action, and resource together under default-deny policies that can be reviewed and versioned.",
-        status: "planned",
+        status: "beta",
       },
       {
         id: "authorization-receipts",
         title: "Authorization receipts",
         description:
           "Return an attributable record of why access was allowed or denied without revealing restricted source content.",
-        status: "planned",
+        status: "beta",
       },
       {
         id: "connector-framework",
-        title: "Governed connector framework",
+        title: "Governed GitHub connector",
         description:
-          "Sync external sources with source identity, revisions, access mapping, deletion handling, and connector health. GitHub and Google Drive are the first planned connectors.",
-        status: "planned",
+          "Privately beta-test repository-scoped Markdown sync with stable source identity, revisions, access mapping, deletion handling, receipts, and connector health. Google Drive remains planned.",
+        status: "beta",
       },
       {
         id: "unified-provenance",
         title: "Unified provenance ledger",
         description:
           "Connect reads, denials, context builds, proposals, approvals, and model activity in one attributable event history.",
-        status: "planned",
+        status: "beta",
       },
     ],
   },

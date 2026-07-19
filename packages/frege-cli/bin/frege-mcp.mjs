@@ -1083,7 +1083,7 @@ async function connect(args) {
   const baseUrl = normalizeBaseUrl(args["base-url"] || args._[1] || DEFAULT_BASE_URL);
   const apiKey = args.token || args["api-key"] || process.env.FREGE_API_KEY;
   if (!apiKey) {
-    throw new Error("Missing token. Use: frege connect https://frege.dev --token <valid-frg-live-key>");
+    throw new Error("Missing token. Use: frege connect https://frege.dev --token VALID_FRG_LIVE_KEY");
   }
 
   const verification = await verifyConnection({ baseUrl, apiKey });
@@ -1161,7 +1161,7 @@ async function listDocuments(args) {
 
 async function readDocumentCli(args) {
   const slug = args._[2] || args.slug || "";
-  if (!slug) throw new Error("Missing slug. Use: frege docs read <slug>");
+  if (!slug) throw new Error("Missing slug. Use: frege docs read SLUG");
   const doc = await frege(`/api/v1/documents/${encodeURIComponent(slug)}`);
   if (args.body) {
     console.log(doc.document?.body_md ?? "");
@@ -1199,7 +1199,7 @@ async function buildContextCli(args) {
 
 async function pushDocumentsCli(args) {
   const target = args._[2];
-  if (!target) throw new Error("Missing path. Use: frege docs push <file-or-dir>");
+  if (!target) throw new Error("Missing path. Use: frege docs push FILE_OR_DIRECTORY");
 
   const base = firstValue(args.base, process.cwd());
   const files = await collectDocumentFiles(target, {
@@ -1306,15 +1306,15 @@ function printHelp() {
   console.log(`frege
 
 Usage:
-  frege connect <base-url> --token <valid-frg-live-key>   connect + verify + auto-register MCP clients
+  frege connect BASE_URL --token VALID_FRG_LIVE_KEY   connect + verify + auto-register MCP clients
   frege connect ... --no-register                   connect without registering MCP clients
   frege doctor                                       check stored config and connectivity
   frege status
   frege docs list
-  frege docs read <slug> [--body]
+  frege docs read SLUG [--body]
   frege docs search "query"
-  frege docs push <file-or-dir> --sensitivity internal --tag product
-  frege docs push docs --include "**/*.md" --exclude "**/HANDOFF.md" --dry-run
+  frege docs push FILE_OR_DIRECTORY --sensitivity internal --tag product
+  frege docs push docs --include "**/*.md" --exclude "**/private/**" --dry-run
   frege docs sync frege.docs.yml [--dry-run]
   frege search "query"
   frege context "query"
@@ -1324,7 +1324,7 @@ Usage:
 Compatibility:
   frege-mcp serve
   frege-mcp doctor
-  frege-mcp connect <base-url> --token <valid-frg-live-key>
+  frege-mcp connect BASE_URL --token VALID_FRG_LIVE_KEY
 
 Env:
   FREGE_BASE_URL   overrides stored baseUrl

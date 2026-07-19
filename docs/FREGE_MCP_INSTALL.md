@@ -107,10 +107,11 @@ Get an API key from the Frege control plane:
 4. Create an API key for that role and owner.
 5. Copy the raw key immediately. Frege shows it once.
 
-Connect the CLI:
+Load the key into `FREGE_API_KEY` through a secure local method, then connect
+the CLI:
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -119,7 +120,7 @@ Expected `frege connect` and `frege doctor` output includes the connected org, a
 For local development against a running Next dev server:
 
 ```bash
-frege connect http://localhost:3000 --token frg_live_...
+frege connect http://localhost:3000 --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -171,7 +172,7 @@ From a cloned Frege repo:
 ```bash
 cd /path/to/frege.dev/packages/frege-cli
 npm link
-frege connect http://localhost:3000 --token frg_live_...
+frege connect http://localhost:3000 --token "$FREGE_API_KEY"
 frege doctor
 frege mcp serve
 ```
@@ -181,7 +182,7 @@ frege mcp serve
 ```bash
 frege status
 frege docs list
-frege docs read hosted-brain-architecture
+frege docs read frege-architecture
 frege search "refund policy"
 frege context "customer escalation steps"
 frege mcp serve
@@ -196,10 +197,10 @@ Agents should use the CLI for user-approved document ingestion so the terminal s
 Push one file:
 
 ```bash
-frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
-  --sensitivity internal \
-  --tag frege-demo \
-  --tag operations
+frege docs push docs/ARCHITECTURE.md \
+  --sensitivity public \
+  --tag frege \
+  --tag architecture
 ```
 
 Preview a directory before writing:
@@ -207,7 +208,7 @@ Preview a directory before writing:
 ```bash
 frege docs push docs \
   --include "**/*.md" \
-  --exclude "**/HANDOFF.md" \
+  --exclude "**/draft-*.md" \
   --sensitivity internal \
   --dry-run
 ```
@@ -267,7 +268,7 @@ Frege requires Node.js 20 or newer.
 ### `frege doctor` says the API key is missing
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -276,7 +277,7 @@ frege doctor
 Create a new API key in the Frege admin console with the correct role, then reconnect:
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 

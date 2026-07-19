@@ -173,10 +173,10 @@ If the user asks you to load docs into Frege, prefer the CLI so the action is vi
 Push one file:
 
 ```bash
-frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
-  --sensitivity internal \
-  --tag demo \
-  --tag frege
+frege docs push docs/ARCHITECTURE.md \
+  --sensitivity public \
+  --tag frege \
+  --tag architecture
 ```
 
 Preview a directory first:
@@ -184,7 +184,7 @@ Preview a directory first:
 ```bash
 frege docs push docs \
   --include "**/*.md" \
-  --exclude "**/HANDOFF.md" \
+  --exclude "**/draft-*.md" \
   --sensitivity internal \
   --dry-run
 ```

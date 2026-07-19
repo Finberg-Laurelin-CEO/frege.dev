@@ -1931,6 +1931,25 @@
 
 .evidencePlate { width: 100%; }
 
+.proofLink {
+  display: inline-flex;
+  gap: 16px;
+  margin-top: 22px;
+  padding-bottom: 7px;
+  color: #a6ffcb;
+  border-bottom: 1px solid rgba(166, 255, 203, 0.58);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+
+.proofLink:hover,
+.proofLink:focus-visible {
+  color: var(--v2-paper);
+  border-color: var(--v2-paper);
+}
+
 .provenanceSection {
   grid-template-columns: minmax(270px, 0.78fr) minmax(310px, 0.72fr);
   align-items: start;

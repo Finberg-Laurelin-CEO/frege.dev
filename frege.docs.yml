@@ -1,23 +1,31 @@
 base: .
 defaults:
-  sensitivity: internal
+  sensitivity: public
   status: published
-  tags: [frege, product]
+  tags: [frege, public-docs]
 documents:
   - path: README.md
     slug: frege-overview
     title: Frege Overview
     tags: [frege, overview]
-  - path: docs/INVESTOR_DEMO_WORKFLOW.md
-    tags: [frege, demo, investors]
-  - path: docs/LOOM_INVESTOR_DEMO_SCRIPT.md
-    slug: frege-investor-loom-demo-script
-    title: Frege Investor Loom Demo Script
-    tags: [frege, demo, investors, loom]
-  - path: docs/HOSTED_BRAIN_ARCHITECTURE.md
+  - path: docs/README.md
+    slug: frege-public-documentation
+    title: Frege Public Documentation
+    tags: [frege, documentation]
+  - path: docs/ARCHITECTURE.md
+    slug: frege-architecture
+    title: Frege Architecture
     tags: [frege, architecture, mcp]
   - path: docs/FREGE_MCP_INSTALL.md
     tags: [frege, cli, mcp, install]
+  - path: docs/API_V2_CONTROL_PLANE.md
+    slug: frege-api-v2-control-plane
+    title: Frege API V2 Control Plane
+    tags: [frege, api, policy, provenance]
+  - path: docs/GITHUB_CONNECTOR_BETA.md
+    slug: frege-github-connector-beta
+    title: Governed GitHub Connector Beta
+    tags: [frege, github, connector, policy]
   - path: packages/frege-cli/README.md
     slug: frege-cli-readme
     title: Frege CLI Readme
@@ -26,27 +34,11 @@ documents:
     slug: frege-cli-install-for-agents
     title: Frege CLI Install For Agents
     tags: [frege, agents, install]
-  - path: docs/STRIPE_CHANGELOG.md
-    tags: [frege, billing, stripe]
-  - path: docs/PROTOTYPE_OPERATIONS.md
-    tags: [frege, operations]
-  - path: docs/DEMO_OPERATOR_CHECKLIST.md
-    slug: demo-operator-checklist
-    title: Demo Operator Checklist
-    tags: [frege, demo, operations]
-  # Red-zone demo docs for the governed-denial beat in the investor Loom.
-  # sensitivity: restricted maps to trust_zone red server-side. Syncing these
-  # entries requires a key whose role carries the `restricted` label (e.g. the
-  # admin demo key) — a green-only key gets 403 forbidden_sensitivity and the
-  # sync aborts. Slugs match what scripts/prototype/import-markdown-dir.mjs
-  # derives when importing demo-data/frege-demo-docs/red directly.
-  - path: demo-data/frege-demo-docs/red/security/provider-key-handling.md
-    slug: security-provider-key-handling
-    title: Provider Key Handling
-    sensitivity: restricted
-    tags: [frege, security, red-zone]
-  - path: demo-data/frege-demo-docs/red/security/red-zone-handling.md
-    slug: security-red-zone-handling
-    title: Restricted Red Zone Handling
-    sensitivity: restricted
-    tags: [frege, security, red-zone]
+  - path: SUPPORT.md
+    slug: frege-support
+    title: Frege Support
+    tags: [frege, support]
+  - path: SECURITY.md
+    slug: frege-security
+    title: Frege Security
+    tags: [frege, security]

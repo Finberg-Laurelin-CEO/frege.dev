@@ -2,12 +2,15 @@
 
 **Many agents. One organizational reality.**
 
+[![CI](https://github.com/Finberg-Laurelin-CEO/frege.dev/actions/workflows/ci.yml/badge.svg)](https://github.com/Finberg-Laurelin-CEO/frege.dev/actions/workflows/ci.yml)
+
 Frege is building the operating layer for AI agents. Today, Frege gives
 MCP-connected agents a governed organizational memory: scoped context, source
 citations, revision history, and reviewable updates without tying company
 knowledge to one model or agent client.
 
 [Website](https://frege.dev) · [Documentation](https://frege.dev/docs) ·
+[Repository docs](docs/README.md) ·
 [Roadmap](https://frege.dev/roadmap) · [Support](SUPPORT.md) ·
 [Security](SECURITY.md)
 
@@ -35,15 +38,18 @@ roadmap.
 
 - Configurable model routing and invocation.
 - Hosted agent definitions, queued runs, and run-step history.
+- Additive V2 principals, delegated credentials, immutable default-deny policy
+  versions, authorization receipts, and a unified provenance read model.
+- A governed GitHub connector private beta with repository-scoped read access,
+  stable source revisions, deletion handling, and connector health.
 
-These runtime features are early and should not be treated as a general-purpose
-agent orchestration platform.
+These interfaces are early and should not be treated as a general-purpose
+connector or agent-orchestration platform. Private-beta access may require
+account enablement.
 
 ### Planned
 
-- First-class human, agent, and service principals.
-- Versioned policy decisions and authorization receipts.
-- Governed connectors for external knowledge systems.
+- Broader connector support, beginning with Google Drive.
 - Durable tasks, workflows, and approval gates.
 - Portable import and export contracts.
 - A first-party Frege agent built on the same permissions as every other agent.
@@ -88,10 +94,11 @@ Install the published client:
 npm install -g @frege-dev/cli
 ```
 
-Connect it to the hosted API and verify access:
+Load the key into `FREGE_API_KEY` through a secure local method, then connect it
+to the hosted API and verify access:
 
 ```bash
-frege connect https://frege.dev --token <valid-frg_live_key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -127,22 +134,32 @@ The complete setup and troubleshooting guide is in
   services.
 - `packages/frege-cli/` — the published CLI and local MCP server.
 - `db/` — ordered PostgreSQL migrations.
+- `docs/` — curated public architecture and installation documentation.
 - `scripts/prototype/` — maintainer checks, smoke tests, and operational tools.
 
 This repository is the source for the hosted Frege product. Production use
 requires Frege-managed infrastructure and configuration that are not supplied
 as a public self-hosting bundle.
 
+Internal plans, incident records, worklogs, production procedures, and investor
+materials do not belong in the tracked tree. See the boundary and preservation
+rules in [`docs/README.md`](docs/README.md).
+
 ## Maintainer verification
 
-With the required private environment configured, maintainers use:
+These repository checks run without production secrets:
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm typecheck
 pnpm test
+pnpm test:public-claims
+pnpm test:public-repository
 pnpm build
 ```
+
+Live smoke tests, migrations, and production operations are intentionally not
+part of the pull-request CI workflow.
 
 For CLI-only development:
 

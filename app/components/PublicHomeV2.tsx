@@ -193,6 +193,9 @@ export default function PublicHomeV2() {
               <span>sources: versioned</span>
               <span>write: proposed</span>
             </div>
+            <a className={styles.proofLink} href="/demo">
+              Run the complete 90-second product proof <span aria-hidden="true">→</span>
+            </a>
           </div>
         </div>
       </section>
