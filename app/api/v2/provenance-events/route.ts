@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authenticateAdminRequest } from "@/lib/core/admin-auth";
 import { routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 import { IDENTIFIER_PATTERN } from "@/lib/v2/contracts";
 import { listUnifiedProvenanceEvents } from "@/lib/v2/control-plane";
 
@@ -17,6 +18,8 @@ const querySchema = z.object({
 });
 
 export async function GET(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   try {
     const authResult = await authenticateAdminRequest(req);
     if (!authResult.ok) return authResult.response;

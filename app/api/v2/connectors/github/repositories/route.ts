@@ -12,11 +12,14 @@ import { GitHubApiError } from "@/lib/core/github-app";
 import { assertGitHubConnectorBetaAccess } from "@/lib/core/github-beta";
 import { assertActiveHumanOrg, assertVerifiedHumanUser } from "@/lib/core/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   try {
     const authResult = await authenticateAdminRequest(req);
     if (!authResult.ok) return authResult.response;
@@ -28,6 +31,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
   try {

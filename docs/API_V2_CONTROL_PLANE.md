@@ -1,8 +1,9 @@
 # API V2 control-plane technical preview
 
-Status: experimental and not deployed as part of the current MVP. This design
-does not change the availability or compatibility of `/api/v1`, and its
-source-visible routes do not imply production availability.
+Status: experimental and disabled by default in the current MVP. Every V2 route
+returns a non-cacheable `503` unless the deployment explicitly sets
+`FREGE_V2_PREVIEW_ENABLED=true`. This preview does not change the availability
+or compatibility of `/api/v1`.
 
 This slice introduces explicit principals, scoped delegated credentials, immutable policy versions, authorization receipts, and a unified provenance read model. Connector work remains deferred and is not part of the current MVP. This preview does not add tasks, approval workflows, or a multi-step runtime.
 

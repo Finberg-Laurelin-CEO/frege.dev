@@ -8,6 +8,7 @@ import {
 } from "@/lib/core/github-connector";
 import { assertActiveHumanOrg, assertVerifiedHumanUser } from "@/lib/core/org-guard";
 import { assertSafeBrowserMutation, routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,8 @@ export const dynamic = "force-dynamic";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(req: Request, context: RouteContext) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   try {
     const authResult = await authenticateAdminRequest(req);
     if (!authResult.ok) return authResult.response;
@@ -35,6 +38,8 @@ export async function GET(req: Request, context: RouteContext) {
 }
 
 export async function DELETE(req: Request, context: RouteContext) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
   try {

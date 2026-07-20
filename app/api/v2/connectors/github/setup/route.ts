@@ -4,6 +4,7 @@ import { createGitHubSetupState, GitHubConnectorError } from "@/lib/core/github-
 import { assertGitHubConnectorBetaAccess } from "@/lib/core/github-beta";
 import { assertActiveHumanOrg, assertVerifiedHumanUser } from "@/lib/core/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 const setupSchema = z.object({ org_slug: z.string().trim().min(1).max(120) }).strict();
 
 export async function POST(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
   try {

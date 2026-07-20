@@ -6,6 +6,7 @@ import {
 } from "@/lib/core/github-connector";
 import { assertGitHubConnectorBetaAccess } from "@/lib/core/github-beta";
 import { authenticateUserRequest } from "@/lib/core/session";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,8 @@ function redirectWith(req: Request, values: Record<string, string>): Response {
 }
 
 export async function GET(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   const url = new URL(req.url);
   const rawState = url.searchParams.get("state") ?? "";
   const installationId = Number(url.searchParams.get("installation_id") ?? "");

@@ -11,6 +11,7 @@ import {
 } from "@/lib/core/github-connector";
 import { assertActiveHumanOrg, assertVerifiedHumanUser } from "@/lib/core/org-guard";
 import { assertSafeBrowserMutation } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 import {
   appendProvenanceEvent,
   authorizeAndRecordV2Action,
@@ -30,6 +31,8 @@ function idempotencyKey(req: Request): string {
 }
 
 export async function POST(req: Request, context: RouteContext) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
   const { id } = await context.params;

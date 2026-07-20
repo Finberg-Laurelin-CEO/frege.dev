@@ -1,10 +1,13 @@
 import { routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 import { authenticateV2Credential } from "@/lib/v2/control-plane";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   try {
     const authResult = await authenticateV2Credential(req);
     if (!authResult.ok) return authResult.response;

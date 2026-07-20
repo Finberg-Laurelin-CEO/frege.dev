@@ -2,11 +2,14 @@ import { after } from "next/server";
 import { verifyGitHubWebhookSignature } from "@/lib/core/github-app";
 import { GitHubConnectorError, webhookBodyWithinLimit } from "@/lib/core/github-connector";
 import { claimGitHubWebhook, processClaimedGitHubWebhook } from "@/lib/core/github-webhook";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   const configuredSecret = process.env.FREGE_GITHUB_WEBHOOK_SECRET;
   if (!configuredSecret) return Response.json({ error: "github_webhook_not_configured" }, { status: 503 });
 

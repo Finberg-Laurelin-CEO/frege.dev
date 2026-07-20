@@ -1,4 +1,5 @@
 import { assertSafeOrigin, readJson, routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 import { authorizeRequestSchema } from "@/lib/v2/contracts";
 import { authenticateV2Credential, authorizePublicRequest } from "@/lib/v2/control-plane";
 
@@ -6,6 +7,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   const originError = assertSafeOrigin(req);
   if (originError) return originError;
 

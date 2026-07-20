@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authenticateAdminRequest } from "@/lib/core/admin-auth";
 import { assertSafeBrowserMutation, routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 import {
   appendProvenanceEvent,
   ensureHumanPrincipal,
@@ -43,9 +44,13 @@ async function revoke(req: Request, context: RouteContext) {
 }
 
 export async function PATCH(req: Request, context: RouteContext) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   return revoke(req, context);
 }
 
 export async function DELETE(req: Request, context: RouteContext) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   return revoke(req, context);
 }

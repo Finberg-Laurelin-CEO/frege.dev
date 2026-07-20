@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { authenticateAdminRequest } from "@/lib/core/admin-auth";
 import { routeError } from "@/lib/core/request-guards";
+import { v2PreviewDisabledResponse, v2PreviewEnabled } from "@/lib/core/v2-preview";
 import { listAuthorizationReceipts } from "@/lib/v2/control-plane";
 
 export const runtime = "nodejs";
@@ -15,6 +16,8 @@ const querySchema = z.object({
 });
 
 export async function GET(req: Request) {
+  if (!v2PreviewEnabled()) return v2PreviewDisabledResponse();
+
   try {
     const authResult = await authenticateAdminRequest(req);
     if (!authResult.ok) return authResult.response;
