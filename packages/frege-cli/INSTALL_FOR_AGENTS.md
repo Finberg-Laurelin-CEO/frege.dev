@@ -153,7 +153,10 @@ After registering the MCP server, call the Frege status tool from the client. It
 For the downloadable local Frege Agent profile:
 
 ```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+npm install -g @frege-dev/cli
 frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege doctor
 frege agent install hermes
 frege-agent setup
 frege-agent mcp test frege
@@ -163,6 +166,10 @@ frege-agent chat
 Do not collect the user's model-provider credential for Frege. Hermes and the
 chosen model run in the user's environment; Frege supplies governed context and
 memory through the local MCP process.
+
+The official profile source is
+[`github.com/Finberg-Laurelin-CEO/frege-agent`](https://github.com/Finberg-Laurelin-CEO/frege-agent).
+Do not substitute a similarly named third-party repository.
 
 If the client supports tool discovery, confirm tools such as:
 

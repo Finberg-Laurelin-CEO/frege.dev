@@ -117,7 +117,10 @@ memory workflow, and MCP connection. Install Hermes, connect this CLI, and then
 install the profile:
 
 ```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+npm install -g @frege-dev/cli
 frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege doctor
 frege agent install hermes
 frege-agent setup
 frege-agent mcp test frege
@@ -126,6 +129,8 @@ frege-agent chat
 
 `frege-agent setup` asks you to choose your own model provider. Frege does not
 receive that provider credential and does not run the agent's compute.
+The official profile source is
+[`Finberg-Laurelin-CEO/frege-agent`](https://github.com/Finberg-Laurelin-CEO/frege-agent).
 
 ## Local development
 

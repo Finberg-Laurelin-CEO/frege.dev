@@ -128,7 +128,10 @@ requests.
 To install the complete local Frege Agent profile on top of Hermes:
 
 ```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+npm install -g @frege-dev/cli
 frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege doctor
 frege agent install hermes
 frege-agent setup
 frege-agent mcp test frege
@@ -136,7 +139,9 @@ frege-agent chat
 ```
 
 The profile supplies Frege's context and memory workflow. Hermes, the selected
-model, local tools, and all agent compute remain in the user&apos;s environment.
+model, local tools, and all agent compute remain in the user's environment. Its
+canonical source is
+[`Finberg-Laurelin-CEO/frege-agent`](https://github.com/Finberg-Laurelin-CEO/frege-agent).
 
 The complete setup and troubleshooting guide is in
 [`packages/frege-cli/README.md`](packages/frege-cli/README.md).

@@ -1,5 +1,5 @@
 name: frege-agent
-version: 0.1.0
+version: 0.1.1
 description: "A local Hermes agent that uses Frege for governed organizational memory"
 hermes_requires: ">=0.16.0"
 author: "Frege"

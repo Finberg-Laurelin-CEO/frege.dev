@@ -169,10 +169,14 @@ Do not put the API key in MCP JSON unless the client cannot run local commands. 
 
 Frege also publishes a complete local agent profile for Hermes. Use this when
 the user wants an opinionated agent architecture rather than connecting an
-existing Codex, Claude Code, or internal client.
+existing Codex, Claude Code, or internal client. The canonical source is
+[`Finberg-Laurelin-CEO/frege-agent`](https://github.com/Finberg-Laurelin-CEO/frege-agent).
 
 ```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+npm install -g @frege-dev/cli
 frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege doctor
 frege agent install hermes
 frege-agent setup
 frege-agent mcp test frege

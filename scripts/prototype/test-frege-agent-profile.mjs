@@ -12,15 +12,16 @@ async function readProfileFile(relativePath) {
 }
 
 test("the Hermes profile is a minimal local Frege agent distribution", async () => {
-  const [manifest, config, soul, skill] = await Promise.all([
+  const [manifest, config, soul, skill, readme] = await Promise.all([
     readProfileFile("distribution.yaml"),
     readProfileFile("config.yaml"),
     readProfileFile("SOUL.md"),
     readProfileFile(path.join("skills", "use-frege-memory", "SKILL.md")),
+    readProfileFile("README.md"),
   ]);
 
   assert.match(manifest, /^name: frege-agent$/m);
-  assert.match(manifest, /^version: 0\.1\.0$/m);
+  assert.match(manifest, /^version: 0\.1\.1$/m);
   assert.match(manifest, /^hermes_requires: ">=0\.16\.0"$/m);
 
   assert.match(config, /disabled_toolsets:\s*\n\s*- memory/);
@@ -45,6 +46,9 @@ test("the Hermes profile is a minimal local Frege agent distribution", async () 
     skill,
     /The model, agent loop, filesystem, shell, and other tools remain in the user's\s+environment/,
   );
+  assert.match(readme, /github\.com\/Finberg-Laurelin-CEO\/frege-agent/);
+  assert.match(readme, /hermes-agent\.nousresearch\.com\/install\.sh/);
+  assert.doesNotMatch(readme, /cd packages\/frege-cli/);
 });
 
 test("the profile allowlist contains only shipped MCP tools and excludes direct canonical creation", async () => {

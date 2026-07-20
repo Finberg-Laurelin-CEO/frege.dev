@@ -421,12 +421,28 @@ frege agent install claude`} />
               operating instructions, governed-memory workflow, and MCP connection while
               leaving the model provider, local tools, and compute under your control.
             </p>
+            <p>
+              The official, source-visible profile is published at{" "}
+              <a
+                className="lnk"
+                href="https://github.com/Finberg-Laurelin-CEO/frege-agent"
+                target="_blank"
+                rel="noreferrer"
+              >
+                github.com/Finberg-Laurelin-CEO/frege-agent
+              </a>.
+            </p>
             <CopyableCodeBlock
               label="local Frege Agent installation"
               caption="Hermes profile / user-run compute"
               meta="install Frege Agent locally"
-              value={`# Install Hermes first, then connect the Frege CLI
+              value={`# Install Hermes Agent (macOS, Linux, or WSL2)
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+
+# Install and connect the Frege CLI
+npm install -g @frege-dev/cli
 frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege doctor
 
 # Download the Frege Agent profile
 frege agent install hermes
