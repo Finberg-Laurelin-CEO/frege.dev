@@ -6,10 +6,15 @@ import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import path from "node:path";
 
+const packageMetadata = JSON.parse(
+  await readFile(new URL("../package.json", import.meta.url), "utf8"),
+);
+const CLI_VERSION = String(packageMetadata.version);
 const DEFAULT_BASE_URL = "http://localhost:3000";
 const CONFIG_DIR = path.join(homedir(), ".frege", "mcp");
 const CONFIG_PATH = path.join(CONFIG_DIR, "config.json");
 const DEBUG_LOG_PATH = process.env.FREGE_MCP_DEBUG_LOG;
+const DEFAULT_HERMES_PROFILE_SOURCE = "github.com/Finberg-Laurelin-CEO/frege-agent";
 let outputFraming = process.env.FREGE_MCP_TRANSPORT === "jsonl" ? "jsonl" : "content-length";
 
 const tools = [
@@ -145,37 +150,6 @@ const tools = [
         trust_zone: { type: "string", enum: ["green", "red"] },
         metadata: { type: "object" },
       },
-    },
-  },
-  {
-    name: "frege_list_agents",
-    description: "List Frege-hosted agents visible to this actor.",
-    inputSchema: { type: "object", properties: {} },
-  },
-  {
-    name: "frege_run_agent",
-    description: "Queue a Frege-hosted agent run. The Frege Agent Runtime executes it asynchronously.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        agent_slug: { type: "string" },
-        input_md: { type: "string" },
-        context_query: { type: "string" },
-        session_id: { type: "string" },
-        trust_zone: { type: "string", enum: ["green", "red"] },
-        max_steps: { type: "number", minimum: 1, maximum: 10 },
-        metadata: { type: "object" },
-      },
-      required: ["agent_slug", "input_md"],
-    },
-  },
-  {
-    name: "frege_get_agent_run",
-    description: "Read a Frege-hosted agent run and step ledger.",
-    inputSchema: {
-      type: "object",
-      properties: { run_id: { type: "string" } },
-      required: ["run_id"],
     },
   },
   {
@@ -328,24 +302,6 @@ const tools = [
         resource_type: { type: "string" },
         limit: { type: "number", minimum: 1, maximum: 100 },
       },
-    },
-  },
-  {
-    name: "frege_invoke_model",
-    description: "Invoke a configured model through Frege context and trust-zone gates.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        model_config_slug: { type: "string" },
-        prompt: { type: "string" },
-        context_build_id: { type: "string" },
-        session_id: { type: "string" },
-        query: { type: "string" },
-        slug: { type: "string" },
-        limit: { type: "number", minimum: 1, maximum: 25 },
-        max_tokens: { type: "number", minimum: 1, maximum: 4096 },
-      },
-      required: ["model_config_slug", "prompt"],
     },
   },
 ];
@@ -794,24 +750,6 @@ async function callTool(name, input = {}) {
       },
     });
   }
-  if (name === "frege_list_agents") return frege("/api/v1/agents");
-  if (name === "frege_run_agent") {
-    return frege("/api/v1/agents", {
-      method: "POST",
-      body: {
-        agent_slug: input.agent_slug,
-        input_md: input.input_md,
-        context_query: input.context_query,
-        session_id: input.session_id,
-        trust_zone: input.trust_zone,
-        max_steps: input.max_steps,
-        metadata: input.metadata ?? {},
-      },
-    });
-  }
-  if (name === "frege_get_agent_run") {
-    return frege(`/api/v1/agent-runs/${encodeURIComponent(input.run_id)}`);
-  }
   if (name === "frege_append_session_event") {
     return frege(`/api/v1/sessions/${encodeURIComponent(input.session_id)}/events`, {
       method: "POST",
@@ -885,21 +823,6 @@ async function callTool(name, input = {}) {
       limit: input.limit,
     })}`);
   }
-  if (name === "frege_invoke_model") {
-    return frege("/api/v1/model/invoke", {
-      method: "POST",
-      body: {
-        model_config_slug: input.model_config_slug,
-        prompt: input.prompt,
-        context_build_id: input.context_build_id,
-        session_id: input.session_id,
-        query: input.query,
-        slug: input.slug,
-        limit: input.limit ?? 8,
-        max_tokens: input.max_tokens ?? 800,
-      },
-    });
-  }
   throw new Error(`unknown_tool:${name}`);
 }
 
@@ -939,7 +862,7 @@ async function handle(message) {
     result(message.id, {
       protocolVersion: message.params?.protocolVersion ?? "2024-11-05",
       capabilities: { tools: {} },
-      serverInfo: { name: "frege-mcp", version: "0.1.1" },
+      serverInfo: { name: "frege-mcp", version: CLI_VERSION },
     });
     return;
   }
@@ -1284,9 +1207,44 @@ async function syncDocumentsCli(args) {
 
 async function installAgent(args) {
   const agent = args._[2] || args.agent || "";
+  if (agent === "hermes") {
+    if (!hasCommand("hermes")) {
+      throw new Error(
+        "Hermes CLI ('hermes') not found on PATH. Install Hermes first: https://hermes-agent.nousresearch.com/docs/",
+      );
+    }
+
+    const verification = await verifyConnection();
+    if (!verification.ok) {
+      throw new Error(
+        `Frege is not connected (${verification.error}). Run frege connect https://frege.dev --token \"$FREGE_API_KEY\" first.`,
+      );
+    }
+
+    const source = String(
+      args.source || process.env.FREGE_HERMES_PROFILE_SOURCE || DEFAULT_HERMES_PROFILE_SOURCE,
+    );
+    const profileArgs = ["profile", "install", source, "--alias"];
+    if (args.force) profileArgs.push("--force");
+    if (args.yes) profileArgs.push("--yes");
+
+    console.log(`Installing the local Frege Agent profile from ${source}...`);
+    const result = spawnSync("hermes", profileArgs, { stdio: "inherit" });
+    if (result.status !== 0) {
+      throw new Error("Hermes could not install the Frege Agent profile.");
+    }
+
+    console.log("");
+    console.log("Frege Agent is installed. Its model, tools, and compute run in your environment.");
+    console.log("Next: frege-agent setup");
+    console.log("Then: frege-agent mcp test frege");
+    console.log("Start: frege-agent chat");
+    return;
+  }
+
   const client = MCP_CLIENTS.find((entry) => entry.id === agent);
   if (!client) {
-    throw new Error("Missing or unknown agent. Use: frege agent install claude|codex");
+    throw new Error("Missing or unknown agent. Use: frege agent install claude|codex|hermes");
   }
   if (!hasCommand(client.bin)) {
     throw new Error(`${client.label} CLI ('${client.bin}') not found on PATH. Install it first.`);
@@ -1319,7 +1277,8 @@ Usage:
   frege search "query"
   frege context "query"
   frege mcp serve
-  frege agent install claude|codex                   register Frege with an MCP client
+  frege agent install claude|codex                   register Frege with an existing MCP client
+  frege agent install hermes [--yes] [--force]       install the local Frege Agent profile
 
 Compatibility:
   frege-mcp serve
@@ -1337,6 +1296,10 @@ Local config:
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  if (args.version || args.v || args._[0] === "version") {
+    console.log(CLI_VERSION);
+    return;
+  }
   if (args.help || args.h || args._[0] === "help" || args._[0] === "--help" || args._[0] === "-h") {
     printHelp();
     return;

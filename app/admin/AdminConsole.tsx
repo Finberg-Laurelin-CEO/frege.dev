@@ -3,15 +3,13 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "./admin.module.css";
 
-type Tab = "setup" | "overview" | "keys" | "models" | "context" | "brain" | "agents" | "telemetry" | "audit";
+type Tab = "setup" | "overview" | "keys" | "context" | "brain" | "telemetry" | "audit";
 
 const adminTabs: { id: Tab; label: string }[] = [
   { id: "setup", label: "setup docs" },
   { id: "overview", label: "orgs & roles" },
   { id: "keys", label: "api keys" },
   { id: "brain", label: "brain" },
-  { id: "agents", label: "agents" },
-  { id: "models", label: "models" },
   { id: "context", label: "context" },
   { id: "telemetry", label: "telemetry" },
   { id: "audit", label: "audit" },
@@ -45,7 +43,6 @@ type Role = {
   can_propose_memory?: boolean;
   can_review_memory_proposals?: boolean;
   can_manage_sources?: boolean;
-  can_execute_agents?: boolean;
 };
 
 type ApiKeyRow = {
@@ -59,18 +56,6 @@ type ApiKeyRow = {
   role_slug: string;
   owner_user_id: string | null;
   owner_user_email: string | null;
-};
-
-type ModelConfig = {
-  id: string;
-  slug: string;
-  name: string;
-  provider: string;
-  base_url: string | null;
-  model_name: string;
-  allowed_trust_zones: string[];
-  has_api_key: boolean;
-  status: string;
 };
 
 type MemberRow = {
@@ -93,7 +78,6 @@ type TelemetrySummary = {
   total_events?: number;
   denied_events?: number;
   context_builds?: number;
-  model_calls?: number;
   input_tokens?: number;
   output_tokens?: number;
   estimated_cost_usd?: number;
@@ -146,37 +130,6 @@ type MemoryProposalRow = {
   status: string;
   session_id: string | null;
   created_at: string;
-};
-
-type AgentDefinitionRow = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  status: string;
-  trust_zone: string;
-  model_config_slug?: string;
-  model_provider?: string;
-  model_name?: string;
-  default_context_query: string;
-  max_steps: number;
-  updated_at: string;
-};
-
-type AgentRunRow = {
-  id: string;
-  agent_slug?: string;
-  agent_name?: string;
-  model_config_slug?: string;
-  session_id: string | null;
-  status: string;
-  input_md: string;
-  result_md: string;
-  error: string | null;
-  trust_zone: string;
-  created_at: string;
-  started_at: string | null;
-  completed_at: string | null;
 };
 
 const apiKeyExpirationChoices = [
@@ -237,7 +190,6 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
   const [apiKeyOwnerId, setApiKeyOwnerId] = useState("");
   const [apiKeyExpiration, setApiKeyExpiration] = useState("90d");
   const [browserOrigin, setBrowserOrigin] = useState("");
-  const [modelConfigs, setModelConfigs] = useState<ModelConfig[]>([]);
   const [telemetrySummary, setTelemetrySummary] = useState<TelemetrySummary>({});
   const [telemetryEvents, setTelemetryEvents] = useState<Record<string, unknown>[]>([]);
   const [auditEvents, setAuditEvents] = useState<Record<string, unknown>[]>([]);
@@ -245,11 +197,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
   const [brainPages, setBrainPages] = useState<BrainPageRow[]>([]);
   const [brainSessions, setBrainSessions] = useState<BrainSessionRow[]>([]);
   const [memoryProposals, setMemoryProposals] = useState<MemoryProposalRow[]>([]);
-  const [agentDefinitions, setAgentDefinitions] = useState<AgentDefinitionRow[]>([]);
-  const [agentRuns, setAgentRuns] = useState<AgentRunRow[]>([]);
   const [contextOutput, setContextOutput] = useState("");
-  const [lastContextBuildId, setLastContextBuildId] = useState("");
-  const [modelOutput, setModelOutput] = useState("");
 
   const selectedOrg = useMemo(
     () => session?.memberships.find((membership) => membership.org_slug === selectedOrgSlug) ?? null,
@@ -281,24 +229,20 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
     setStatus("refreshing");
     try {
       const query = `org_slug=${encodeURIComponent(orgSlug)}`;
-      const [memberJson, roleJson, keyJson, modelJson, telemetryJson, auditJson, brainJson, agentJson, runJson] =
+      const [memberJson, roleJson, keyJson, telemetryJson, auditJson, brainJson] =
         await Promise.all([
         fetch(`/api/v1/admin/members?${query}`).then(readJson),
         fetch(`/api/v1/admin/roles?${query}`).then(readJson),
         fetch(`/api/v1/admin/api-keys?${query}`).then(readJson),
-        fetch(`/api/v1/admin/model-configs?${query}`).then(readJson),
         fetch(`/api/v1/admin/telemetry?${query}`).then(readJson),
         fetch(`/api/v1/admin/audit-events?${query}`).then(readJson),
         fetch(`/api/v1/admin/brain?${query}`).then(readJson),
-        fetch(`/api/v1/admin/agents?${query}`).then(readJson),
-        fetch(`/api/v1/admin/agent-runs?${query}`).then(readJson),
       ]);
 
       setMembers(memberJson.members ?? []);
       setInvites(memberJson.invites ?? []);
       setRoles(roleJson.roles ?? []);
       setApiKeys(keyJson.api_keys ?? []);
-      setModelConfigs(modelJson.model_configs ?? []);
       setTelemetrySummary(telemetryJson.summary ?? {});
       setTelemetryEvents(telemetryJson.events ?? []);
       setAuditEvents(auditJson.events ?? []);
@@ -306,8 +250,6 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
       setBrainPages(brainJson.pages ?? []);
       setBrainSessions(brainJson.sessions ?? []);
       setMemoryProposals(brainJson.proposals ?? []);
-      setAgentDefinitions(agentJson.agents ?? []);
-      setAgentRuns(runJson.runs ?? []);
       setStatus("ready");
     } catch (error) {
       setStatus((error as Error).message);
@@ -417,7 +359,6 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
           can_propose_memory: form.get("can_propose_memory") === "on",
           can_review_memory_proposals: form.get("can_review_memory_proposals") === "on",
           can_manage_sources: form.get("can_manage_sources") === "on",
-          can_execute_agents: form.get("can_execute_agents") === "on",
         }),
       }).then(readJson);
       await refreshAdminData();
@@ -514,60 +455,6 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
     }
   }
 
-  async function upsertModel(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setStatus("saving model");
-    try {
-      await fetch("/api/v1/admin/model-configs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          org_slug: selectedOrgSlug,
-          slug: form.get("slug"),
-          name: form.get("name"),
-          provider: form.get("provider"),
-          base_url: form.get("base_url") || undefined,
-          model_name: form.get("model_name"),
-          api_key: form.get("api_key") || undefined,
-          allowed_trust_zones: form.get("allow_red") === "on" ? ["green", "red"] : ["green"],
-          status: form.get("status"),
-        }),
-      }).then(readJson);
-      await refreshAdminData();
-    } catch (error) {
-      setStatus((error as Error).message);
-    }
-  }
-
-  async function upsertAgent(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setStatus("saving agent");
-    try {
-      await fetch("/api/v1/admin/agents", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          org_slug: selectedOrgSlug,
-          slug: form.get("slug"),
-          name: form.get("name"),
-          description: form.get("description") || "",
-          instructions_md: form.get("instructions_md"),
-          model_config_slug: form.get("model_config_slug"),
-          trust_zone: form.get("trust_zone"),
-          default_context_query: form.get("default_context_query") || "",
-          max_steps: Number(form.get("max_steps") ?? 1),
-          status: form.get("status"),
-        }),
-      }).then(readJson);
-      setTab("agents");
-      await refreshAdminData();
-    } catch (error) {
-      setStatus((error as Error).message);
-    }
-  }
-
   async function buildContext(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -583,31 +470,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
           limit: Number(form.get("limit") ?? 8),
         }),
       }).then(readJson);
-      setLastContextBuildId(json.context?.id ?? "");
       setContextOutput(JSON.stringify(json.context, null, 2));
-      await refreshAdminData();
-    } catch (error) {
-      setStatus((error as Error).message);
-    }
-  }
-
-  async function invokeModel(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setStatus("invoking model");
-    try {
-      const json = await fetch("/api/v1/model/invoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          org_slug: selectedOrgSlug,
-          model_config_slug: form.get("model_config_slug"),
-          context_build_id: form.get("context_build_id") || undefined,
-          prompt: form.get("prompt"),
-          max_tokens: Number(form.get("max_tokens") ?? 800),
-        }),
-      }).then(readJson);
-      setModelOutput(json.result?.content ?? JSON.stringify(json, null, 2));
       await refreshAdminData();
     } catch (error) {
       setStatus((error as Error).message);
@@ -697,7 +560,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
                   <p className={styles.sectionLead}>
                     {!emailVerified
                       ? "Verify your email before creating API keys or starting billing."
-                      : "Billing must activate this organization before keys, invites, models, roles, hosted agents, and writes are available."}
+                      : "Billing must activate this organization before keys, invites, roles, and memory writes are available."}
                   </p>
                 </div>
                 <span className={`${styles.badge} ${styles.badgeWarn}`}>
@@ -731,7 +594,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
                   <h3>Set up members and roles</h3>
                   <p>
                     Create or choose an org, invite users, then define what each agent role can read and write.
-                    Role permissions drive trust-zone access, session visibility, proposals, and hosted agent execution.
+                    Role permissions drive trust-zone access, session visibility, proposals, and source management.
                   </p>
                   <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => setTab("overview")}>
                     orgs and roles
@@ -794,7 +657,7 @@ Start a Frege session for substantial workflows.
 Build context before answering from Frege knowledge.
 If Frege reports denied context, do not guess what was denied.
 Submit memory proposals instead of rewriting canonical knowledge directly.
-Use frege_run_agent only when the user asks Frege's hosted runtime to execute work.`}</pre>
+Keep model credentials, tools, and execution in the user's agent client.`}</pre>
               </div>
 
               <div className={styles.section}>
@@ -903,7 +766,6 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                   <label className={styles.checkbox}><input type="checkbox" name="can_propose_memory" /> propose memory</label>
                   <label className={styles.checkbox}><input type="checkbox" name="can_review_memory_proposals" /> review memory</label>
                   <label className={styles.checkbox}><input type="checkbox" name="can_manage_sources" /> manage sources</label>
-                  <label className={styles.checkbox}><input type="checkbox" name="can_execute_agents" /> execute agents</label>
                   <div className={styles.buttonRow}>
                     <button className={styles.button} type="submit" disabled={orgWriteLocked}>save role</button>
                   </div>
@@ -925,7 +787,6 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                             role.can_propose_memory ? "propose" : "",
                             role.can_review_memory_proposals ? "review" : "",
                             role.can_manage_sources ? "sources" : "",
-                            role.can_execute_agents ? "agents" : "",
                           ].filter(Boolean).join(", ") || "-"}
                         </td>
                       </tr>
@@ -1027,7 +888,6 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                           reads {selectedApiKeyRole.can_read_labels.join(", ") || "no labels"}
                           {selectedApiKeyRole.can_write_sessions ? " / writes sessions" : ""}
                           {selectedApiKeyRole.can_propose_memory ? " / proposes memory" : ""}
-                          {selectedApiKeyRole.can_execute_agents ? " / runs agents" : ""}
                         </span>
                       </div>
                     )}
@@ -1211,83 +1071,20 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
             </>
           )}
 
-          {tab === "models" && (
-            <div className={styles.section}>
-              <h2 className={styles.sectionTitle}>model configs</h2>
-              <form className={styles.form} onSubmit={upsertModel}>
-                <label className={styles.field}><span className={styles.label}>slug</span><input className={styles.input} name="slug" defaultValue="vercel-gateway" /></label>
-                <label className={styles.field}><span className={styles.label}>name</span><input className={styles.input} name="name" defaultValue="Vercel AI Gateway" /></label>
-                <label className={styles.field}>
-                  <span className={styles.label}>provider</span>
-                  <select className={styles.select} name="provider" defaultValue="vercel-ai-gateway">
-                    <option value="vercel-ai-gateway">vercel ai gateway</option>
-                    <option value="openai-compatible">openai compatible router</option>
-                    <option value="ollama">ollama</option>
-                    <option value="openrouter">openrouter</option>
-                  </select>
-                </label>
-                <label className={styles.field}><span className={styles.label}>base url</span><input className={styles.input} name="base_url" placeholder="https://runtime.example.com/v1" /></label>
-                <label className={styles.field}><span className={styles.label}>model</span><input className={styles.input} name="model_name" defaultValue="openai/gpt-5.4" /></label>
-                <label className={styles.field}><span className={styles.label}>api key</span><input className={styles.input} name="api_key" type="password" /></label>
-                <label className={styles.checkbox}><input type="checkbox" name="allow_red" /> allow red</label>
-                <label className={styles.field}>
-                  <span className={styles.label}>status</span>
-                  <select className={styles.select} name="status" defaultValue="active">
-                    <option value="active">active</option>
-                    <option value="disabled">disabled</option>
-                  </select>
-                </label>
-                <div className={styles.buttonRow}>
-                  <button className={styles.button} type="submit" disabled={orgWriteLocked}>save model</button>
-                </div>
-              </form>
-              <table className={styles.table}>
-                <thead>
-                  <tr><th>slug</th><th>provider</th><th>model</th><th>trust</th><th>secret</th><th>status</th></tr>
-                </thead>
-                <tbody>
-                  {modelConfigs.map((config) => (
-                    <tr key={config.id}>
-                      <td>{config.slug}</td><td>{config.provider}</td><td>{config.model_name}</td><td>{config.allowed_trust_zones.join(", ")}</td><td>{config.has_api_key ? "yes" : "no"}</td><td>{config.status}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
           {tab === "context" && (
-            <>
-              <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>build context</h2>
-                <form className={styles.form} onSubmit={buildContext}>
-                  <label className={styles.field}><span className={styles.label}>query</span><input className={styles.input} name="query" defaultValue="refund" /></label>
-                  <label className={styles.field}><span className={styles.label}>slug</span><input className={styles.input} name="slug" /></label>
-                  <label className={styles.field}><span className={styles.label}>limit</span><input className={styles.input} name="limit" type="number" defaultValue="8" /></label>
-                  <div className={styles.buttonRow}><button className={styles.button} type="submit" disabled={orgWriteLocked}>build</button></div>
-                </form>
-                {contextOutput && <pre className={styles.output}>{contextOutput}</pre>}
-              </div>
-
-              <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>invoke model</h2>
-                <form className={styles.form} onSubmit={invokeModel}>
-                  <label className={styles.field}>
-                    <span className={styles.label}>model config</span>
-                    <select className={styles.select} name="model_config_slug">
-                      {modelConfigs.map((config) => (
-                        <option key={config.id} value={config.slug}>{config.slug}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className={styles.field}><span className={styles.label}>context build id</span><input className={styles.input} name="context_build_id" value={lastContextBuildId} onChange={(event) => setLastContextBuildId(event.target.value)} /></label>
-                  <label className={styles.field}><span className={styles.label}>max tokens</span><input className={styles.input} name="max_tokens" type="number" defaultValue="800" /></label>
-                  <label className={`${styles.field} ${styles.fieldWide}`}><span className={styles.label}>prompt</span><textarea className={styles.textarea} name="prompt" defaultValue="Summarize the relevant policy and cite source slugs." /></label>
-                  <div className={styles.buttonRow}><button className={styles.button} type="submit" disabled={orgWriteLocked}>invoke</button></div>
-                </form>
-                {modelOutput && <pre className={styles.output}>{modelOutput}</pre>}
-              </div>
-            </>
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>build governed context</h2>
+              <p className={styles.sectionLead}>
+                Preview the same scoped, cited context packet that customer-run agents receive through MCP.
+              </p>
+              <form className={styles.form} onSubmit={buildContext}>
+                <label className={styles.field}><span className={styles.label}>query</span><input className={styles.input} name="query" defaultValue="refund" /></label>
+                <label className={styles.field}><span className={styles.label}>slug</span><input className={styles.input} name="slug" /></label>
+                <label className={styles.field}><span className={styles.label}>limit</span><input className={styles.input} name="limit" type="number" defaultValue="8" /></label>
+                <div className={styles.buttonRow}><button className={styles.button} type="submit" disabled={orgWriteLocked}>build</button></div>
+              </form>
+              {contextOutput && <pre className={styles.output}>{contextOutput}</pre>}
+            </div>
           )}
 
           {tab === "brain" && (
@@ -1362,82 +1159,6 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
             </>
           )}
 
-          {tab === "agents" && (
-            <>
-              <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>agent definitions</h2>
-                <form className={styles.form} onSubmit={upsertAgent}>
-                  <label className={styles.field}><span className={styles.label}>slug</span><input className={styles.input} name="slug" defaultValue="context-summarizer" /></label>
-                  <label className={styles.field}><span className={styles.label}>name</span><input className={styles.input} name="name" defaultValue="Context Summarizer" /></label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>model config</span>
-                    <select className={styles.select} name="model_config_slug">
-                      {modelConfigs.map((config) => (
-                        <option key={config.id} value={config.slug}>{config.slug}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>trust</span>
-                    <select className={styles.select} name="trust_zone" defaultValue="green">
-                      <option value="green">green</option>
-                      <option value="red">red</option>
-                    </select>
-                  </label>
-                  <label className={styles.field}><span className={styles.label}>context query</span><input className={styles.input} name="default_context_query" defaultValue="company policy" /></label>
-                  <label className={styles.field}><span className={styles.label}>max steps</span><input className={styles.input} name="max_steps" type="number" defaultValue="1" /></label>
-                  <label className={styles.field}>
-                    <span className={styles.label}>status</span>
-                    <select className={styles.select} name="status" defaultValue="active">
-                      <option value="active">active</option>
-                      <option value="disabled">disabled</option>
-                    </select>
-                  </label>
-                  <label className={styles.field}><span className={styles.label}>description</span><input className={styles.input} name="description" defaultValue="Summarizes governed Frege context for a task." /></label>
-                  <label className={`${styles.field} ${styles.fieldWide}`}>
-                    <span className={styles.label}>instructions</span>
-                    <textarea className={styles.textarea} name="instructions_md" defaultValue="Summarize the task using only Frege-provided context. Cite source slugs. If context was denied, mention that without guessing denied sources." />
-                  </label>
-                  <div className={styles.buttonRow}><button className={styles.button} type="submit" disabled={orgWriteLocked}>save agent</button></div>
-                </form>
-                <table className={styles.table}>
-                  <thead>
-                    <tr><th>slug</th><th>name</th><th>model</th><th>trust</th><th>status</th><th>updated</th></tr>
-                  </thead>
-                  <tbody>
-                    {agentDefinitions.map((agent) => (
-                      <tr key={agent.id}>
-                        <td>{agent.slug}</td><td>{agent.name}</td><td>{agent.model_config_slug ?? agent.model_name ?? "-"}</td><td>{agent.trust_zone}</td><td>{agent.status}</td><td>{formatDate(agent.updated_at)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>agent runs</h2>
-                <table className={styles.table}>
-                  <thead>
-                    <tr><th>time</th><th>agent</th><th>model</th><th>status</th><th>trust</th><th>input</th><th>result</th></tr>
-                  </thead>
-                  <tbody>
-                    {agentRuns.map((run) => (
-                      <tr key={run.id}>
-                        <td>{formatDate(run.created_at)}</td>
-                        <td>{run.agent_slug ?? run.agent_name ?? "-"}</td>
-                        <td>{run.model_config_slug ?? "-"}</td>
-                        <td>{run.status}</td>
-                        <td>{run.trust_zone}</td>
-                        <td>{run.input_md.slice(0, 120)}</td>
-                        <td>{run.error ?? run.result_md.slice(0, 160)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-
           {tab === "telemetry" && (
             <div className={styles.section}>
               <h2 className={styles.sectionTitle}>telemetry</h2>
@@ -1445,16 +1166,16 @@ Use frege_run_agent only when the user asks Frege's hosted runtime to execute wo
                 <div className={styles.metric}><span className={styles.metricValue}>{telemetrySummary.total_events ?? 0}</span><span className={styles.metricLabel}>events</span></div>
                 <div className={styles.metric}><span className={styles.metricValue}>{telemetrySummary.denied_events ?? 0}</span><span className={styles.metricLabel}>denies</span></div>
                 <div className={styles.metric}><span className={styles.metricValue}>{telemetrySummary.context_builds ?? 0}</span><span className={styles.metricLabel}>contexts</span></div>
-                <div className={styles.metric}><span className={styles.metricValue}>{telemetrySummary.model_calls ?? 0}</span><span className={styles.metricLabel}>model calls</span></div>
+                <div className={styles.metric}><span className={styles.metricValue}>{Math.round(telemetrySummary.avg_latency_ms ?? 0)} ms</span><span className={styles.metricLabel}>avg latency</span></div>
               </div>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>time</th><th>actor</th><th>action</th><th>outcome</th><th>provider</th><th>latency</th></tr>
+                  <tr><th>time</th><th>actor</th><th>action</th><th>outcome</th><th>latency</th></tr>
                 </thead>
                 <tbody>
                   {telemetryEvents.map((event) => (
                     <tr key={String(event.id)}>
-                      <td>{formatDate(String(event.created_at))}</td><td>{String(event.actor_type ?? "")}</td><td>{String(event.action ?? "")}</td><td>{String(event.outcome ?? "")}</td><td>{String(event.provider ?? "-")}</td><td>{String(event.latency_ms ?? "-")}</td>
+                      <td>{formatDate(String(event.created_at))}</td><td>{String(event.actor_type ?? "")}</td><td>{String(event.action ?? "")}</td><td>{String(event.outcome ?? "")}</td><td>{String(event.latency_ms ?? "-")}</td>
                     </tr>
                   ))}
                 </tbody>

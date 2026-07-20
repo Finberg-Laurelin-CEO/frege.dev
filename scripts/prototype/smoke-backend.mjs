@@ -339,11 +339,14 @@ async function main() {
     console.log("- memory proposal smoke... skipped (key cannot propose memory)");
   }
 
-  await step("MCP tools list includes context and agent tools", async () => {
+  await step("MCP tools list exposes governed memory without hosted execution", async () => {
     const tools = runMcpList(baseUrl, apiKey);
     const names = tools.map((tool) => tool.name);
-    for (const expected of ["frege_build_context", "frege_list_agents", "frege_run_agent", "frege_get_agent_run"]) {
+    for (const expected of ["frege_status", "frege_build_context", "frege_start_session", "frege_write_page_proposal"]) {
       assert(names.includes(expected), `missing MCP tool ${expected}`);
+    }
+    for (const removed of ["frege_list_agents", "frege_run_agent", "frege_get_agent_run", "frege_invoke_model"]) {
+      assert(!names.includes(removed), `hosted execution tool must stay hidden: ${removed}`);
     }
   });
 
@@ -353,51 +356,52 @@ async function main() {
     assert(json.context.documents?.length > 0, "expected MCP context documents");
   });
 
-  const agents = await step("agent list endpoint is reachable", async () => {
-    const { json } = await request(baseUrl, apiKey, "/api/v1/agents");
-    assert(Array.isArray(json.agents), "agents must be an array");
-    return json.agents;
-  });
-
   if (includeAgentRun) {
     if (!brainStatus.capabilities?.canExecuteAgents) {
       console.log("- hosted agent queue smoke... skipped (key cannot execute agents)");
-    } else if (!agents.length) {
-      console.log("- hosted agent queue smoke... skipped (no active agents)");
     } else {
-      const runId = await step("hosted agent run queues and reads back", async () => {
-        const agent = agents[0];
-        const { json } = await request(baseUrl, apiKey, "/api/v1/agents", {
-          method: "POST",
-          body: {
-            agent_slug: agent.slug,
-            input_md: "Smoke-test queued agent run. Do not execute external actions.",
-            context_query: "refund policy",
-            trust_zone: "green",
-            session_id: sessionId ?? undefined,
-            metadata: { smoke: true, script: "smoke-backend" },
-          },
-        });
-        assert(json.run?.id, "missing agent run id");
-        assertEqual(json.run.status, "queued", "agent run status");
-        const readback = await request(baseUrl, apiKey, `/api/v1/agent-runs/${json.run.id}`);
-        assertEqual(readback.json.run.id, json.run.id, "agent run readback id");
-        return json.run.id;
+      const agents = await step("agent list endpoint is reachable", async () => {
+        const { json } = await request(baseUrl, apiKey, "/api/v1/agents");
+        assert(Array.isArray(json.agents), "agents must be an array");
+        return json.agents;
       });
-
-      if (!cronSecret) {
-        console.log("- hosted agent run executes via cron worker... skipped (set CRON_SECRET to enable)");
+      if (!agents.length) {
+        console.log("- hosted agent queue smoke... skipped (no active agents)");
       } else {
-        await step("hosted agent run executes via cron worker and reaches succeeded", async () => {
-          const worker = await request(baseUrl, apiKey, "/api/cron/agent-worker", {
-            auth: false,
-            headers: { Authorization: `Bearer ${cronSecret}` },
-            expectedStatus: 200,
+        const runId = await step("hosted agent run queues and reads back", async () => {
+          const agent = agents[0];
+          const { json } = await request(baseUrl, apiKey, "/api/v1/agents", {
+            method: "POST",
+            body: {
+              agent_slug: agent.slug,
+              input_md: "Smoke-test queued agent run. Do not execute external actions.",
+              context_query: "refund policy",
+              trust_zone: "green",
+              session_id: sessionId ?? undefined,
+              metadata: { smoke: true, script: "smoke-backend" },
+            },
           });
-          assert(worker.json.ok !== false, `cron worker returned not-ok: ${JSON.stringify(worker.json)}`);
-          const finalStatus = await pollAgentRun(baseUrl, apiKey, runId);
-          assertEqual(finalStatus, "succeeded", "agent run terminal status");
+          assert(json.run?.id, "missing agent run id");
+          assertEqual(json.run.status, "queued", "agent run status");
+          const readback = await request(baseUrl, apiKey, `/api/v1/agent-runs/${json.run.id}`);
+          assertEqual(readback.json.run.id, json.run.id, "agent run readback id");
+          return json.run.id;
         });
+
+        if (!cronSecret) {
+          console.log("- hosted agent run executes via cron worker... skipped (set CRON_SECRET to enable)");
+        } else {
+          await step("hosted agent run executes via cron worker and reaches succeeded", async () => {
+            const worker = await request(baseUrl, apiKey, "/api/cron/agent-worker", {
+              auth: false,
+              headers: { Authorization: `Bearer ${cronSecret}` },
+              expectedStatus: 200,
+            });
+            assert(worker.json.ok !== false, `cron worker returned not-ok: ${JSON.stringify(worker.json)}`);
+            const finalStatus = await pollAgentRun(baseUrl, apiKey, runId);
+            assertEqual(finalStatus, "succeeded", "agent run terminal status");
+          });
+        }
       }
     }
   }

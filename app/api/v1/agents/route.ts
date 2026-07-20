@@ -3,6 +3,7 @@ import { authenticateFregeActor, telemetryActorForFregeActor } from "@/lib/core/
 import { enqueueAgentRun, listActiveAgentDefinitions } from "@/lib/core/agent-runtime";
 import { assertSafeOrigin, readJson, routeError } from "@/lib/core/request-guards";
 import { logTelemetryEvent } from "@/lib/core/telemetry";
+import { hostedExecutionDisabledResponse, hostedExecutionEnabled } from "@/lib/core/hosted-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,6 +43,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const originError = assertSafeOrigin(req);
   if (originError) return originError;
+  if (!hostedExecutionEnabled()) return hostedExecutionDisabledResponse();
 
   const startedAt = Date.now();
   const actorResult = await authenticateFregeActor(req);

@@ -29,7 +29,7 @@ const soloFeatures = [
 const teamFeatures = [
   "Everyone's agents can use the same versioned memory",
   "Not everyone sees everything — role and trust-zone gates",
-  "Record context builds, sessions, and model usage",
+  "Record context builds, sessions, and access decisions",
   "Agent writes are reviewed before they become canonical",
   "Monthly, or save with annual billing",
 ];

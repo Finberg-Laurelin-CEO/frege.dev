@@ -40,7 +40,7 @@ const rows: [string, React.ReactNode][] = [
     <>
       Do not use Frege to violate law or another person&apos;s rights; distribute malware; probe or
       bypass security or permission boundaries; abuse the service; impersonate others; or submit
-      data you are not authorized to process. Use Frege&apos;s credential controls for provider keys
+      data you are not authorized to process. Use Frege&apos;s credential controls for integration secrets
       rather than embedding secrets in documents or prompts.
     </>,
   ],
@@ -55,9 +55,9 @@ const rows: [string, React.ReactNode][] = [
   [
     "third-party services",
     <>
-      Models, integrations, authentication, payments, and other third-party services may have
-      separate terms. You are responsible for the providers you configure and the data you direct
-      Frege to send to them.
+      Integrations, authentication, payments, and other third-party services may have separate
+      terms. You are responsible for the services you enable and the data you direct Frege to send
+      to them. Your agent&apos;s model provider remains part of your own agent environment.
     </>,
   ],
   [

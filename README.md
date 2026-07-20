@@ -9,6 +9,11 @@ MCP-connected agents a governed organizational memory: scoped context, source
 citations, revision history, and reviewable updates without tying company
 knowledge to one model or agent client.
 
+Your agents do the work. Codex, Claude Code, and internal agents keep their own
+model access and execution environment; Frege supplies the shared memory,
+authorization boundary, review path, and provenance they use through MCP or the
+API.
+
 [Website](https://frege.dev) · [Documentation](https://frege.dev/docs) ·
 [Repository docs](docs/README.md) ·
 [Roadmap](https://frege.dev/roadmap) · [Support](SUPPORT.md) ·
@@ -33,26 +38,21 @@ roadmap.
 - Audit and telemetry records for product activity.
 - A thin local CLI/MCP client that connects Codex, Claude Code, and compatible
   stdio MCP clients to the hosted Frege API.
-
-### Beta
-
-- Configurable model routing and invocation.
-- Hosted agent definitions, queued runs, and run-step history.
-- Additive V2 principals, delegated credentials, immutable default-deny policy
-  versions, authorization receipts, and a unified provenance read model.
-- A governed GitHub connector private beta with repository-scoped read access,
-  stable source revisions, deletion handling, and connector health.
-
-These interfaces are early and should not be treated as a general-purpose
-connector or agent-orchestration platform. Private-beta access may require
-account enablement.
+- A downloadable Frege Agent profile for Hermes that runs with the user's
+  model, tools, credentials, and compute.
 
 ### Planned
 
-- Broader connector support, beginning with Google Drive.
+- Service principals, versioned policies, authorization receipts, and unified
+  provenance contracts.
+- Governed connector pilots, beginning with GitHub and later Google Drive.
 - Durable tasks, workflows, and approval gates.
 - Portable import and export contracts.
-- A first-party Frege agent built on the same permissions as every other agent.
+- Optional bounded hosted execution only after customer demand and policy
+  controls justify it.
+
+Frege-hosted model and agent execution are not part of the current product.
+Source-visible experimental code does not imply production availability.
 
 See the [public roadmap](https://frege.dev/roadmap) for the current sequencing.
 
@@ -64,7 +64,8 @@ Human administrators
   -> organizations, roles, keys, sources, proposals, and activity
 
 AI agent
-  -> frege mcp serve (local stdio process)
+  -> agent model and tools run in the customer's environment
+  -> frege mcp serve (local stdio bridge)
   -> scoped API key
   -> hosted Frege API
   -> organization and trust-zone gates
@@ -124,6 +125,19 @@ Prefer `frege connect` to placing an API key in MCP JSON. Never commit
 `~/.frege/mcp/config.json`, print the full key in logs, or include it in support
 requests.
 
+To install the complete local Frege Agent profile on top of Hermes:
+
+```bash
+frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege agent install hermes
+frege-agent setup
+frege-agent mcp test frege
+frege-agent chat
+```
+
+The profile supplies Frege's context and memory workflow. Hermes, the selected
+model, local tools, and all agent compute remain in the user&apos;s environment.
+
 The complete setup and troubleshooting guide is in
 [`packages/frege-cli/README.md`](packages/frege-cli/README.md).
 
@@ -133,6 +147,8 @@ The complete setup and troubleshooting guide is in
 - `lib/core/` — tenancy, memory, context, proposals, runtime, and telemetry
   services.
 - `packages/frege-cli/` — the published CLI and local MCP server.
+- `packages/frege-agent-profile/` — the downloadable Hermes profile for the
+  user-run Frege Agent.
 - `db/` — ordered PostgreSQL migrations.
 - `docs/` — curated public architecture and installation documentation.
 - `scripts/prototype/` — maintainer checks, smoke tests, and operational tools.

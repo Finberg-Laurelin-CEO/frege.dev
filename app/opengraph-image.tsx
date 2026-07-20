@@ -10,6 +10,29 @@ export const alt = publicSiteV2
   ? "Frege — many agents, one organizational reality"
   : "Frege — your agents share a company; they should share a brain";
 
+const ASCII_COLUMNS = 140;
+const ASCII_ROWS = 45;
+const ASCII_CHARACTERS = "fregegovernedmemory";
+
+// A deterministic character field that echoes the animated, image-derived
+// ASCII cascade on the homepage. Social cards are static, so the changing
+// density carries the same texture without implying that the preview moves.
+const hesperusAscii = Array.from({ length: ASCII_ROWS }, (_, row) =>
+  Array.from({ length: ASCII_COLUMNS }, (_, column) => {
+    const horizontal = column / ASCII_COLUMNS;
+    const focus = Math.max(
+      0,
+      1 - Math.hypot((column - 91) / 76, (row - 17) / 34),
+    );
+    const density = 0.08 + horizontal * 0.13 + focus * 0.43;
+    const noise = ((column * 17 + row * 31 + column * row * 7) % 101) / 100;
+
+    return noise < density
+      ? ASCII_CHARACTERS[(column + row * 3) % ASCII_CHARACTERS.length]
+      : " ";
+  }).join(""),
+).join("\n");
+
 // Departure Mono — site font. Satori reads OTF (not woff2), so we ship the OTF
 // alongside the woff2 used by the live site.
 export default async function OpenGraphImage() {
@@ -54,6 +77,26 @@ export default async function OpenGraphImage() {
             }}
           />
 
+          <pre
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              inset: "-5px 0 0 -3px",
+              width: "100%",
+              height: "100%",
+              margin: 0,
+              overflow: "hidden",
+              color: "rgba(166,255,203,0.32)",
+              fontFamily: "Departure Mono",
+              fontSize: 12,
+              letterSpacing: "0.11em",
+              lineHeight: 1.16,
+              whiteSpace: "pre",
+            }}
+          >
+            {hesperusAscii}
+          </pre>
+
           <div
             style={{
               position: "relative",
@@ -91,7 +134,7 @@ export default async function OpenGraphImage() {
                 textTransform: "uppercase",
               }}
             >
-              Building the operating system for AI agents
+              The governed operating layer for teams running multiple AI agents
             </span>
             <div
               style={{

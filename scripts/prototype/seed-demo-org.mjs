@@ -47,7 +47,7 @@ const roles = [
     can_propose_memory: true,
     can_review_memory_proposals: false,
     can_manage_sources: false,
-    can_execute_agents: true,
+    can_execute_agents: false,
   },
   {
     slug: "restricted-reader",
@@ -61,7 +61,7 @@ const roles = [
     can_propose_memory: true,
     can_review_memory_proposals: false,
     can_manage_sources: false,
-    can_execute_agents: true,
+    can_execute_agents: false,
   },
   {
     slug: "admin",
@@ -75,7 +75,7 @@ const roles = [
     can_propose_memory: true,
     can_review_memory_proposals: true,
     can_manage_sources: true,
-    can_execute_agents: true,
+    can_execute_agents: false,
   },
 ];
 

@@ -2,13 +2,11 @@
 
 import { useEffect, useState } from "react";
 import {
-  type RealAgent,
   type RealEvent,
   type RealSummary,
   eventActor,
   eventStatus,
   eventSummary,
-  formatCost,
   formatEventTime,
   formatLatency,
   getJson,
@@ -29,7 +27,6 @@ export default function OverviewSection({
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<RealSummary | null>(null);
   const [events, setEvents] = useState<RealEvent[]>([]);
-  const [agents, setAgents] = useState<RealAgent[]>([]);
 
   useEffect(() => {
     let live = true;
@@ -42,12 +39,10 @@ export default function OverviewSection({
     Promise.all([
       getJson<{ summary: RealSummary }>(`/api/v1/admin/telemetry?${q}`),
       getJson<{ events: RealEvent[] }>(`/api/v1/admin/audit-events?${q}&limit=8`),
-      getJson<{ agents: RealAgent[] }>(`/api/v1/admin/agents?${q}`),
-    ]).then(([tel, audit, ag]) => {
+    ]).then(([tel, audit]) => {
       if (!live) return;
       setSummary(tel.data?.summary ?? null);
       setEvents(audit.data?.events ?? []);
-      setAgents(ag.data?.agents ?? []);
       setLoading(false);
     });
     return () => {
@@ -59,10 +54,8 @@ export default function OverviewSection({
 
   const metrics: { value: string; label: string }[] = [
     { value: String(summary?.context_builds ?? 0), label: "context builds" },
-    { value: String(summary?.model_calls ?? 0), label: "model calls" },
     { value: String(deniedReads), label: "denied reads" },
     { value: String(summary?.total_events ?? 0), label: "total events" },
-    { value: formatCost(summary?.estimated_cost_usd), label: "est. cost" },
     { value: formatLatency(summary?.avg_latency_ms), label: "avg latency" },
   ];
 
@@ -147,31 +140,16 @@ export default function OverviewSection({
         </section>
 
         <section style={{ ...panel, padding: 18 }}>
-          <h2 style={{ ...sectionHeading, marginBottom: 12 }}>agents</h2>
-          {loading ? (
-            <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>Loading…</p>
-          ) : agents.length === 0 ? (
-            <p style={{ fontSize: 12, color: "var(--muted)", margin: 0 }}>No hosted agents yet.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {agents.map((ag) => (
-                <div
-                  key={ag.slug}
-                  style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", padding: "10px 0", borderTop: "1px solid var(--line)" }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, color: "var(--ink)" }}>
-                      <span style={{ color: ag.status === "active" ? "var(--green)" : "var(--faint)" }}>●</span> {ag.name}
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
-                      {(ag.model_name ?? ag.model_config_slug ?? "model") + (ag.trust_zone ? ` · ${ag.trust_zone} zone` : "")}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: 11, color: "var(--faint)", whiteSpace: "nowrap" }}>{ag.status ?? ""}</span>
-                </div>
-              ))}
-            </div>
-          )}
+          <h2 style={{ ...sectionHeading, marginBottom: 12 }}>execution boundary</h2>
+          <p style={{ fontSize: 13, color: "var(--ink)", margin: 0, lineHeight: 1.55 }}>
+            Your agent, model, and tools run in your own environment.
+          </p>
+          <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0", lineHeight: 1.55 }}>
+            Frege supplies governed context, sessions, and reviewable memory through MCP. It does not run the task for you.
+          </p>
+          <button type="button" onClick={() => onNavigate("connect")} style={{ fontSize: 12, color: "var(--green)", marginTop: 12 }}>
+            connect your agent →
+          </button>
         </section>
       </div>
     </div>

@@ -77,12 +77,22 @@ test("the public MCP tool list stays in sync with the shipped CLI", async () => 
   const cliTools = [...cli.matchAll(/name:\s*"(frege_[a-z_]+)"/g)].map((match) => match[1]);
   const documentedTools = [...docs.matchAll(/\["(frege_[a-z_]+)",/g)].map((match) => match[1]);
 
-  assert.equal(cliTools.length, 27, "update this expectation when the CLI contract changes");
+  assert.equal(cliTools.length, 23, "update this expectation when the CLI contract changes");
   assert.deepEqual(
     [...new Set(documentedTools)].sort(),
     [...new Set(cliTools)].sort(),
     "app/docs/page.tsx must document every shipped MCP tool and no invented tools",
   );
+
+  for (const hostedTool of [
+    "frege_list_agents",
+    "frege_run_agent",
+    "frege_get_agent_run",
+    "frege_invoke_model",
+  ]) {
+    assert.equal(cliTools.includes(hostedTool), false, `${hostedTool} must not ship in the MVP MCP surface`);
+    assert.equal(documentedTools.includes(hostedTool), false, `${hostedTool} must not appear in public tool docs`);
+  }
 });
 
 test("public positioning avoids private YC material and superseded product claims", async () => {
@@ -231,7 +241,7 @@ test("Docs copy controls cover runnable snippets without touching diagrams", asy
 
   assert.equal(
     [...docs.matchAll(/<CopyableCodeBlock\b/g)].length,
-    9,
+    10,
     "every runnable Docs snippet should have one copy control",
   );
   assert.match(copyable, /navigator\.clipboard\?\.writeText/);

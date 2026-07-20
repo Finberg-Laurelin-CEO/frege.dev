@@ -32,20 +32,20 @@ function parseLinks(body) {
 
 // title -> markdown body. Links use [[Title]] wikilink form.
 const PAGES = {
-  "Agent Runtime":
-    "The [[Agent Runtime]] executes hosted agents. It builds context via the [[Context Protocol]], records steps in the [[Session Ledger]], and enforces [[Trust Zones]]. See also [[Model Gateway]].",
+  "Agent Client":
+    "The [[Agent Client]] runs in the customer's environment. It requests memory through the [[Context Protocol]], records useful work in the [[Session Ledger]], and respects [[Trust Zones]]. See also [[MCP Bridge]].",
   "Context Protocol":
-    "The [[Context Protocol]] governs how the [[Agent Runtime]] assembles a context packet. It pulls from the [[Knowledge Brain]] and respects [[Trust Zones]]. Billing limits are described in [[Billing Overview]].",
+    "The [[Context Protocol]] governs how the [[Agent Client]] receives a context packet. It pulls from the [[Knowledge Brain]] and respects [[Trust Zones]]. Billing limits are described in [[Billing Overview]].",
   "Session Ledger":
-    "Every run appends events to the [[Session Ledger]]. The [[Agent Runtime]] writes here. Secrets are redacted before storage.",
+    "Customer-run agents can append important events to the [[Session Ledger]]. Secrets are redacted before storage.",
   "Trust Zones":
-    "[[Trust Zones]] (green/red) gate what the [[Agent Runtime]] and [[Context Protocol]] can read. Red is restricted.",
-  "Model Gateway":
-    "The [[Model Gateway]] routes model calls for the [[Agent Runtime]]. Provider keys are encrypted. Depends on [[Provider Credentials]].",
+    "[[Trust Zones]] (green/red) gate what the [[Agent Client]] can receive through the [[Context Protocol]]. Red is restricted.",
+  "MCP Bridge":
+    "The local [[MCP Bridge]] connects the [[Agent Client]] to governed Frege memory. Model credentials and compute stay with the customer.",
   "Knowledge Brain":
     "The [[Knowledge Brain]] stores markdown pages with auto-extracted links. The [[Context Protocol]] reads from it.",
   "Billing Overview":
-    "[[Billing Overview]] covers plans and activation. Inactive orgs cannot run the [[Agent Runtime]]. See [[Stripe Webhooks]].",
+    "[[Billing Overview]] covers plans and activation. Inactive orgs cannot access hosted Frege memory. See [[Stripe Webhooks]].",
   "Stripe Webhooks":
     "[[Stripe Webhooks]] flip an org to active on checkout. Related to [[Billing Overview]] and [[Pricing Tiers]].",
   // Pricing Tiers is referenced but NOT created => unresolved link / ghost node.

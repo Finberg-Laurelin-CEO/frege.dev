@@ -59,14 +59,15 @@ Obvious credentials and authorization material are redacted before session
 events are persisted. Clients must still avoid sending secrets as ordinary
 content.
 
-## Model and agent runtime
+## Agent execution boundary
 
-Model routing and hosted agent execution are beta capabilities. Frege assembles
-governed context, enforces organization and trust-zone boundaries, invokes a
-configured provider when authorized, and records the resulting activity.
+The current product does not run customer agents or invoke their models. Codex,
+Claude Code, and internal agents keep model credentials, tools, and compute in
+the customer's environment. The local Frege CLI/MCP process calls the hosted
+Frege API for governed context, sessions, proposals, review, and provenance.
 
-Frege remains model- and client-independent: the memory and permission boundary
-does not depend on one model vendor or one agent application.
+This boundary keeps Frege model- and client-independent: organizational memory
+and permissions do not depend on one model vendor or agent application.
 
 ## Deployment boundary
 

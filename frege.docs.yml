@@ -18,14 +18,6 @@ documents:
     tags: [frege, architecture, mcp]
   - path: docs/FREGE_MCP_INSTALL.md
     tags: [frege, cli, mcp, install]
-  - path: docs/API_V2_CONTROL_PLANE.md
-    slug: frege-api-v2-control-plane
-    title: Frege API V2 Control Plane
-    tags: [frege, api, policy, provenance]
-  - path: docs/GITHUB_CONNECTOR_BETA.md
-    slug: frege-github-connector-beta
-    title: Governed GitHub Connector Beta
-    tags: [frege, github, connector, policy]
   - path: packages/frege-cli/README.md
     slug: frege-cli-readme
     title: Frege CLI Readme

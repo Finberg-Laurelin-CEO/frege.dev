@@ -38,11 +38,12 @@ const toc: [string, string, string][] = [
   ["05", "cli-install", "CLI install"],
   ["06", "zsh-path", "Path fixes"],
   ["07", "mcp-register", "Register MCP"],
-  ["08", "docs-push", "Push documents"],
-  ["09", "agent-instructions", "Agent rules"],
-  ["10", "tools", "MCP tools"],
-  ["11", "troubleshooting", "Troubleshooting"],
-  ["12", "security", "Security"],
+  ["08", "local-agent", "Frege Agent"],
+  ["09", "docs-push", "Push documents"],
+  ["10", "agent-instructions", "Agent rules"],
+  ["11", "tools", "MCP tools"],
+  ["12", "troubleshooting", "Troubleshooting"],
+  ["13", "security", "Security"],
 ];
 
 const quickFacts: [string, string, string][] = [
@@ -50,6 +51,7 @@ const quickFacts: [string, string, string][] = [
   ["API base", "https://frege.dev", "What the CLI and MCP server call for /api/v1 routes unless Frege support gives another base."],
   ["CLI package", "@frege-dev/cli", "Public npm package that installs the frege and frege-mcp commands."],
   ["MCP command", "frege mcp serve", "Local stdio server used by Codex, Claude Code, and other MCP clients."],
+  ["Local agent", "frege agent install hermes", "Downloads the Frege Agent profile; its model, tools, and compute remain in the user's environment."],
 ];
 
 const fastPath: [string, string, string][] = [
@@ -88,11 +90,7 @@ const mcpTools: [string, string][] = [
   ["frege_append_session_event", "Record task activity onto the active session."],
   ["frege_get_session", "Read a visible agent session and its events."],
   ["frege_search_sessions", "Search organization-visible sessions when the role permits it."],
-  ["frege_list_agents", "List Frege-hosted agents available to this org and role."],
-  ["frege_run_agent", "Queue hosted agent work when the key has execution permission."],
-  ["frege_get_agent_run", "Read status and output for a hosted agent run."],
   ["frege_audit_events", "List legacy audit events visible to the current role."],
-  ["frege_invoke_model", "Invoke an organization-configured model with governed context."],
 ];
 
 const agentInstallPrompt = `Install Frege MCP for this machine.
@@ -143,9 +141,10 @@ export default function DocsPage() {
       <p className="eyebrow">Documentation</p>
       <h1>Set up Frege <span>for agents.</span></h1>
       <p className="docs__lead">
-        Frege is hosted. Users manage the browser app; agents install a small local CLI.
-        The only MCP server customers run is <code>frege mcp serve</code>, and it only
-        calls Frege APIs with a verified key.
+        Frege&apos;s memory and control plane is hosted. Connect an agent you already use,
+        or download the local Frege Agent profile for Hermes. In both cases,
+        <code> frege mcp serve</code> only calls Frege APIs with a verified key; the
+        model, tools, and agent compute stay in your environment.
       </p>
       <div className="hero__actions">
         <a className="button button--primary" href="/signup">Start now</a>
@@ -411,6 +410,36 @@ frege agent install claude`} />
               The API key belongs in <code>~/.frege/mcp/config.json</code>, not MCP client JSON.
               If <code>frege_status</code> does not match <code>frege doctor</code>, the setup is
               not complete.
+            </p>
+          </section>
+
+          <section id="local-agent">
+            <h2>Run the downloadable Frege Agent</h2>
+            <p>
+              If you want a complete local agent instead of connecting an existing client,
+              install the Frege Agent profile for Hermes. The profile supplies Frege&apos;s
+              operating instructions, governed-memory workflow, and MCP connection while
+              leaving the model provider, local tools, and compute under your control.
+            </p>
+            <CopyableCodeBlock
+              label="local Frege Agent installation"
+              caption="Hermes profile / user-run compute"
+              meta="install Frege Agent locally"
+              value={`# Install Hermes first, then connect the Frege CLI
+frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+
+# Download the Frege Agent profile
+frege agent install hermes
+
+# Choose your model and verify the governed-memory bridge
+frege-agent setup
+frege-agent mcp test frege
+frege-agent chat`}
+            />
+            <p className="docs__note">
+              Frege does not receive your model-provider credential and does not run this
+              agent. The profile runs through the open-source Hermes runtime and reaches
+              Frege only through <code>frege mcp serve</code>.
             </p>
           </section>
 

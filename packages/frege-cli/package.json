@@ -1,6 +1,6 @@
 {
   "name": "@frege-dev/cli",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Source-visible proprietary Frege CLI and MCP client for governed organizational memory.",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",

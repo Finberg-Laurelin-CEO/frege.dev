@@ -16,7 +16,7 @@ const legacyToc: [string, string, string][] = [
   ["06", "sessions", "Session ledger"],
   ["07", "proposals", "Memory proposals"],
   ["08", "context", "Context gateway"],
-  ["09", "model-gateway", "Model gateway"],
+  ["09", "execution-boundary", "Execution boundary"],
   ["10", "telemetry", "Telemetry & audit"],
   ["11", "trust", "Trust & tenancy"],
   ["12", "mcp", "MCP surface"],
@@ -32,7 +32,7 @@ const v2Toc: [string, string, string][] = [
   ["07", "sessions-detail", "Session ledger"],
   ["08", "proposals-detail", "Memory proposals"],
   ["09", "context-detail", "Context gateway"],
-  ["10", "model-gateway-detail", "Model gateway"],
+  ["10", "execution-boundary-detail", "Execution boundary"],
   ["11", "telemetry-detail", "Telemetry & audit"],
   ["12", "trust-detail", "Trust & tenancy"],
   ["13", "mcp", "MCP surface"],
@@ -49,21 +49,20 @@ const REQUEST_FLOW_ART = `  Human admin                         Agent
            │                               │
            ▼                               ▼
   org · users · roles            brain · context gateway
-  keys · models · proposals      model gateway · telemetry
+  keys · sources · proposals     sessions · telemetry
 `;
 
-const RUNTIME_ART = `  Frege app (hosted control plane)
-    -> creates run / session / context packet
-    -> queues Frege Agent Runtime
+const RUNTIME_ART = `  Customer environment
+    -> Codex / Claude Code / internal agent
+    -> customer's model credentials, tools, and compute
+    -> local frege mcp serve process
 
-  Frege Agent Runtime (beta worker)
-    -> performs one configured provider completion
-    -> uses the governed context packet created by Frege
-    -> writes run steps, session events, and telemetry
+  Frege hosted API
+    -> authenticates the scoped API key
+    -> returns governed, cited context
+    -> records sessions and reviewable memory proposals
 
-  Model router (same runtime network)
-    -> organization-configured OpenAI-compatible endpoint or Ollama
-    -> serves the configured chat-completions interface
+  Frege does not run the agent or call its model in the MVP
 `;
 
 const PATH_GLYPHS = String.raw`
@@ -75,7 +74,7 @@ const PATH_GLYPHS = String.raw`
 |     +-- session ledger     -------- events / tools / signals               |
 |     +-- memory proposals  --------- review / accept / revise               |
 |     +-- context gateway    -------- scope / cite / withhold                 |
-|     +-- model gateway      -------- route / invoke / record                |
+|     +-- client boundary    -------- bring / connect / govern               |
 |     +-- telemetry + audit  -------- receipt / cost / provenance            |
 |     +-- trust + tenancy    -------- green / red / deny                     |
 |                                                                           |
@@ -128,11 +127,11 @@ const CONTEXT_POLICY_ART = String.raw`
 const subsystems: [string, string, string][] = [
   ["identity", "Identity & control plane", "Users, sessions, memberships, invites, roles, and per-user API keys. Org scope is always derived from the session or key, never from client input."],
   ["brain", "Hosted brain", "Institutional knowledge stored as versioned pages with sources, revisions, trust zones, tags, and extracted links. The database is canonical; markdown is the human and agent representation."],
-  ["sessions", "Session ledger", "Durable per-task context: user and assistant messages, tool calls, tool results, context builds, model invocations, memory signals, and notes. Secrets are redacted before any write."],
+  ["sessions", "Session ledger", "Durable per-task context: user and assistant messages, tool calls, tool results, context builds, client-reported model activity, memory signals, and notes. Secrets are redacted before any write."],
   ["proposals", "Memory proposals", "Agents do not silently rewrite canonical knowledge. Durable updates land as reviewable proposals; an accepted page proposal creates a new brain revision and refreshes links."],
   ["context", "Context gateway", "Context builds resolve org, role, sensitivity labels, and trust zones, then return allowed chunks with citations and withheld counts."],
-  ["model-gateway", "Model gateway", "Pluggable, model-agnostic routing. Frege assembles context, enforces gates, routes to a configured provider, and records model telemetry. It does not require a model to live inside the app."],
-  ["telemetry", "Telemetry & audit", "Supported context, model, and run paths record actor, action, outcome, latency, provider, token counts, estimated cost, and trust zone alongside a separate audit trail."],
+  ["execution-boundary", "Agent execution boundary", "The customer's agent supplies the model, tools, and compute. Frege supplies a scoped MCP/API memory service and does not run the agent in the current product."],
+  ["telemetry", "Telemetry & audit", "Supported context, session, proposal, and review paths record actor, action, outcome, latency, and trust zone alongside a separate audit trail."],
   ["trust", "Trust & tenancy", "Green and red trust zones gate context before any packet reaches an agent or model. Denied counts can be reported, but denied titles and bodies never leak."],
 ];
 
@@ -254,8 +253,7 @@ export default function ArchitecturePage() {
           Instead they request scoped context, and Frege resolves org, role, and source
           permissions before returning anything. The backend supports login and
           bootstrap, org management, per-user API keys, hosted brain pages, agent
-          sessions, memory proposals, context builds, model routing, telemetry, and MCP
-          access.
+          sessions, memory proposals, context builds, telemetry, and MCP access.
         </p>
         <p className="docs__note">
           Customers do not run the Frege database themselves. They connect agents to the
@@ -273,7 +271,7 @@ export default function ArchitecturePage() {
           API key.
         </p>
         <ul>
-          <li><b>Control plane</b>: the hosted app, admin UI, REST APIs, and model-gateway orchestration.</li>
+          <li><b>Control plane</b>: the hosted app, admin UI, REST APIs, permissions, review, and provenance.</li>
           <li><b>Brain database</b>: the canonical store of governed pages, sources, sessions, and proposals.</li>
           <li><b>Thin client</b>: the local <code>frege</code> CLI and MCP server, which only ever call REST APIs.</li>
         </ul>
@@ -289,7 +287,7 @@ export default function ArchitecturePage() {
         <pre
           className="diagram"
           role="img"
-          aria-label="Human admins reach /api/v1/admin/* with a session cookie to manage org, users, roles, keys, models, and proposals. Agents reach /api/v1/* with a bearer API key to reach the brain, context gateway, model gateway, and telemetry."
+          aria-label="Human admins reach /api/v1/admin/* with a session cookie to manage organizations, users, roles, keys, sources, and proposals. Customer-run agents reach /api/v1/* with a bearer API key to use the brain, context gateway, sessions, and telemetry."
         >{REQUEST_FLOW_ART}</pre>
       </section>
 
@@ -407,7 +405,7 @@ export default function ArchitecturePage() {
         <h2>Session ledger</h2>
         <p>
           The session ledger stores durable task context for agents: user messages,
-          assistant messages, tool calls, tool results, context builds, model invocations,
+          assistant messages, tool calls, tool results, context builds, client-reported model activity,
           memory signals, and notes. This is where task context belongs, kept separate from
           telemetry metadata. Hard secret protection runs before every ledger write,
           redacting obvious API keys, passwords, authorization headers, cookies, and
@@ -506,9 +504,9 @@ export default function ArchitecturePage() {
                 counts. When a session is provided, the context build is linked into the session
                 ledger.
               </p>
-              <a className={styles.architectureContextNext} href="#model-gateway-detail">
+              <a className={styles.architectureContextNext} href="#execution-boundary-detail">
                 <span>next / 10</span>
-                Model gateway <span aria-hidden="true">↓</span>
+                Execution boundary <span aria-hidden="true">↓</span>
               </a>
             </div>
           </div>
@@ -528,29 +526,27 @@ export default function ArchitecturePage() {
         )}
       </section>
 
-      <section id="model-gateway-detail">
-        <h2>Model gateway</h2>
+      <section id="execution-boundary-detail">
+        <h2>Agent execution boundary</h2>
         <p>
-          Frege keeps model invocation pluggable. Its backend responsibility is to assemble
-          governed context, enforce org and trust-zone gates, route to configured providers,
-          record model telemetry, and optionally append model events to the session ledger.
-          The default product assumption is model-agnostic orchestration: user agents and
-          user-selected providers supply most of the reasoning power, while Frege supplies
-          governed memory, prompt and context assembly, and observability.
+          The customer&apos;s agent supplies the model access, tools, and compute. Codex, Claude
+          Code, or an internal agent runs in the customer&apos;s environment and calls the local
+          <code> frege mcp serve</code> bridge. Frege authenticates that client, returns scoped
+          and cited context, and accepts session events or reviewable memory proposals.
         </p>
         <p>
-          The hosted app is a control plane, not an inference host. The current hosted-run
-          worker is beta and performs one provider completion using a governed context packet.
-          A policy-controlled multi-step tool loop is planned, not presented as available today.
+          The hosted app is a memory and control plane, not an inference host. Frege does not
+          run customer agents or call their models in the MVP. Optional hosted execution can
+          be considered later if customers need it and the policy boundary is ready.
         </p>
         <pre
           className="diagram"
           role="img"
-          aria-label="The hosted Frege app creates a run, session, and governed context packet, then queues a beta worker. The worker performs one configured provider completion and records the run step, session event, and telemetry."
+          aria-label="The customer runs the agent, model, and tools in their own environment. The local Frege MCP process calls the hosted Frege API for governed context, sessions, and reviewable memory proposals."
         >{RUNTIME_ART}</pre>
         <p className="docs__note">
-          Current routing supports an organization-configured OpenAI-compatible endpoint and
-          an optional Ollama development endpoint.
+          Model credentials stay with the customer&apos;s agent client. Frege only needs the scoped
+          API key used to reach the organization&apos;s governed memory.
         </p>
       </section>
 
@@ -558,10 +554,11 @@ export default function ArchitecturePage() {
         <h2>Telemetry &amp; audit</h2>
         <p>
           Telemetry is the metrics and observability spine for supported product paths. It records
-          actor, user or key, request, route action, outcome, latency, provider and model, token counts,
-          estimated cost, trust zone, and redacted metadata, and links to sessions, session
-          events, context builds, and proposals. Compliance history lives in a separate
-          audit trail, while raw task memory stays in the brain and session ledger.
+          actor, user or key, request, route action, outcome, latency, trust zone, and redacted
+          metadata, and links to sessions, session events, context builds, proposals, and reviews.
+          Clients may attach their own model metadata to session events. Compliance history
+          lives in a separate audit trail, while raw task memory stays in the brain and session
+          ledger.
         </p>
       </section>
 
@@ -586,8 +583,8 @@ export default function ArchitecturePage() {
         <p>
           The Frege CLI and MCP server call REST APIs only; they never read the database
           directly. Agents use MCP tools to check status, search and read brain pages and
-          documents, build governed context, manage sessions, propose memory, and run hosted
-          agents. The recommended workflow is to start or attach to a session, append
+          documents, build governed context, manage sessions, and propose memory. The
+          recommended workflow is to start or attach to a session, append
           important events, search the brain, build governed context before answering, cite
           slugs and source IDs, and create proposals for durable updates.
         </p>

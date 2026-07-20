@@ -2,6 +2,7 @@ import { z } from "zod";
 import { claimAgentRunsForRuntime } from "@/lib/core/agent-runtime";
 import { readJson, routeError } from "@/lib/core/request-guards";
 import { authenticateRuntimeRequest } from "@/lib/core/runtime-auth";
+import { hostedExecutionDisabledResponse, hostedExecutionEnabled } from "@/lib/core/hosted-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ const claimSchema = z.object({
 export async function POST(req: Request) {
   const authError = authenticateRuntimeRequest(req);
   if (authError) return authError;
+  if (!hostedExecutionEnabled()) return hostedExecutionDisabledResponse();
 
   try {
     const json = await readJson(req);

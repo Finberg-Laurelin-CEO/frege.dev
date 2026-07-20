@@ -2,6 +2,7 @@ import { claimAgentRunsForRuntime, completeAgentRunFromRuntime } from "@/lib/cor
 import { executeAgentPacket } from "@/lib/core/agent-executor";
 import { cronDisabledResponse, cronsEnabled, isCronAuthorized } from "@/lib/cron-guard";
 import { recordCronRun } from "@/lib/core/cron-run";
+import { hostedExecutionDisabledResponse, hostedExecutionEnabled } from "@/lib/core/hosted-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +21,10 @@ export async function GET(req: Request) {
 
   if (!cronsEnabled()) {
     return cronDisabledResponse();
+  }
+
+  if (!hostedExecutionEnabled()) {
+    return hostedExecutionDisabledResponse();
   }
 
   try {

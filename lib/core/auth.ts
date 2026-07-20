@@ -1,5 +1,6 @@
 import { getSql } from "@/lib/db";
 import { hashApiKey, parseApiKey, safelyCompareApiKeyHash } from "@/lib/core/keys";
+import { hostedExecutionEnabled } from "@/lib/core/hosted-execution";
 import type { SensitivityLabel } from "@/lib/core/types";
 
 export type PrototypeAuthContext = {
@@ -119,7 +120,7 @@ function toAuthContext(row: AuthRow): PrototypeAuthContext {
       canProposeMemory: Boolean(row.can_propose_memory),
       canReviewMemoryProposals: Boolean(row.can_review_memory_proposals),
       canManageSources: Boolean(row.can_manage_sources),
-      canExecuteAgents: Boolean(row.can_execute_agents),
+      canExecuteAgents: hostedExecutionEnabled() && Boolean(row.can_execute_agents),
     },
   };
 }

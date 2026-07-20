@@ -7,10 +7,6 @@ source-visible repository.
   and data flow.
 - [`FREGE_MCP_INSTALL.md`](FREGE_MCP_INSTALL.md) is the supported CLI and MCP
   installation guide.
-- [`API_V2_CONTROL_PLANE.md`](API_V2_CONTROL_PLANE.md) documents the additive
-  principals, policy, receipts, and provenance technical preview.
-- [`GITHUB_CONNECTOR_BETA.md`](GITHUB_CONNECTOR_BETA.md) documents the governed
-  GitHub private beta and its fail-closed sync contract.
 - [`../packages/frege-cli/README.md`](../packages/frege-cli/README.md) documents
   the published CLI package.
 

@@ -16,7 +16,7 @@ import { eyebrow, panel, statusBadgeStyle, statusColor, statusLabel } from "./ui
 
 const FILTERS: { key: "all" | EventGroup; label: string }[] = [
   { key: "all", label: "all" },
-  { key: "runs", label: "agent runs" },
+  { key: "runs", label: "agent activity" },
   { key: "denied", label: "denied & blocked" },
   { key: "writes", label: "writes & proposals" },
 ];

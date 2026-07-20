@@ -15,12 +15,11 @@ type RealRole = {
   can_update_docs?: boolean;
   can_propose_memory?: boolean;
   can_review_memory_proposals?: boolean;
-  can_execute_agents?: boolean;
 };
 
 type RealMember = { id: string; email: string; name: string | null; role: string; status: string };
 
-const COLS = ["public", "internal", "restricted", "audit", "propose", "review", "run"];
+const COLS = ["public", "internal", "restricted", "audit", "propose", "review"];
 const headCell: CSSProperties = { background: "var(--surface)", padding: "11px 6px", fontSize: 10.5, color: "var(--muted)", textAlign: "center" };
 
 function cell(allow: boolean, sens?: SensitivityLabel): { mark: string; style: CSSProperties } {
@@ -95,7 +94,7 @@ export default function AccessSection({ orgSlug }: { orgSlug: string }) {
           <p style={{ fontSize: 12.5, color: "var(--muted)" }}>No roles configured yet. Roles you create in connect appear here with their read scope and capabilities.</p>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "1.5fr repeat(7, 1fr)", gap: 1, background: "var(--line)", border: "1px solid var(--line-strong)" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1.5fr repeat(6, 1fr)", gap: 1, background: "var(--line)", border: "1px solid var(--line-strong)" }}>
               <div style={{ background: "var(--surface)", padding: "11px 12px", fontSize: 11, color: "var(--muted)" }}>role</div>
               {COLS.map((c) => (
                 <div key={c} style={headCell}>
@@ -111,7 +110,6 @@ export default function AccessSection({ orgSlug }: { orgSlug: string }) {
                   cell(Boolean(role.can_read_audit)),
                   cell(Boolean(role.can_propose_memory || role.can_update_docs)),
                   cell(Boolean(role.can_review_memory_proposals)),
-                  cell(Boolean(role.can_execute_agents)),
                 ];
                 return (
                   <div key={role.slug} style={{ display: "contents" }}>

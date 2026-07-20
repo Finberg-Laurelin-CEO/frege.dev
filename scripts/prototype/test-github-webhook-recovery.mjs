@@ -108,7 +108,7 @@ test("webhook route acknowledges push asynchronously but completes authority eve
   assert.match(route, /claim\.duplicate[\s\S]*eventName !== "push"[\s\S]*status: 503/);
 });
 
-test("cron recovery uses standard guards, run ledger, and bounded lanes", async () => {
+test("connector recovery code remains bounded but is not scheduled for the MVP", async () => {
   const route = await readFile(
     path.join(rootDir, "app/api/cron/github-connector-worker/route.ts"),
     "utf8",
@@ -121,8 +121,10 @@ test("cron recovery uses standard guards, run ledger, and bounded lanes", async 
   assert.match(route, /idempotencyKey: pending\.idempotencyKey/);
 
   const config = JSON.parse(await readFile(path.join(rootDir, "vercel.json"), "utf8"));
-  assert.equal(
-    config.crons.some((cron) => cron.path === "/api/cron/github-connector-worker" && cron.schedule === "* * * * *"),
-    true,
-  );
+  assert.equal(config.crons.some((cron) => cron.path === "/api/cron/github-connector-worker"), false);
+  assert.equal(config.crons.some((cron) => cron.schedule === "* * * * *"), false);
+  assert.deepEqual(config.crons, [
+    { path: "/api/cron/frege-signup-stats", schedule: "0 */8 * * *" },
+    { path: "/api/cron/usage-rollup", schedule: "15 * * * *" },
+  ]);
 });

@@ -12,7 +12,10 @@ The browser app may live at `https://brain.frege.dev`, but MCP does not depend o
 4. Connect with the user's valid `frg_live_...` key.
 5. Run `frege doctor`.
 6. Register MCP with `frege agent install codex`, `frege agent install claude`, or command `frege` with args `["mcp", "serve"]`.
-7. From the MCP client, call `frege_status` and confirm it matches `frege doctor`.
+7. If the user wants the first-party local Frege Agent rather than an existing
+   client, install Hermes and run `frege agent install hermes`; then let the
+   user choose the model during `frege-agent setup`.
+8. From the MCP client, call `frege_status` and confirm it matches `frege doctor`.
 
 The CLI can install without an API key, but Frege is not connected until `frege connect` verifies a valid key from an active org.
 
@@ -147,6 +150,20 @@ Do not embed the API key in the client config unless the client cannot run local
 
 After registering the MCP server, call the Frege status tool from the client. It should report the same org, role, and key prefix shown by `frege doctor`.
 
+For the downloadable local Frege Agent profile:
+
+```bash
+frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege agent install hermes
+frege-agent setup
+frege-agent mcp test frege
+frege-agent chat
+```
+
+Do not collect the user's model-provider credential for Frege. Hermes and the
+chosen model run in the user's environment; Frege supplies governed context and
+memory through the local MCP process.
+
 If the client supports tool discovery, confirm tools such as:
 
 ```text
@@ -158,9 +175,6 @@ frege_get_page
 frege_write_page_proposal
 frege_start_session
 frege_append_session_event
-frege_list_agents
-frege_run_agent
-frege_get_agent_run
 frege_create_document
 frege_read_document
 frege_search_documents
@@ -205,8 +219,7 @@ Markdown wikilinks such as `[[hosted brain architecture]]` are okay to preserve 
 - Never read private vault/source files directly unless the user explicitly asks for that separate workflow.
 - Start a Frege session for substantial tasks and append important user/agent/tool events.
 - Build context before answering from Frege documents or hosted brain pages.
-- Use `frege_list_agents` to discover Frege-hosted agents before asking Frege to execute work.
-- Use `frege_run_agent` only when the user wants Frege's hosted runtime to execute a task; read completion with `frege_get_agent_run`.
+- Keep model credentials and execution in the user's existing agent client. Frege supplies memory and context; it does not run the task.
 - Cite document/page slugs and source IDs when using Frege context.
 - If Frege reports denied context, do not guess denied source names.
 - Use memory proposal tools for changes so Frege can audit and review them.
@@ -265,17 +278,12 @@ command -v frege
 
 Then configure that path as the MCP command, keeping `args` as `["mcp", "serve"]`.
 
-## Hosted agent tools
+## Agent execution boundary
 
-The MCP server exposes these hosted-runtime tools when the connected key has `canExecuteAgents`:
-
-```text
-frege_list_agents
-frege_run_agent
-frege_get_agent_run
-```
-
-Hosted agent runs are asynchronous. After `frege_run_agent`, poll `frege_get_agent_run` until `status` is `succeeded`, `failed`, or `cancelled`. Do not call runtime endpoints directly; they are reserved for Frege workers and require `FREGE_RUNTIME_TOKEN`.
+Run the agent and its model in the user's existing client. Frege MCP provides
+governed organizational context, sessions, and reviewable memory tools; it does
+not queue a hosted agent run or call a model provider. Never give model-provider
+credentials to Frege for this workflow.
 
 ## Security
 

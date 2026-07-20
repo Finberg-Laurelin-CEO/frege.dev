@@ -7,7 +7,7 @@ The context gateway returns a governed packet of documents, chunks, concepts, li
 - Derive org identity from the actor, never from client input.
 - Include only documents allowed by the actor role.
 - Include denied counts without leaking restricted source titles.
-- Preserve selected chunks and token estimates for later model invocation.
+- Preserve selected chunks and token estimates for the customer agent's context budget.
 - Record telemetry for successful builds, empty builds, and denied context.
 
 ## Agent Protocol

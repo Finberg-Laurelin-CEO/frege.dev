@@ -5,6 +5,7 @@ import { buildContextPacket, getContextPacketById, type ContextPacket } from "@/
 import { invokeModel } from "@/lib/core/model-gateway";
 import { assertSafeOrigin, readJson, routeError } from "@/lib/core/request-guards";
 import { logTelemetryEvent } from "@/lib/core/telemetry";
+import { hostedExecutionDisabledResponse, hostedExecutionEnabled } from "@/lib/core/hosted-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,7 @@ async function contextForInvoke(
 export async function POST(req: Request) {
   const originError = assertSafeOrigin(req);
   if (originError) return originError;
+  if (!hostedExecutionEnabled()) return hostedExecutionDisabledResponse();
 
   const startedAt = Date.now();
   let actorResult: Awaited<ReturnType<typeof authenticateFregeActor>> | null = null;

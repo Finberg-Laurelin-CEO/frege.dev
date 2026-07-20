@@ -4,6 +4,15 @@ Frege CLI and MCP thin client.
 
 Frege CLI is agent-side glue. It never touches the database. It stores a Frege API key locally, starts a stdio MCP server when asked, and calls Frege REST APIs for every command or tool call.
 
+The agent, model, and tools keep running in the customer's environment. This
+client only connects that work to Frege's governed memory, context, sessions,
+and review path; it does not send prompts to a Frege-hosted model runtime.
+
+You can connect an agent you already use, or install the downloadable Frege
+Agent profile for Hermes. The profile is an opinionated local agent, not a
+Frege-hosted process: Hermes, the selected model, and all tool execution stay
+on infrastructure you control.
+
 The browser app may run on `https://brain.frege.dev`. MCP does not care about that subdomain; connect the CLI to the canonical API base, usually `https://frege.dev`.
 
 ## Requirements
@@ -100,6 +109,24 @@ To connect without auto-registering, pass `--no-register`. Generic MCP JSON:
 
 Prefer `frege connect` over embedding the API key in MCP JSON.
 
+## Install the local Frege Agent
+
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) can install a
+complete local agent profile containing Frege's operating instructions, safe
+memory workflow, and MCP connection. Install Hermes, connect this CLI, and then
+install the profile:
+
+```bash
+frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege agent install hermes
+frege-agent setup
+frege-agent mcp test frege
+frege-agent chat
+```
+
+`frege-agent setup` asks you to choose your own model provider. Frege does not
+receive that provider credential and does not run the agent's compute.
+
 ## Local development
 
 From the Frege repo:
@@ -123,6 +150,7 @@ frege context "customer escalation steps"
 frege mcp serve
 frege agent install claude
 frege agent install codex
+frege agent install hermes
 ```
 
 ## Push Markdown Documents

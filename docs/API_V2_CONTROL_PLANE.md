@@ -1,8 +1,10 @@
 # API V2 control-plane technical preview
 
-Status: available as an additive technical preview. It does not change the availability or compatibility of `/api/v1`, and access to beta integrations remains explicitly allowlisted.
+Status: experimental and not deployed as part of the current MVP. This design
+does not change the availability or compatibility of `/api/v1`, and its
+source-visible routes do not imply production availability.
 
-This slice introduces explicit principals, scoped delegated credentials, immutable policy versions, authorization receipts, and a unified provenance read model. The separately documented [governed GitHub connector beta](GITHUB_CONNECTOR_BETA.md) is the first integration built on these controls. This preview does not add tasks, approval workflows, or a multi-step runtime.
+This slice introduces explicit principals, scoped delegated credentials, immutable policy versions, authorization receipts, and a unified provenance read model. Connector work remains deferred and is not part of the current MVP. This preview does not add tasks, approval workflows, or a multi-step runtime.
 
 ## Core resources
 
@@ -15,6 +17,12 @@ A principal is an organization-scoped identity with one of three types:
 - `service`: has no human or agent subject and represents a machine installation or backend service.
 
 Human and agent subjects use a disable lifecycle rather than hard deletion so recorded decisions remain attributable. Principal slugs and subject links are unique within an organization.
+
+For the current MVP, customer-run agents authenticate through existing
+organization-scoped API keys. The V2 `agent` principal type remains reserved for
+agent definitions and is not the onboarding path for Codex, Claude Code, or
+other customer-run clients. Service principals are the usable machine-identity
+primitive in this preview.
 
 ### Policy version
 
