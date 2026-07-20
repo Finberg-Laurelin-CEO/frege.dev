@@ -1,0 +1,13 @@
+name: frege-agent
+version: 0.1.1
+description: "A local Hermes agent that uses Frege for governed organizational memory"
+hermes_requires: ">=0.16.0"
+author: "Frege"
+license: "Proprietary preview"
+distribution_owned:
+  - distribution.yaml
+  - SOUL.md
+  - config.yaml
+  - skills/
+  - README.md
+  - LICENSE.md

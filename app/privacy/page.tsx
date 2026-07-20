@@ -17,14 +17,14 @@ const rows: [string, React.ReactNode][] = [
       Account and organization information; memberships and roles; documents, source material,
       revisions, and metadata you choose to add; agent sessions, context builds, proposals, and
       related events; support messages; billing and subscription status; and technical data such
-      as IP address, user agent, request outcome, latency, token counts, and estimated cost.
+      as IP address, user agent, request outcome, latency, and customer-supplied event metadata.
     </>,
   ],
   [
     "credentials",
     <>
       Passwords are stored as one-way hashes or handled by an identity provider. Frege-issued API
-      keys are stored in protected form. Provider credentials you configure are encrypted before
+      keys are stored in protected form. Integration credentials you configure are encrypted before
       storage. Do not place raw secrets inside documents, prompts, or support messages.
     </>,
   ],
@@ -38,12 +38,12 @@ const rows: [string, React.ReactNode][] = [
     </>,
   ],
   [
-    "models and integrations",
+    "integrations",
     <>
-      When you configure a model provider or integration, Frege sends the context and request data
-      needed to perform the action you initiated. Those providers process data under their own
-      terms and your configuration. Frege does not silently send restricted content to an
-      unconfigured provider.
+      When you enable an integration, Frege sends the content and request data needed to perform
+      the action you initiated. That service processes data under its own terms and your
+      configuration. The current product does not send prompts or governed context to a model
+      provider on your behalf.
     </>,
   ],
   [
@@ -83,7 +83,7 @@ const rows: [string, React.ReactNode][] = [
   [
     "your choices",
     <>
-      Organization administrators control members, agent keys, sources, and configured providers.
+      Organization administrators control members, agent keys, sources, and enabled integrations.
       Email <a className="lnk" href="mailto:privacy@frege.dev">privacy@frege.dev</a> to request
       access, correction, export, or deletion. We may need to verify your identity and authority
       over the organization before acting.

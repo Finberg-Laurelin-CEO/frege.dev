@@ -1,0 +1,23 @@
+base: .
+defaults:
+  sensitivity: internal
+  status: published
+  tags: [demo, engineering, release]
+documents:
+  - path: green/release-checklist.md
+    slug: release-checklist
+    title: Release checklist
+  - path: green/checkout-rollback.md
+    slug: checkout-rollback
+    title: Checkout rollback procedure
+  - path: green/customer-impact.md
+    slug: customer-impact
+    title: Customer impact summary
+  - path: red/production-credentials.md
+    slug: production-credentials
+    title: Production credential handling
+    sensitivity: restricted
+  - path: red/incident-access.md
+    slug: incident-access
+    title: Incident access procedure
+    sensitivity: restricted

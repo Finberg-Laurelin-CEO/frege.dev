@@ -39,7 +39,7 @@ const transcript: Line[] = [
 const workflow: [string, string][] = [
   ["Connect", "Install the Frege CLI, issue a per-user API key, and connect Claude Code, Codex, or an internal agent through MCP."],
   ["Build context", "Frege resolves org, role, and trust zone, then returns scoped context with citations — never the whole company."],
-  ["Do work", "The agent uses its own model while Frege records supported context builds, session events, and model telemetry."],
+  ["Do work", "The agent uses its own model and tools while Frege records supported context builds and session activity."],
   ["Improve memory", "Useful discoveries land as reviewable proposals. A human accepts before the canonical brain changes."],
 ];
 
@@ -47,7 +47,7 @@ const workflow: [string, string][] = [
 const comparison: [string, string, string][] = [
   ["Shared across agents & people", "Each person copies their own file; it drifts", "One versioned memory, with authorized views by role"],
   ["Who can see what", "Everything in the file is visible to everyone", "Role and trust-zone gates on every request"],
-  ["Activity & cost", "No shared record of the work", "Context builds, sessions, and model usage recorded per org"],
+  ["Activity & decisions", "No shared record of the work", "Context builds, sessions, and access decisions recorded per org"],
   ["Updating knowledge", "Anyone (or any agent) edits in place", "Agent writes land as proposals, accepted after review"],
   ["Sensitive sources", "All-or-nothing — paste it in or leave it out", "Restricted content stays hidden; context builds report withheld counts"],
 ];

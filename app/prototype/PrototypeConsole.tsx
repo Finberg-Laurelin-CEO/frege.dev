@@ -36,7 +36,7 @@ const SECTION_META: Record<ConsoleSection, { eyebrow: string; title: string; sub
   activity: { eyebrow: "activity", title: "Activity", subtitle: "Every query → context → answer, with what was denied" },
   knowledge: { eyebrow: "knowledge", title: "Knowledge", subtitle: "Documents, semantic map, and reviewable proposals" },
   access: { eyebrow: "access", title: "Access & trust zones", subtitle: "Who can read what — before anything is denied" },
-  connect: { eyebrow: "connect", title: "Connect", subtitle: "API keys, hosted agents, models, and MCP setup" },
+  connect: { eyebrow: "connect", title: "Connect", subtitle: "API keys, roles, and MCP setup for the agents you already run" },
   billing: { eyebrow: "billing", title: "Billing & support", subtitle: "Plan, usage, invoices, account, and help" },
 };
 

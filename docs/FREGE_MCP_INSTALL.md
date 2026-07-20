@@ -107,10 +107,11 @@ Get an API key from the Frege control plane:
 4. Create an API key for that role and owner.
 5. Copy the raw key immediately. Frege shows it once.
 
-Connect the CLI:
+Load the key into `FREGE_API_KEY` through a secure local method, then connect
+the CLI:
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -119,7 +120,7 @@ Expected `frege connect` and `frege doctor` output includes the connected org, a
 For local development against a running Next dev server:
 
 ```bash
-frege connect http://localhost:3000 --token frg_live_...
+frege connect http://localhost:3000 --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -164,6 +165,29 @@ Use this shape when the client expects JSON configuration:
 
 Do not put the API key in MCP JSON unless the client cannot run local commands. Prefer `frege connect`, which stores the token once in the user's home directory.
 
+## Install the local Frege Agent
+
+Frege also publishes a complete local agent profile for Hermes. Use this when
+the user wants an opinionated agent architecture rather than connecting an
+existing Codex, Claude Code, or internal client. The canonical source is
+[`Finberg-Laurelin-CEO/frege-agent`](https://github.com/Finberg-Laurelin-CEO/frege-agent).
+
+```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+npm install -g @frege-dev/cli
+frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege doctor
+frege agent install hermes
+frege-agent setup
+frege-agent mcp test frege
+frege-agent chat
+```
+
+The profile supplies Frege operating instructions, a safe MCP allowlist, and a
+review-first organizational-memory workflow. The user still selects the model,
+holds its provider credentials, and runs the agent and tools locally. The
+profile contains no scheduled jobs or Frege-hosted execution.
+
 ## Local repo development
 
 From a cloned Frege repo:
@@ -171,7 +195,7 @@ From a cloned Frege repo:
 ```bash
 cd /path/to/frege.dev/packages/frege-cli
 npm link
-frege connect http://localhost:3000 --token frg_live_...
+frege connect http://localhost:3000 --token "$FREGE_API_KEY"
 frege doctor
 frege mcp serve
 ```
@@ -181,12 +205,13 @@ frege mcp serve
 ```bash
 frege status
 frege docs list
-frege docs read hosted-brain-architecture
+frege docs read frege-architecture
 frege search "refund policy"
 frege context "customer escalation steps"
 frege mcp serve
 frege agent install claude
 frege agent install codex
+frege agent install hermes
 ```
 
 ## Push Markdown Documents
@@ -196,10 +221,10 @@ Agents should use the CLI for user-approved document ingestion so the terminal s
 Push one file:
 
 ```bash
-frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
-  --sensitivity internal \
-  --tag frege-demo \
-  --tag operations
+frege docs push docs/ARCHITECTURE.md \
+  --sensitivity public \
+  --tag frege \
+  --tag architecture
 ```
 
 Preview a directory before writing:
@@ -207,7 +232,7 @@ Preview a directory before writing:
 ```bash
 frege docs push docs \
   --include "**/*.md" \
-  --exclude "**/HANDOFF.md" \
+  --exclude "**/draft-*.md" \
   --sensitivity internal \
   --dry-run
 ```
@@ -222,17 +247,13 @@ frege context "how does Frege signup work?"
 
 Markdown wikilinks such as `[[hosted brain architecture]]` are preserved in pushed documents. For canonical graph-connected brain pages, agents should submit reviewable wikilinked page proposals with `frege_write_page_proposal`.
 
-## Hosted agent tools
+## Agent execution boundary
 
-The MCP server exposes hosted runtime tools for keys with agent execution permission:
-
-```text
-frege_list_agents
-frege_run_agent
-frege_get_agent_run
-```
-
-`frege_run_agent` queues asynchronous work in Frege. The separate Frege Agent Runtime claims the run, builds governed context, calls the configured model endpoint, and stores the result in the run/session ledger. Agents should use `frege_get_agent_run` to read status and results.
+The agent and its model run in the customer's environment. Frege MCP supplies
+governed organizational context, session records, and reviewable memory tools;
+it does not queue work for a Frege-hosted agent or send prompts to a model
+provider. Model credentials remain with Codex, Claude Code, or the customer's
+internal agent runtime.
 
 ## Troubleshooting
 
@@ -267,7 +288,7 @@ Frege requires Node.js 20 or newer.
 ### `frege doctor` says the API key is missing
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -276,7 +297,7 @@ frege doctor
 Create a new API key in the Frege admin console with the correct role, then reconnect:
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 
@@ -296,7 +317,7 @@ Then configure that path as the MCP command, keeping `args` as `["mcp", "serve"]
 - Frege MCP only calls REST APIs with the user's API key.
 - API keys are scoped by org role and owner user.
 - Admins can revoke keys in Frege.
-- Reads, session events, context builds, model calls, and memory proposals show in telemetry/audit.
+- Reads, session events, context builds, access decisions, and memory proposals show in telemetry/audit.
 - `~/.frege/mcp/config.json` is local secret state. Do not commit it.
 - Rotate the API key if it appears in logs, shell history, screenshots, chat, or a committed file.
 - Prefer `frege connect` over storing `FREGE_API_KEY` directly in MCP client JSON.

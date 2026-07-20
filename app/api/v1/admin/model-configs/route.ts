@@ -4,6 +4,7 @@ import { authenticateAdminRequest } from "@/lib/core/admin-auth";
 import { assertActiveHumanOrg } from "@/lib/core/org-guard";
 import { assertSafeBrowserMutation, readJson, routeError } from "@/lib/core/request-guards";
 import { logTelemetryEvent } from "@/lib/core/telemetry";
+import { hostedExecutionDisabledResponse, hostedExecutionEnabled } from "@/lib/core/hosted-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   const originError = assertSafeBrowserMutation(req);
   if (originError) return originError;
+  if (!hostedExecutionEnabled()) return hostedExecutionDisabledResponse();
 
   const startedAt = Date.now();
   try {

@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/usage-rollup",
       "schedule": "15 * * * *"
-    },
-    {
-      "path": "/api/cron/agent-worker",
-      "schedule": "* * * * *"
     }
   ]
 }

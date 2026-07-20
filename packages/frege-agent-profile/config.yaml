@@ -1,0 +1,44 @@
+# This profile deliberately leaves the model, provider, local tools, and
+# execution environment to the user. The only prescribed runtime integration
+# is the local Frege MCP bridge.
+
+agent:
+  # Frege is the canonical organizational-memory system for this profile.
+  # Disabling Hermes' built-in memory avoids two competing durable stores.
+  disabled_toolsets:
+    - memory
+
+mcp_servers:
+  frege:
+    command: "frege"
+    args: ["mcp", "serve"]
+    enabled: true
+    connect_timeout: 30
+    timeout: 120
+    tools:
+      # Safe-by-default surface: governed reads, selective session records,
+      # and reviewable proposals. Direct canonical document creation remains
+      # off; a user can enable frege_create_document explicitly when needed.
+      include:
+        - frege_status
+        - frege_brain_status
+        - frege_list_sources
+        - frege_search_pages
+        - frege_get_page
+        - frege_list_vault
+        - frege_page_links
+        - frege_traverse
+        - frege_find_connections
+        - frege_add_source_proposal
+        - frege_write_page_proposal
+        - frege_start_session
+        - frege_append_session_event
+        - frege_get_session
+        - frege_search_sessions
+        - frege_list_documents
+        - frege_search_documents
+        - frege_read_document
+        - frege_build_context
+        - frege_propose_memory_from_session
+        - frege_propose_revision
+        - frege_audit_events

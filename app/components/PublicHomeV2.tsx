@@ -15,15 +15,15 @@ const proofLines: ["command" | "muted" | "allowed" | "withheld" | "proposal", st
 const comparison = [
   ["Shared across agents & people", "Each person copies their own file; it drifts", "One versioned memory, with authorized views by role"],
   ["Who can see what", "Everything in the file is visible to everyone", "Role and trust-zone gates on every request"],
-  ["Activity & cost", "No shared record of the work", "Context builds, sessions, and model usage recorded per org"],
+  ["Activity & decisions", "No shared record of the work", "Context builds, sessions, and access decisions recorded per org"],
   ["Updating knowledge", "Anyone—or any agent—edits in place", "Agent writes land as proposals, accepted after review"],
   ["Sensitive sources", "All-or-nothing: paste it in or leave it out", "Restricted content stays hidden; packets report withheld counts"],
 ] as const;
 
 const workflow = [
-  ["Connect", "Install the CLI, issue a per-user API key, and connect Claude Code, Codex, or an internal agent through MCP."],
+  ["Connect", "Connect Claude Code, Codex, or an internal client through MCP—or download the local Frege Agent profile for Hermes."],
   ["Build context", "Frege resolves organization, role, and trust zone, then returns scoped context with citations."],
-  ["Do work", "The agent keeps its own model while Frege records supported context builds, session events, and model telemetry."],
+  ["Do work", "The agent keeps its own model and tools while Frege records supported context builds and session activity."],
   ["Improve memory", "Useful discoveries land as proposals. A human accepts before canonical memory changes."],
 ] as const;
 
@@ -193,6 +193,9 @@ export default function PublicHomeV2() {
               <span>sources: versioned</span>
               <span>write: proposed</span>
             </div>
+            <a className={styles.proofLink} href="/demo">
+              Run the complete 90-second product proof <span aria-hidden="true">→</span>
+            </a>
           </div>
         </div>
       </section>
@@ -361,11 +364,12 @@ export default function PublicHomeV2() {
         <p className={styles.label}>Persistent by design</p>
         <h2 id="closing-title">Models change. <em>Your organization remembers.</em></h2>
         <p>
-          Create your account, choose a plan, and connect the agents your team already uses.
-          Billing activates through Stripe when you are ready.
+          Create your account, choose a plan, and connect the agents your team already uses—or
+          run the downloadable Frege Agent locally. Billing activates through Stripe when you are ready.
         </p>
         <div className={styles.actions}>
           <a className={styles.primaryAction} href="/signup">Create account</a>
+          <a className={styles.secondaryAction} href="/docs#local-agent">Run Frege Agent</a>
           <a className={styles.secondaryAction} href="/pricing">See pricing</a>
           <a className={styles.secondaryAction} href="/architecture">How it&apos;s built</a>
         </div>

@@ -26,7 +26,7 @@ export type CapabilityGroup = Readonly<{
 }>;
 
 export const PUBLIC_ROADMAP_SUMMARY =
-  "Frege is shipping the governed organizational-memory layer first, then adding policy-controlled integrations and execution without weakening provenance or customer choice.";
+  "Your agents keep their own models and execution environment. Frege is shipping the governed organizational-memory layer they share, then adding policy-controlled integrations without weakening provenance or customer choice.";
 
 export const CAPABILITY_GROUPS = [
   {
@@ -72,18 +72,11 @@ export const CAPABILITY_GROUPS = [
         status: "available",
       },
       {
-        id: "model-routing",
-        title: "Model routing",
+        id: "customer-run-agents",
+        title: "Customer-run agents",
         description:
-          "Send governed context to an organization-configured model provider and record invocation telemetry.",
-        status: "beta",
-      },
-      {
-        id: "hosted-agent-runs",
-        title: "Hosted agent runs",
-        description:
-          "Queue and inspect hosted, single-step agent runs while the policy-controlled multi-step runtime is developed.",
-        status: "beta",
+          "Connect Codex, Claude Code, or an internal agent—or download the Frege Agent profile for Hermes—while model access, tools, and compute stay in the customer's environment.",
+        status: "available",
       },
     ],
   },
@@ -95,10 +88,10 @@ export const CAPABILITY_GROUPS = [
       "The identity, policy, and provenance controls Frege needs before agents can safely receive broader access and take more consequential actions.",
     capabilities: [
       {
-        id: "agent-service-principals",
-        title: "Agent and service principals",
+        id: "service-principals",
+        title: "Service principals",
         description:
-          "Represent humans, agents, and services as explicit identities with scoped, delegable credentials.",
+          "Represent humans and services as explicit identities with scoped, delegable credentials in the V2 technical preview. Direct identities for customer-run agents remain planned.",
         status: "planned",
       },
       {
@@ -117,26 +110,26 @@ export const CAPABILITY_GROUPS = [
       },
       {
         id: "connector-framework",
-        title: "Governed connector framework",
+        title: "Governed connector pilots",
         description:
-          "Sync external sources with source identity, revisions, access mapping, deletion handling, and connector health. GitHub and Google Drive are the first planned connectors.",
+          "Pilot repository-scoped GitHub sync only after the identity, recovery, deletion, and provenance contract is ready. Google Drive follows later.",
         status: "planned",
       },
       {
         id: "unified-provenance",
         title: "Unified provenance ledger",
         description:
-          "Connect reads, denials, context builds, proposals, approvals, and model activity in one attributable event history.",
+          "Connect reads, denials, context builds, sessions, tool activity, proposals, and approvals in one attributable event history.",
         status: "planned",
       },
     ],
   },
   {
     id: "later",
-    eyebrow: "Controlled execution",
+    eyebrow: "Deliberate expansion",
     title: "Later",
     description:
-      "Broader workflow and runtime capabilities built on the same policy checks, review boundaries, and portable organizational record.",
+      "Broader workflow and optional execution capabilities built only after the memory product and its policy boundaries are proven.",
     capabilities: [
       {
         id: "durable-tasks",
@@ -154,9 +147,9 @@ export const CAPABILITY_GROUPS = [
       },
       {
         id: "frege-agent",
-        title: "First-party Frege Agent",
+        title: "Optional hosted execution",
         description:
-          "Run bounded, multi-step tool loops under the same capability, approval, step, and spend controls as every other agent.",
+          "Offer bounded execution only when customers need it, under the same capability, approval, step, and spend controls as every other agent.",
         status: "planned",
       },
       {

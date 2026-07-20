@@ -4,6 +4,15 @@ Frege CLI and MCP thin client.
 
 Frege CLI is agent-side glue. It never touches the database. It stores a Frege API key locally, starts a stdio MCP server when asked, and calls Frege REST APIs for every command or tool call.
 
+The agent, model, and tools keep running in the customer's environment. This
+client only connects that work to Frege's governed memory, context, sessions,
+and review path; it does not send prompts to a Frege-hosted model runtime.
+
+You can connect an agent you already use, or install the downloadable Frege
+Agent profile for Hermes. The profile is an opinionated local agent, not a
+Frege-hosted process: Hermes, the selected model, and all tool execution stay
+on infrastructure you control.
+
 The browser app may run on `https://brain.frege.dev`. MCP does not care about that subdomain; connect the CLI to the canonical API base, usually `https://frege.dev`.
 
 ## Requirements
@@ -49,8 +58,10 @@ If a GUI MCP client cannot find `frege`, use the absolute path from `command -v 
 
 ## Connect (one command)
 
+Load the key into `FREGE_API_KEY` through a secure local method first.
+
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 ```
 
 `frege connect` does four things:
@@ -98,6 +109,29 @@ To connect without auto-registering, pass `--no-register`. Generic MCP JSON:
 
 Prefer `frege connect` over embedding the API key in MCP JSON.
 
+## Install the local Frege Agent
+
+[Hermes Agent](https://github.com/NousResearch/hermes-agent) can install a
+complete local agent profile containing Frege's operating instructions, safe
+memory workflow, and MCP connection. Install Hermes, connect this CLI, and then
+install the profile:
+
+```bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+npm install -g @frege-dev/cli
+frege connect https://frege.dev --token "$FREGE_API_KEY" --no-register
+frege doctor
+frege agent install hermes
+frege-agent setup
+frege-agent mcp test frege
+frege-agent chat
+```
+
+`frege-agent setup` asks you to choose your own model provider. Frege does not
+receive that provider credential and does not run the agent's compute.
+The official profile source is
+[`Finberg-Laurelin-CEO/frege-agent`](https://github.com/Finberg-Laurelin-CEO/frege-agent).
+
 ## Local development
 
 From the Frege repo:
@@ -105,7 +139,7 @@ From the Frege repo:
 ```bash
 cd packages/frege-cli
 npm link
-frege connect http://localhost:3000 --token frg_live_...
+frege connect http://localhost:3000 --token "$FREGE_API_KEY"
 frege doctor
 frege mcp serve
 ```
@@ -121,6 +155,7 @@ frege context "customer escalation steps"
 frege mcp serve
 frege agent install claude
 frege agent install codex
+frege agent install hermes
 ```
 
 ## Push Markdown Documents
@@ -128,10 +163,10 @@ frege agent install codex
 Use the CLI to push markdown into the Frege document store. Markdown is preserved, including normal links and wikilinks such as `[[self-serve signup]]`.
 
 ```bash
-frege docs push docs/INVESTOR_DEMO_WORKFLOW.md \
-  --sensitivity internal \
-  --tag frege-demo \
-  --tag operations
+frege docs push docs/ARCHITECTURE.md \
+  --sensitivity public \
+  --tag frege \
+  --tag architecture
 ```
 
 Push a directory with include/exclude filters:
@@ -139,7 +174,7 @@ Push a directory with include/exclude filters:
 ```bash
 frege docs push docs \
   --include "**/*.md" \
-  --exclude "**/HANDOFF.md" \
+  --exclude "**/draft-*.md" \
   --sensitivity internal \
   --dry-run
 ```
@@ -149,11 +184,10 @@ Use a manifest for repeatable agent-led ingestion:
 ```yaml
 base: .
 defaults:
-  sensitivity: internal
-  tags: [frege, product]
+  sensitivity: public
+  tags: [frege, public-docs]
 documents:
-  - path: docs/INVESTOR_DEMO_WORKFLOW.md
-  - path: docs/HOSTED_BRAIN_ARCHITECTURE.md
+  - path: docs/ARCHITECTURE.md
   - path: docs/FREGE_MCP_INSTALL.md
 ```
 
@@ -199,7 +233,7 @@ node --version
 ### `frege doctor` says the API key is missing or invalid
 
 ```bash
-frege connect https://frege.dev --token <valid-frg-live-key>
+frege connect https://frege.dev --token "$FREGE_API_KEY"
 frege doctor
 ```
 

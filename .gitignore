@@ -5,8 +5,9 @@ dist
 .env
 .env.*
 .env*.local
+!.env.example
+!.env.*.example
 *.tsbuildinfo
-private-plans/
 .vercel
 
 .gstack/
@@ -15,4 +16,8 @@ next-env.d.ts
 .env.stripe.local
 .DS_Store
 .letta/
+
+# Strategy, fundraising, operational records, and preserved files removed from
+# the source-visible repository stay local. Never force-add this directory.
+private-plans/
 plans/

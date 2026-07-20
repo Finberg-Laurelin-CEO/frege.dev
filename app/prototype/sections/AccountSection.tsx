@@ -6,6 +6,7 @@ import {
   finishClerkBridgeCallback,
   startClerkOAuth,
 } from "@/app/components/clerk-client";
+import type { ActivationMilestone, ActivationView } from "@/lib/core/activation-view";
 import type { ConsoleSection } from "./ui";
 
 type Membership = {
@@ -26,6 +27,10 @@ type BillingSummary = {
     seats: number | null;
     subscription_status: string | null;
   } | null;
+};
+
+type ActivationSummary = {
+  activation: ActivationView;
 };
 
 function statusText(verified: string | undefined): string | null {
@@ -62,13 +67,34 @@ function planLabel(plan: string | null | undefined, interval: string | null | un
   return "Not selected";
 }
 
-function CheckItem({ done, title, detail }: { done: boolean; title: string; detail: string }) {
+function formatMilestoneTime(milestone: ActivationMilestone): string {
+  if (!milestone.completed_at) return "Not observed yet";
+  const completed = new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(milestone.completed_at));
+  const elapsed = milestone.minutes_from_account;
+  if (elapsed === null) return `Observed ${completed}`;
+  return `Observed ${completed} · +${elapsed} min`;
+}
+
+function CheckItem({ milestone }: { milestone: ActivationMilestone }) {
   return (
     <li style={{ display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", gap: 10, alignItems: "start", padding: "12px 0", borderTop: "1px solid var(--line)" }}>
-      <span style={{ color: done ? "var(--green)" : "var(--faint)", fontSize: 15 }}>{done ? "✓" : "○"}</span>
+      <span style={{ color: milestone.completed ? "var(--green)" : "var(--faint)", fontSize: 15 }}>{milestone.completed ? "✓" : "○"}</span>
       <span>
-        <strong style={{ display: "block", color: "var(--ink)", fontSize: 13, fontWeight: 400 }}>{title}</strong>
-        <span style={{ display: "block", color: "var(--muted)", fontSize: 12, lineHeight: 1.5, marginTop: 2 }}>{detail}</span>
+        <span style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
+          <strong style={{ display: "block", color: "var(--ink)", fontSize: 13, fontWeight: 400 }}>{milestone.title}</strong>
+          {milestone.within_first_15_minutes ? (
+            <small style={{ color: "var(--green-dark)", whiteSpace: "nowrap" }}>within 15 min</small>
+          ) : null}
+        </span>
+        <span style={{ display: "block", color: "var(--muted)", fontSize: 12, lineHeight: 1.5, marginTop: 2 }}>{milestone.detail}</span>
+        <span style={{ display: "block", color: milestone.completed ? "var(--green-dark)" : "var(--faint)", fontSize: 11, lineHeight: 1.4, marginTop: 4 }}>
+          {formatMilestoneTime(milestone)}
+        </span>
       </span>
     </li>
   );
@@ -89,6 +115,8 @@ export default function AccountSection({
 }) {
   const activeOrg = memberships.find((m) => m.status === "active") ?? memberships[0] ?? null;
   const [billing, setBilling] = useState<BillingSummary | null>(null);
+  const [activation, setActivation] = useState<ActivationView | null>(null);
+  const [activationLoading, setActivationLoading] = useState(true);
   const [resendStatus, setResendStatus] = useState<"idle" | "sending" | "sent" | "not_configured" | "verified" | "rate_limited" | "error">("idle");
   const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
   const [linkStatus, setLinkStatus] = useState("");
@@ -184,13 +212,26 @@ export default function AccountSection({
 
   useEffect(() => {
     let live = true;
-    if (!activeOrg?.org_slug) return;
+    if (!activeOrg?.org_slug) {
+      setActivationLoading(false);
+      return;
+    }
     fetch(`/api/v1/billing/summary?org_slug=${encodeURIComponent(activeOrg.org_slug)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((json) => {
         if (live) setBilling(json as BillingSummary | null);
       })
       .catch(() => null);
+    fetch(`/api/v1/auth/activation?org_slug=${encodeURIComponent(activeOrg.org_slug)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (!live) return;
+        setActivation((json as ActivationSummary | null)?.activation ?? null);
+        setActivationLoading(false);
+      })
+      .catch(() => {
+        if (live) setActivationLoading(false);
+      });
     return () => {
       live = false;
     };
@@ -205,6 +246,18 @@ export default function AccountSection({
   const subscriptionStatus = plan?.subscription_status ?? null;
   const verifyNotice = statusText(verificationStatus);
   const canStartBilling = emailVerified && !orgActive;
+  const nextMilestone = activation?.milestones.find((milestone) => !milestone.completed) ?? null;
+  const activationPercent = activation
+    ? Math.round((activation.complete_count / activation.total_count) * 100)
+    : 0;
+
+  const nextButtonLabel: Partial<Record<ActivationMilestone["id"], string>> = {
+    api_key_issued: "Open connect",
+    client_call_observed: "Open connection guide",
+    source_imported: "Open knowledge",
+    cited_context_built: "Open overview",
+    proposal_approved: "Review proposals",
+  };
 
   async function resendVerification() {
     setResendStatus("sending");
@@ -275,14 +328,40 @@ export default function AccountSection({
 
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.15fr) minmax(300px, 0.85fr)", gap: 18, alignItems: "start" }}>
         <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
-          <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)", marginBottom: 8 }}>onboarding</div>
-          <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
-            <CheckItem done title="Account created" detail="Your user, organization, owner membership, and default roles exist." />
-            <CheckItem done={emailVerified} title="Verify email" detail="Required before Stripe billing and account activation actions." />
-            <CheckItem done={false} title="Explore the console" detail="Overview, knowledge, access, and connect are available as a read-only tour while limited." />
-            <CheckItem done={orgActive} title="Choose billing plan" detail="Start Stripe checkout from account or billing once email is verified." />
-            <CheckItem done={orgActive} title="Create first API key" detail="API key creation unlocks after email verification and billing activation." />
-          </ol>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 8 }}>
+            <div style={{ fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase", color: "var(--green)" }}>first 15 minutes</div>
+            {activation ? (
+              <span style={{ color: "var(--muted)", fontSize: 11 }}>{activation.complete_count}/{activation.total_count} observed</span>
+            ) : null}
+          </div>
+          {activation ? (
+            <>
+              <p style={{ color: "var(--muted)", fontSize: 12, lineHeight: 1.5, margin: "0 0 10px" }}>
+                {activation.state === "complete"
+                  ? "Activation path complete. Every step below comes from server-side product evidence."
+                  : activation.window.open
+                    ? `${Math.ceil(activation.window.remaining_minutes ?? 0)} min remain in the first-run window. Progress is recorded automatically.`
+                    : "The 15-minute target has passed, but progress persists. Continue from the next observed step."}
+              </p>
+              <div
+                role="progressbar"
+                aria-label="Activation progress"
+                aria-valuemin={0}
+                aria-valuemax={activation.total_count}
+                aria-valuenow={activation.complete_count}
+                style={{ height: 3, background: "var(--line)", overflow: "hidden", marginBottom: 8 }}
+              >
+                <span style={{ display: "block", width: `${activationPercent}%`, height: "100%", background: "var(--green)", transition: "width 240ms ease" }} />
+              </div>
+              <ol style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                {activation.milestones.map((milestone) => <CheckItem key={milestone.id} milestone={milestone} />)}
+              </ol>
+            </>
+          ) : (
+            <p style={{ color: "var(--muted)", fontSize: 12, lineHeight: 1.5, margin: 0 }}>
+              {activationLoading ? "Loading activation evidence…" : "Activation evidence is temporarily unavailable. Account gates remain enforced server-side."}
+            </p>
+          )}
         </section>
 
         <section style={{ border: "1px solid var(--line-strong)", background: "var(--surface)", padding: 20 }}>
@@ -322,14 +401,41 @@ export default function AccountSection({
                 Start billing with Stripe
               </button>
             </>
-          ) : (
+          ) : activationLoading ? (
             <>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>Create the first API key</h2>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>Reading activation evidence</h2>
+              <p style={{ margin: "8px 0 0", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+                Checking keys, product events, imported knowledge, context builds, and approvals.
+              </p>
+            </>
+          ) : !activation ? (
+            <>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>Continue in connect</h2>
               <p style={{ margin: "8px 0 14px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
-                Your organization is active. Use connect to issue a scoped key for your local agent or MCP client.
+                Activation evidence is temporarily unavailable. Your account remains active and all server-side gates still apply.
               </p>
               <button type="button" onClick={() => onNavigate("connect")} style={{ minHeight: 36, padding: "0 13px", border: "1px solid var(--green-dark)", background: "var(--green-dark)", color: "#fff", font: "inherit" }}>
                 Open connect
+              </button>
+            </>
+          ) : nextMilestone ? (
+            <>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>{nextMilestone.title}</h2>
+              <p style={{ margin: "8px 0 14px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+                {nextMilestone.detail}
+              </p>
+              <button type="button" onClick={() => onNavigate(nextMilestone.section as ConsoleSection)} style={{ minHeight: 36, padding: "0 13px", border: "1px solid var(--green-dark)", background: "var(--green-dark)", color: "#fff", font: "inherit" }}>
+                {nextButtonLabel[nextMilestone.id] ?? "Continue setup"}
+              </button>
+            </>
+          ) : (
+            <>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 400, color: "var(--ink)" }}>Activation path complete</h2>
+              <p style={{ margin: "8px 0 14px", color: "var(--muted)", fontSize: 12.5, lineHeight: 1.55 }}>
+                Frege has observed the full account-to-approved-memory loop for this workspace.
+              </p>
+              <button type="button" onClick={() => onNavigate("overview")} style={{ minHeight: 36, padding: "0 13px", border: "1px solid var(--green-dark)", background: "var(--green-dark)", color: "#fff", font: "inherit" }}>
+                Open overview
               </button>
             </>
           )}

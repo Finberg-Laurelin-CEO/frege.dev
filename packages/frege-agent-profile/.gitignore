@@ -1,0 +1,23 @@
+# Credentials and provider configuration
+.env
+auth.json
+
+# Hermes user data and runtime state
+memories/
+sessions/
+logs/
+plans/
+workspace/
+home/
+local/
+*_cache/
+state.db*
+hermes_state.db*
+response_store.db*
+gateway.pid
+gateway_state.json
+processes.json
+
+# Local development
+.DS_Store
+node_modules/

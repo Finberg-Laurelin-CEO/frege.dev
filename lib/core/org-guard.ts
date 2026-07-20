@@ -1,6 +1,7 @@
 import { getSql } from "@/lib/db";
 import type { UserSessionContext, UserSessionMembership } from "@/lib/core/session";
 import type { SensitivityLabel } from "@/lib/core/types";
+import { hostedExecutionEnabled } from "@/lib/core/hosted-execution";
 
 export type HumanOrgContext = {
   user: UserSessionContext["user"];
@@ -48,18 +49,19 @@ function labelsForRole(role: UserSessionMembership["role"]): SensitivityLabel[] 
 
 function capabilitiesForRole(role: UserSessionMembership["role"]): HumanOrgContext["capabilities"] {
   const canManage = role === "owner" || role === "admin";
+  const canManageHostedExecution = canManage && hostedExecutionEnabled();
   return {
     canManageOrg: canManage,
     canManageMembers: canManage,
     canManageKeys: canManage,
-    canManageModels: canManage,
+    canManageModels: canManageHostedExecution,
     canReadAudit: canManage,
     canReadSessions: canManage,
     canWriteSessions: canManage,
     canProposeMemory: canManage,
     canReviewMemoryProposals: canManage,
     canManageSources: canManage,
-    canExecuteAgents: canManage,
+    canExecuteAgents: canManageHostedExecution,
   };
 }
 
