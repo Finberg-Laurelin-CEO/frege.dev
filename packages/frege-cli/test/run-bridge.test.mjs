@@ -3,10 +3,16 @@ import test from "node:test";
 
 import {
   EventBatcher,
+  consoleBaseUrl,
   createBridgeState,
   handleDirective,
   mapCodexEvent,
 } from "../bin/frege-run-bridge.mjs";
+
+test("watch links point at the console host", () => {
+  assert.equal(consoleBaseUrl("http://localhost:3107"), "http://localhost:3107/console");
+  assert.equal(consoleBaseUrl("https://frege.dev"), "https://brain.frege.dev/console");
+});
 
 const fixtures = [
   {

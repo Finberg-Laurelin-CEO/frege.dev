@@ -407,10 +407,10 @@ function showCodexEvent(message) {
   }
 }
 
-function consoleBaseUrl(baseUrl) {
+export function consoleBaseUrl(baseUrl) {
   const url = new URL(baseUrl);
   if (url.hostname === "frege.dev") url.hostname = "brain.frege.dev";
-  return url.toString().replace(/\/$/, "");
+  return `${url.toString().replace(/\/$/, "")}/console`;
 }
 
 export async function runBridge(codexArgs = [], { spawnImpl = spawn } = {}) {
