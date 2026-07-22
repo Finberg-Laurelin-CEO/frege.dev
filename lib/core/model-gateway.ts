@@ -8,6 +8,7 @@ export type ModelInvokeInput = {
   orgId: string;
   modelConfigSlug: string;
   prompt: string;
+  deploymentToken?: string;
   contextPacket?: ContextPacket;
   contextBuildId?: string;
   maxTokens?: number;
@@ -67,15 +68,17 @@ export async function invokeModel(input: ModelInvokeInput): Promise<ModelInvokeR
     config.provider === "vercel-ai-gateway" ||
     config.provider === "openai-compatible"
   ) {
-    const hasDeploymentGatewayKey = Boolean(process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN);
+    const deploymentGatewayKey = input.deploymentToken ?? process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN;
     if (
       (config.provider === "openrouter" && !config.api_key)
-      || (config.provider === "vercel-ai-gateway" && !config.api_key && !hasDeploymentGatewayKey)
+      || (config.provider === "vercel-ai-gateway" && !config.api_key && !deploymentGatewayKey)
     ) {
       throw new Error("model_api_key_missing");
     }
     const json = await postOpenAiCompatibleChat({
-      config,
+      config: config.provider === "vercel-ai-gateway" && !config.api_key
+        ? { ...config, api_key: deploymentGatewayKey ?? null }
+        : config,
       prompt,
       maxTokens: input.maxTokens ?? 800,
       errorStyle: "status_only",
