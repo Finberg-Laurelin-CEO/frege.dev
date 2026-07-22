@@ -120,7 +120,14 @@ export const BRAIN_SESSION_EVENT_TYPES = [
 ] as const;
 export type BrainSessionEventType = (typeof BRAIN_SESSION_EVENT_TYPES)[number];
 
-export const MEMORY_PROPOSAL_TYPES = ["page_create", "page_update", "source_create", "link_update"] as const;
+export const MEMORY_PROPOSAL_TYPES = [
+  "page_create",
+  "page_update",
+  "source_create",
+  "link_update",
+  "skill_create",
+  "skill_update",
+] as const;
 export type MemoryProposalType = (typeof MEMORY_PROPOSAL_TYPES)[number];
 
 export const MEMORY_PROPOSAL_STATUSES = ["pending", "accepted", "rejected"] as const;
