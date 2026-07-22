@@ -12,6 +12,7 @@ type SkillListRow = {
   title: string;
   valid_from: Date | string | null;
   stale: boolean;
+  stale_reason: string | null;
 };
 
 export async function GET(req: Request) {
@@ -19,7 +20,10 @@ export async function GET(req: Request) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
 
-  const actorResult = await authenticateFregeActor(req, { allowInactiveUser: true });
+  const actorResult = await authenticateFregeActor(req, {
+    orgSlug: new URL(req.url).searchParams.get("org_slug") ?? undefined,
+    allowInactiveUser: true,
+  });
   if (!actorResult.ok) return actorResult.response;
 
   try {
@@ -29,7 +33,8 @@ export async function GET(req: Request) {
         slug,
         title,
         valid_from,
-        stale_flagged_at is not null as stale
+        stale_flagged_at is not null as stale,
+        stale_reason
       from brain_pages
       where org_id = ${actorResult.actor.organization.id}
         and artifact_type = 'skill'

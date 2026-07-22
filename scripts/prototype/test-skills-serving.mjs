@@ -66,7 +66,10 @@ const SKILLS = [
     title: "Deploy safely",
     body_md: "Check the release gate.[^1]",
     citations: [{ ref: "session-event:event-1", label: "Release handbook" }],
-    frontmatter: { description: "Deploy through the governed release gate" },
+    frontmatter: {
+      description: "Deploy through the governed release gate",
+      citations: [{ ref: "session-event:event-1", label: "Release handbook" }],
+    },
     valid_from: "2026-07-22T00:00:00.000Z",
     stale: false,
     stale_reason: null,
@@ -78,7 +81,7 @@ const SKILLS = [
     title: "Restricted runbook",
     body_md: "Use the private escalation path.[^1]",
     citations: [{ ref: "session-event:event-2" }],
-    frontmatter: {},
+    frontmatter: { citations: [{ ref: "session-event:event-2" }] },
     valid_from: "2026-07-22T00:00:00.000Z",
     stale: true,
     stale_reason: "Conflicting procedure found",
@@ -117,7 +120,13 @@ function setup({ restricted = false } = {}) {
     const visible = SKILLS.filter((skill) => allowedZones.includes(skill.trust_zone));
 
     if (!text.includes("join lateral")) {
-      return visible.map(({ slug, title, valid_from, stale }) => ({ slug, title, valid_from, stale }));
+      return visible.map(({ slug, title, valid_from, stale, stale_reason }) => ({
+        slug,
+        title,
+        valid_from,
+        stale,
+        stale_reason,
+      }));
     }
 
     const slug = values[1];
@@ -177,6 +186,7 @@ test("list is silent and only an approved skill get emits retrieval telemetry", 
         title: "Deploy safely",
         valid_from: "2026-07-22T00:00:00.000Z",
         stale: false,
+        stale_reason: null,
       },
     ],
   });

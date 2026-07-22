@@ -76,13 +76,18 @@ test("the public MCP tool list stays in sync with the shipped CLI", async () => 
 
   const cliTools = [...cli.matchAll(/name:\s*"(frege_[a-z_]+)"/g)].map((match) => match[1]);
   const documentedTools = [...docs.matchAll(/\["(frege_[a-z_]+)",/g)].map((match) => match[1]);
+  const flaggedTools = ["frege_list_skills", "frege_get_skill"];
+  const publicCliTools = cliTools.filter((tool) => !flaggedTools.includes(tool));
 
-  assert.equal(cliTools.length, 23, "update this expectation when the CLI contract changes");
+  assert.equal(cliTools.length, 25, "update this expectation when the CLI contract changes");
   assert.deepEqual(
     [...new Set(documentedTools)].sort(),
-    [...new Set(cliTools)].sort(),
-    "app/docs/page.tsx must document every shipped MCP tool and no invented tools",
+    [...new Set(publicCliTools)].sort(),
+    "app/docs/page.tsx must document every always-on MCP tool and no flagged tools",
   );
+  for (const flaggedTool of flaggedTools) {
+    assert.equal(documentedTools.includes(flaggedTool), false, `${flaggedTool} must stay hidden while feature-flagged`);
+  }
 
   for (const hostedTool of [
     "frege_list_agents",

@@ -4,6 +4,7 @@ import { authenticateFregeActor, telemetryActorForFregeActor } from "@/lib/core/
 import { routeError } from "@/lib/core/request-guards";
 import {
   ADMIN_SKILLS_EXPORT,
+  renderSkillMd,
   SKILLS_COMPILER_ENABLED,
   SKILL_RETRIEVED,
 } from "@/lib/core/skills";
@@ -29,36 +30,6 @@ type SkillRow = {
   stale_reason: string | null;
   trust_zone: TrustZone;
 };
-
-function citationText(citation: unknown): string | null {
-  if (typeof citation === "string") return citation;
-  if (!citation || typeof citation !== "object") return null;
-  const value = citation as Record<string, unknown>;
-  const ref = typeof value.ref === "string" ? value.ref : null;
-  if (!ref) return null;
-  return typeof value.label === "string" && value.label !== ref ? `${value.label} — ${ref}` : ref;
-}
-
-// WT-A owns the final shared renderer. Keep this local until the integration merge.
-function renderSkillMdForServing(row: SkillRow): string {
-  const description =
-    typeof row.frontmatter?.description === "string" ? row.frontmatter.description : row.title;
-  const citations = (Array.isArray(row.citations) ? row.citations : [])
-    .map(citationText)
-    .filter((citation): citation is string => Boolean(citation))
-    .map((citation, index) => `[^${index + 1}]: ${citation}`);
-
-  return [
-    "---",
-    `name: ${JSON.stringify(row.slug)}`,
-    `description: ${JSON.stringify(description)}`,
-    "---",
-    "",
-    row.body_md.trim(),
-    ...(citations.length ? ["", ...citations] : []),
-    "",
-  ].join("\n");
-}
 
 function publicSkill(row: SkillRow) {
   return {
@@ -127,13 +98,16 @@ export async function GET(req: Request, context: RouteContext) {
         trustZone: skill.trust_zone,
         metadata: { slug: skill.slug },
       });
-      return new Response(renderSkillMdForServing(skill), {
+      return new Response(renderSkillMd(skill), {
         status: 200,
         headers: { "Content-Type": "text/markdown; charset=utf-8" },
       });
     }
 
-    const actorResult = await authenticateFregeActor(req, { allowInactiveUser: true });
+    const actorResult = await authenticateFregeActor(req, {
+      orgSlug: url.searchParams.get("org_slug") ?? undefined,
+      allowInactiveUser: true,
+    });
     if (!actorResult.ok) return actorResult.response;
     const sql = getSql();
     const rows = (await sql`
