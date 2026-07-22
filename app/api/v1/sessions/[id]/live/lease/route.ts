@@ -90,6 +90,12 @@ export async function POST(req: Request, context: RouteContext) {
     const telemetryAuth = orgContextFromMembership(watcher.userSession, watcher.membership);
 
     if (!lease) {
+      // CAS loser: recorded in the governed ledger, not just telemetry.
+      await appendSessionEvent(watcherActorContext(watcher), {
+        session_id: id,
+        event_type: "run.live.denied" as BrainSessionEventType,
+        payload: { action: `lease.${action.action}`, reason: "lease_held", user_id: userId },
+      });
       await logTelemetryEvent({
         actor: { type: "user", auth: telemetryAuth },
         req,

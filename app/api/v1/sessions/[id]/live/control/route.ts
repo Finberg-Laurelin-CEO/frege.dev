@@ -53,6 +53,12 @@ export async function POST(req: Request, context: RouteContext) {
     const action = parsed.data;
 
     if (watcher.session.controller_user_id !== userId) {
+      // Denied control attempts are part of the governed history too.
+      await appendSessionEvent(watcherActorContext(watcher), {
+        session_id: id,
+        event_type: "run.live.denied" as BrainSessionEventType,
+        payload: { action: action.action, reason: "not_controller", user_id: userId },
+      });
       await logTelemetryEvent({
         actor: { type: "user", auth: telemetryAuth },
         req,
@@ -95,6 +101,11 @@ export async function POST(req: Request, context: RouteContext) {
       // server never lets a resolver invent approvals the run didn't ask for.
       const approval = await findUnresolvedApproval(sql, id, watcher.session.org_id, action.approval_id);
       if (!approval) {
+        await appendSessionEvent(watcherActorContext(watcher), {
+          session_id: id,
+          event_type: "run.live.denied" as BrainSessionEventType,
+          payload: { action: action.action, reason: "invalid_approval", approval_id: action.approval_id, user_id: userId },
+        });
         await logTelemetryEvent({
           actor: { type: "user", auth: telemetryAuth },
           req,
