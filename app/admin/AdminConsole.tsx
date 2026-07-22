@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, Fragment, useEffect, useMemo, useState } from "react";
 import styles from "./admin.module.css";
 
 type Tab = "setup" | "overview" | "keys" | "context" | "brain" | "telemetry" | "audit";
@@ -98,6 +98,7 @@ type BrainPageRow = {
   id: string;
   slug: string;
   title: string;
+  artifact_type?: string;
   source_slug: string | null;
   status: string;
   trust_zone: string;
@@ -130,7 +131,33 @@ type MemoryProposalRow = {
   status: string;
   session_id: string | null;
   created_at: string;
+  body_md?: string;
+  citations?: unknown[];
+  confidence?: string | number | null;
+  metadata?: Record<string, unknown>;
 };
+
+type ApprovedSkillRow = {
+  slug: string;
+  title: string;
+  valid_from: string | null;
+  stale: boolean;
+  stale_reason?: string | null;
+};
+
+type UploadedMaterialRow = {
+  id: string;
+  source_type: "markdown_upload";
+  created_at: string;
+  source_description: string;
+  author: string;
+  date: string;
+};
+
+type CompileSummary =
+  | { result: "compiling" }
+  | { result: "proposal_filed"; proposal_id: string }
+  | { result: "nothing_found" | "failed"; reason: string };
 
 const apiKeyExpirationChoices = [
   { value: "30d", label: "30 days", description: "short trial or contractor access" },
@@ -197,6 +224,11 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
   const [brainPages, setBrainPages] = useState<BrainPageRow[]>([]);
   const [brainSessions, setBrainSessions] = useState<BrainSessionRow[]>([]);
   const [memoryProposals, setMemoryProposals] = useState<MemoryProposalRow[]>([]);
+  const [skillsEnabled, setSkillsEnabled] = useState<boolean | null>(null);
+  const [approvedSkills, setApprovedSkills] = useState<ApprovedSkillRow[]>([]);
+  const [uploadedMaterials, setUploadedMaterials] = useState<UploadedMaterialRow[]>([]);
+  const [compileResults, setCompileResults] = useState<Record<string, CompileSummary>>({});
+  const [proposalEdits, setProposalEdits] = useState<Record<string, string>>({});
   const [contextOutput, setContextOutput] = useState("");
 
   const selectedOrg = useMemo(
@@ -229,7 +261,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
     setStatus("refreshing");
     try {
       const query = `org_slug=${encodeURIComponent(orgSlug)}`;
-      const [memberJson, roleJson, keyJson, telemetryJson, auditJson, brainJson] =
+      const [memberJson, roleJson, keyJson, telemetryJson, auditJson, brainJson, skillsResponse] =
         await Promise.all([
         fetch(`/api/v1/admin/members?${query}`).then(readJson),
         fetch(`/api/v1/admin/roles?${query}`).then(readJson),
@@ -237,6 +269,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
         fetch(`/api/v1/admin/telemetry?${query}`).then(readJson),
         fetch(`/api/v1/admin/audit-events?${query}`).then(readJson),
         fetch(`/api/v1/admin/brain?${query}`).then(readJson),
+        fetch(`/api/v1/skills?${query}`),
       ]);
 
       setMembers(memberJson.members ?? []);
@@ -250,6 +283,14 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
       setBrainPages(brainJson.pages ?? []);
       setBrainSessions(brainJson.sessions ?? []);
       setMemoryProposals(brainJson.proposals ?? []);
+      if (skillsResponse.status === 404) {
+        setSkillsEnabled(false);
+        setApprovedSkills([]);
+      } else {
+        const skillsJson = await readJson(skillsResponse);
+        setSkillsEnabled(true);
+        setApprovedSkills(skillsJson.skills ?? []);
+      }
       setStatus("ready");
     } catch (error) {
       setStatus((error as Error).message);
@@ -276,7 +317,13 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
   }, []);
 
   useEffect(() => {
-    if (selectedOrgSlug) void refreshAdminData(selectedOrgSlug);
+    if (selectedOrgSlug) {
+      setSkillsEnabled(null);
+      setUploadedMaterials([]);
+      setCompileResults({});
+      setProposalEdits({});
+      void refreshAdminData(selectedOrgSlug);
+    }
   }, [selectedOrgSlug]);
 
   useEffect(() => {
@@ -441,15 +488,136 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
     }
   }
 
-  async function resolveMemoryProposal(id: string, action: "accept" | "reject") {
+  async function uploadMaterial(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const provenance = {
+      source_description: String(form.get("source_description") ?? ""),
+      author: String(form.get("author") ?? ""),
+      date: String(form.get("date") ?? ""),
+    };
+    setStatus("uploading material");
+    try {
+      const json = await fetch(`/api/v1/materials?org_slug=${encodeURIComponent(selectedOrgSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source_type: "markdown_upload",
+          content_md: form.get("content_md"),
+          provenance,
+        }),
+      }).then(readJson);
+      setUploadedMaterials((materials) => [
+        { ...json.material, ...provenance },
+        ...materials.filter((material) => material.id !== json.material.id),
+      ]);
+      formElement.reset();
+      setStatus("material uploaded");
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  }
+
+  async function compileSource(key: string, body: { material_id: string } | { session_id: string }) {
+    setCompileResults((results) => ({ ...results, [key]: { result: "compiling" } }));
+    setStatus("compiling");
+    try {
+      const json = (await fetch(`/api/v1/skills/compile?org_slug=${encodeURIComponent(selectedOrgSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      }).then(readJson)) as CompileSummary;
+      setCompileResults((results) => ({ ...results, [key]: json }));
+      if (json.result === "proposal_filed") await refreshAdminData();
+      setStatus(json.result);
+    } catch (error) {
+      const failed: CompileSummary = { result: "failed", reason: (error as Error).message };
+      setCompileResults((results) => ({ ...results, [key]: failed }));
+      setStatus("failed");
+    }
+  }
+
+  async function exportSkill(slug: string) {
+    setStatus(`exporting ${slug}`);
+    try {
+      const response = await fetch(
+        `/api/v1/skills/${encodeURIComponent(slug)}?format=skillmd&org_slug=${encodeURIComponent(selectedOrgSlug)}`,
+      );
+      if (!response.ok) {
+        const json = await response.json().catch(() => ({}));
+        throw new Error(json.error ?? `http_${response.status}`);
+      }
+      const url = URL.createObjectURL(new Blob([await response.text()], { type: "text/markdown" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${slug}.md`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setStatus(`${slug} exported`);
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  }
+
+  function renderCompileResult(key: string) {
+    const summary = compileResults[key];
+    if (!summary) return null;
+    if (summary.result === "proposal_filed") {
+      return (
+        <span className={styles.compileResult} aria-live="polite">
+          <code>proposal_filed</code>
+          <a className="lnk" href={`#proposal-${summary.proposal_id}`}>{summary.proposal_id}</a>
+        </span>
+      );
+    }
+    return (
+      <span className={styles.compileResult} aria-live="polite">
+        <code>{summary.result}</code>
+        {summary.result !== "compiling" && <span>{summary.reason}</span>}
+      </span>
+    );
+  }
+
+  async function resolveMemoryProposal(id: string, action: "accept" | "reject", bodyMd?: string) {
+    const reason = action === "reject" ? window.prompt("Why is this skill proposal being rejected?")?.trim() : undefined;
+    if (action === "reject" && !reason) {
+      setStatus("rejection reason required");
+      return;
+    }
     setStatus(`${action}ing proposal`);
     try {
       await fetch(`/api/v1/admin/brain/proposals/${id}?org_slug=${encodeURIComponent(selectedOrgSlug)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, body_md: bodyMd, reason }),
+      }).then(readJson);
+      setProposalEdits((edits) => {
+        const next = { ...edits };
+        delete next[id];
+        return next;
+      });
+      await refreshAdminData();
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  }
+
+  async function proposeSkillRollback(page: BrainPageRow) {
+    const revision = Number(window.prompt(`Rollback ${page.slug} from revision ${page.revision_number} to which earlier revision?`, String(Math.max(1, page.revision_number - 1))));
+    if (!Number.isInteger(revision) || revision < 1 || revision >= page.revision_number) {
+      setStatus("choose an earlier revision number");
+      return;
+    }
+    setStatus("filing rollback proposal");
+    try {
+      await fetch(`/api/v1/skills/${encodeURIComponent(page.slug)}/rollback?org_slug=${encodeURIComponent(selectedOrgSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision_number: revision }),
       }).then(readJson);
       await refreshAdminData();
+      setStatus("rollback proposal filed — review and accept it below");
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -1089,6 +1257,123 @@ Keep model credentials, tools, and execution in the user's agent client.`}</pre>
 
           {tab === "brain" && (
             <>
+              {skillsEnabled && (
+                <div className={styles.section}>
+                  <div className={styles.sectionHeader}>
+                    <div>
+                      <span className={styles.kicker}>Skills compiler</span>
+                      <h2 className={styles.sectionTitle}>compile markdown material</h2>
+                      <p className={styles.sectionLead}>
+                        Upload cited operational material, then compile it into the governed proposal queue.
+                      </p>
+                    </div>
+                  </div>
+                  <form className={styles.form} onSubmit={uploadMaterial}>
+                    <label className={`${styles.field} ${styles.fieldWide}`}>
+                      <span className={styles.label}>markdown content</span>
+                      <textarea className={styles.textarea} name="content_md" required />
+                    </label>
+                    <label className={`${styles.field} ${styles.fieldWide}`}>
+                      <span className={styles.label}>source description</span>
+                      <input className={styles.input} name="source_description" required />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.label}>author</span>
+                      <input className={styles.input} name="author" required />
+                    </label>
+                    <label className={styles.field}>
+                      <span className={styles.label}>source date</span>
+                      <input className={styles.input} name="date" type="date" required />
+                    </label>
+                    <div className={styles.buttonRow}>
+                      <button className={styles.button} type="submit" disabled={orgWriteLocked}>upload material</button>
+                    </div>
+                  </form>
+
+                  {uploadedMaterials.length > 0 && (
+                    <div className={styles.tableScroll}>
+                      <table className={styles.table}>
+                        <thead>
+                          <tr><th>source</th><th>author</th><th>date</th><th>uploaded</th><th>compile</th></tr>
+                        </thead>
+                        <tbody>
+                          {uploadedMaterials.map((material) => {
+                            const resultKey = `material:${material.id}`;
+                            return (
+                              <tr key={material.id}>
+                                <td>{material.source_description}</td>
+                                <td>{material.author}</td>
+                                <td>{material.date}</td>
+                                <td>{formatDate(material.created_at)}</td>
+                                <td>
+                                  <div className={styles.rowActions}>
+                                    <button
+                                      className={styles.button}
+                                      type="button"
+                                      disabled={orgWriteLocked || compileResults[resultKey]?.result === "compiling"}
+                                      onClick={() => compileSource(resultKey, { material_id: material.id })}
+                                    >
+                                      compile
+                                    </button>
+                                    {renderCompileResult(resultKey)}
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {skillsEnabled && (
+                <div className={styles.section}>
+                  <h2 className={styles.sectionTitle}>approved skills</h2>
+                  {approvedSkills.length === 0 ? (
+                    <div className={styles.empty}>
+                      <strong>No approved skills yet</strong>
+                      <span>Accept a compiled proposal to make its SKILL.md exportable.</span>
+                    </div>
+                  ) : (
+                    <div className={styles.tableScroll}>
+                      <table className={styles.table}>
+                        <thead>
+                          <tr><th>slug</th><th>title</th><th>valid from</th><th>status</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                          {approvedSkills.map((skill) => (
+                            <tr key={skill.slug}>
+                              <td><code className={styles.inlineCode}>{skill.slug}</code></td>
+                              <td>{skill.title}</td>
+                              <td>{formatDate(skill.valid_from)}</td>
+                              <td>
+                                {skill.stale ? (
+                                  <span className={styles.staleStatus}>
+                                    <span className={`${styles.badge} ${styles.badgeWarn}`} title={skill.stale_reason ?? undefined}>
+                                      stale — review suggested
+                                    </span>
+                                    {skill.stale_reason && <span className={styles.meta}>{skill.stale_reason}</span>}
+                                  </span>
+                                ) : (
+                                  <span className={`${styles.badge} ${styles.badgeOk}`}>current</span>
+                                )}
+                              </td>
+                              <td>
+                                <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" onClick={() => exportSkill(skill.slug)}>
+                                  export SKILL.md
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className={styles.section}>
                 <h2 className={styles.sectionTitle}>brain sources</h2>
                 <table className={styles.table}>
@@ -1107,11 +1392,14 @@ Keep model credentials, tools, and execution in the user's agent client.`}</pre>
                 <h2 className={styles.sectionTitle}>brain pages</h2>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>slug</th><th>title</th><th>source</th><th>trust</th><th>rev</th><th>summary</th></tr>
+                    <tr><th>slug</th><th>title</th><th>source</th><th>trust</th><th>rev</th><th>summary</th>{skillsEnabled && <th></th>}</tr>
                   </thead>
                   <tbody>
                     {brainPages.map((page) => (
-                      <tr key={page.id}><td>{page.slug}</td><td>{page.title}</td><td>{page.source_slug ?? "-"}</td><td>{page.trust_zone}</td><td>{page.revision_number}</td><td>{page.summary}</td></tr>
+                      <tr key={page.id}>
+                        <td>{page.slug}</td><td>{page.title}</td><td>{page.source_slug ?? "-"}</td><td>{page.trust_zone}</td><td>{page.revision_number}</td><td>{page.summary}</td>
+                        {skillsEnabled && <td>{page.artifact_type === "skill" && <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={orgWriteLocked || page.revision_number <= 1} onClick={() => proposeSkillRollback(page)}>rollback</button>}</td>}
+                      </tr>
                     ))}
                   </tbody>
                 </table>
@@ -1121,14 +1409,35 @@ Keep model credentials, tools, and execution in the user's agent client.`}</pre>
                 <h2 className={styles.sectionTitle}>agent sessions</h2>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>title</th><th>client</th><th>owner</th><th>trust</th><th>events</th><th>last event</th></tr>
+                    <tr>
+                      <th>title</th><th>client</th><th>owner</th><th>trust</th><th>events</th><th>last event</th>
+                      {skillsEnabled && <th>compile</th>}
+                    </tr>
                   </thead>
                   <tbody>
-                    {brainSessions.map((session) => (
-                      <tr key={session.id}>
-                        <td>{session.title}</td><td>{session.client}</td><td>{session.owner_user_email ?? session.actor_key_prefix ?? "-"}</td><td>{session.trust_zone}</td><td>{session.event_count}</td><td>{formatDate(session.last_event_at ?? session.started_at)}</td>
-                      </tr>
-                    ))}
+                    {brainSessions.map((session) => {
+                      const resultKey = `session:${session.id}`;
+                      return (
+                        <tr key={session.id}>
+                          <td>{session.title}</td><td>{session.client}</td><td>{session.owner_user_email ?? session.actor_key_prefix ?? "-"}</td><td>{session.trust_zone}</td><td>{session.event_count}</td><td>{formatDate(session.last_event_at ?? session.started_at)}</td>
+                          {skillsEnabled && (
+                            <td>
+                              <div className={styles.rowActions}>
+                                <button
+                                  className={styles.button}
+                                  type="button"
+                                  disabled={orgWriteLocked || compileResults[resultKey]?.result === "compiling"}
+                                  onClick={() => compileSource(resultKey, { session_id: session.id })}
+                                >
+                                  compile
+                                </button>
+                                {renderCompileResult(resultKey)}
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1140,19 +1449,61 @@ Keep model credentials, tools, and execution in the user's agent client.`}</pre>
                     <tr><th>time</th><th>type</th><th>slug</th><th>trust</th><th>status</th><th>summary</th><th></th></tr>
                   </thead>
                   <tbody>
-                    {memoryProposals.map((proposal) => (
-                      <tr key={proposal.id}>
-                        <td>{formatDate(proposal.created_at)}</td><td>{proposal.proposal_type}</td><td>{proposal.slug ?? "-"}</td><td>{proposal.trust_zone}</td><td>{proposal.status}</td><td>{proposal.summary}</td>
-                        <td>
-                          {proposal.status === "pending" && (
-                            <span className={styles.buttonRow}>
-                              <button className={styles.button} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "accept")}>accept</button>
-                              <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "reject")}>reject</button>
-                            </span>
+                    {memoryProposals.map((proposal) => {
+                      const isSkillProposal = proposal.proposal_type === "skill_create" || proposal.proposal_type === "skill_update";
+                      const citations = proposal.citations ?? (Array.isArray(proposal.metadata?.citations) ? proposal.metadata.citations : []);
+                      const confidence = proposal.confidence ?? proposal.metadata?.confidence;
+                      const bodyMd = proposal.body_md ?? (typeof proposal.metadata?.body_md === "string" ? proposal.metadata.body_md : "");
+                      return (
+                        <Fragment key={proposal.id}>
+                          <tr id={`proposal-${proposal.id}`}>
+                            <td>{formatDate(proposal.created_at)}</td><td>{proposal.proposal_type}</td><td>{proposal.slug ?? "-"}</td><td>{proposal.trust_zone}</td><td>{proposal.status}</td><td>{proposal.summary}</td>
+                            <td>
+                              {proposal.status === "pending" && (
+                                <span className={styles.rowActions}>
+                                  <button className={styles.button} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "accept", isSkillProposal ? proposalEdits[proposal.id] ?? bodyMd : undefined)}>accept</button>
+                                  <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "reject")}>reject</button>
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                          {skillsEnabled && isSkillProposal && (
+                            <tr className={styles.proposalDetailRow}>
+                              <td colSpan={7}>
+                                <div className={styles.skillProposal}>
+                                  <div className={styles.skillProposalHeader}>
+                                    <strong>SKILL.md</strong>
+                                    <span className={styles.meta}>confidence: {confidence == null ? "not provided" : String(confidence)}</span>
+                                  </div>
+                                  {proposal.status === "pending" ? (
+                                    <textarea
+                                      aria-label={`Edit ${proposal.title} SKILL.md`}
+                                      className={`${styles.textarea} ${styles.skillBody}`}
+                                      value={proposalEdits[proposal.id] ?? bodyMd}
+                                      onChange={(event) => setProposalEdits((edits) => ({ ...edits, [proposal.id]: event.target.value }))}
+                                    />
+                                  ) : (
+                                    <pre className={styles.skillBody}>{bodyMd || "SKILL.md body unavailable in proposal payload."}</pre>
+                                  )}
+                                  <div>
+                                    <span className={styles.label}>citations</span>
+                                    {citations.length > 0 ? (
+                                      <ol className={styles.citationList}>
+                                        {citations.map((citation, index) => (
+                                          <li key={index}>{typeof citation === "string" ? citation : JSON.stringify(citation)}</li>
+                                        ))}
+                                      </ol>
+                                    ) : (
+                                      <p className={styles.meta}>none provided</p>
+                                    )}
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
                           )}
-                        </td>
-                      </tr>
-                    ))}
+                        </Fragment>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

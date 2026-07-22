@@ -56,6 +56,24 @@ const tools = [
       required: ["slug"],
     },
   },
+  ...(process.env.FREGE_SKILLS_COMPILER === "true"
+    ? [
+        {
+          name: "frege_list_skills",
+          description: "List approved skills visible to this Frege actor.",
+          inputSchema: { type: "object", properties: {} },
+        },
+        {
+          name: "frege_get_skill",
+          description: "Read an approved skill by slug.",
+          inputSchema: {
+            type: "object",
+            properties: { slug: { type: "string" } },
+            required: ["slug"],
+          },
+        },
+      ]
+    : []),
   {
     name: "frege_list_vault",
     description:
@@ -698,6 +716,12 @@ async function callTool(name, input = {}) {
     return frege(`/api/v1/brain/pages/search${queryString({ q: input.query, limit: input.limit })}`);
   }
   if (name === "frege_get_page") return frege(`/api/v1/brain/pages/${encodeURIComponent(input.slug)}`);
+  if (process.env.FREGE_SKILLS_COMPILER === "true" && name === "frege_list_skills") {
+    return frege("/api/v1/skills");
+  }
+  if (process.env.FREGE_SKILLS_COMPILER === "true" && name === "frege_get_skill") {
+    return frege(`/api/v1/skills/${encodeURIComponent(input.slug)}`);
+  }
   if (name === "frege_list_vault") return frege(`/api/v1/brain/vault${queryString({ limit: input.limit })}`);
   if (name === "frege_page_links") {
     return frege(`/api/v1/brain/pages/${encodeURIComponent(input.slug)}/links`);

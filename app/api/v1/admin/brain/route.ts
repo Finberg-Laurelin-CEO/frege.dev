@@ -1,6 +1,7 @@
 import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/core/admin-auth";
 import { routeError } from "@/lib/core/request-guards";
+import { SKILLS_COMPILER_ENABLED } from "@/lib/core/skills";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,10 @@ export async function GET(req: Request) {
           brain_sources.slug as source_slug,
           brain_pages.status,
           brain_pages.trust_zone,
+          brain_pages.artifact_type,
+          brain_pages.valid_from,
+          brain_pages.stale_flagged_at,
+          brain_pages.stale_reason,
           brain_pages.updated_at,
           latest.revision_number,
           latest.summary
@@ -74,6 +79,7 @@ export async function GET(req: Request) {
           proposal_type,
           slug,
           title,
+          body_md,
           summary,
           trust_zone,
           status,
@@ -82,6 +88,7 @@ export async function GET(req: Request) {
           created_by_key_id,
           reviewer_user_id,
           resolved_at,
+          metadata,
           created_at
         from memory_proposals
         where org_id = ${auth.organization.id}
@@ -90,7 +97,16 @@ export async function GET(req: Request) {
       `,
     ]);
 
-    return Response.json({ sources, pages, sessions, proposals }, { status: 200 });
+    if (SKILLS_COMPILER_ENABLED()) {
+      return Response.json({ sources, pages, sessions, proposals }, { status: 200 });
+    }
+
+    return Response.json({
+      sources,
+      pages: pages.map(({ artifact_type: _artifactType, valid_from: _validFrom, stale_flagged_at: _staleAt, stale_reason: _staleReason, ...page }) => page),
+      sessions,
+      proposals: proposals.map(({ body_md: _body, metadata: _metadata, ...proposal }) => proposal),
+    }, { status: 200 });
   } catch (err) {
     return routeError("admin brain snapshot failed", err);
   }
