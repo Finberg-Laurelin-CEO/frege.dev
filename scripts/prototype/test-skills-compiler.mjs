@@ -142,10 +142,10 @@ function makeCompileSql() {
   return { sql, state };
 }
 
-function request(body) {
+function request(body, headers = {}) {
   return new Request("http://localhost/api/v1/skills/compile", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -220,7 +220,7 @@ test("Vercel AI Gateway uses the deployment OIDC token when no stored key exists
 test("model gateway accepts deployment OIDC before invoking Vercel AI Gateway", async () => {
   const originalFetch = globalThis.fetch;
   const originalToken = process.env.VERCEL_OIDC_TOKEN;
-  process.env.VERCEL_OIDC_TOKEN = "test-oidc-token";
+  delete process.env.VERCEL_OIDC_TOKEN;
   globalThis.__modelConfig = {
     provider: "vercel-ai-gateway",
     base_url: null,
@@ -233,7 +233,12 @@ test("model gateway accepts deployment OIDC before invoking Vercel AI Gateway", 
     return Response.json({ choices: [{ message: { content: "ok" } }] });
   };
   try {
-    const response = await modelGateway.invokeModel({ orgId: ORG_ID, modelConfigSlug: "skills-compiler", prompt: "test" });
+    const response = await modelGateway.invokeModel({
+      orgId: ORG_ID,
+      modelConfigSlug: "skills-compiler",
+      deploymentToken: "test-oidc-token",
+      prompt: "test",
+    });
     assert.equal(response.content, "ok");
   } finally {
     globalThis.fetch = originalFetch;
@@ -245,9 +250,14 @@ test("model gateway accepts deployment OIDC before invoking Vercel AI Gateway", 
 test("compile maps model output to proposal_filed, nothing_found, and failed", async () => {
   process.env.FREGE_SKILLS_COMPILER = "true";
   const filed = setupCompile();
-  globalThis.__invokeModel = async () => ({ content: JSON.stringify(compilerOutput()) });
-  let response = await compileRoute.POST(request({ material_id: MATERIAL_ID }));
+  let invokeInput;
+  globalThis.__invokeModel = async (input) => {
+    invokeInput = input;
+    return { content: JSON.stringify(compilerOutput()) };
+  };
+  let response = await compileRoute.POST(request({ material_id: MATERIAL_ID }, { "x-vercel-oidc-token": "function-token" }));
   assert.deepEqual(await response.json(), { result: "proposal_filed", proposal_id: PROPOSAL_ID });
+  assert.equal(invokeInput.deploymentToken, "function-token");
   assert.equal(globalThis.__createdProposals[0].proposal_type, "skill_create");
   assert.match(globalThis.__createdProposals[0].body_md, /\[\^1\]: Release notes/);
   assert.equal(filed.state.compileResults.at(-1).result, "proposal_filed");

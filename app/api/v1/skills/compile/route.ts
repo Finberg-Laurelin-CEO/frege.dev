@@ -254,6 +254,7 @@ export async function POST(req: Request) {
     const model = await invokeModel({
       orgId: authResult.auth.organization.id,
       modelConfigSlug: (modelConfig as { slug: string }).slug,
+      deploymentToken: req.headers.get("x-vercel-oidc-token") ?? undefined,
       prompt: compilePrompt(batch, approvedSkills),
       contextPacket: {
         id: `skills-compile:${batch.materialId ?? batch.sessionId}`,
