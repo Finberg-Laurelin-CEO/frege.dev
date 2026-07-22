@@ -2,6 +2,8 @@ import { getSql } from "@/lib/db";
 import type { FregeActorContext } from "@/lib/core/actor-auth";
 import { parseBrainLinks, slugifyBrain } from "@/lib/core/brain-links";
 import type { HumanOrgContext } from "@/lib/core/org-guard";
+import { SKILL_CORRECTED, SKILL_PROPOSAL_RESOURCE } from "@/lib/core/skills";
+import { logTelemetryEvent } from "@/lib/core/telemetry";
 import {
   estimateTokens,
   trustZonesForActor,
@@ -890,6 +892,120 @@ async function acceptLinkProposal(
   return { page_id: pageId };
 }
 
+async function acceptSkillProposal(
+  auth: HumanOrgContext,
+  proposal: {
+    id: string;
+    proposal_type: MemoryProposalType;
+    target_page_id: string | null;
+    slug: string | null;
+    title: string;
+    body_md: string;
+    summary: string;
+    trust_zone: TrustZone;
+    source_ids: string[];
+    metadata: Record<string, unknown>;
+  },
+) {
+  if (!proposal.slug) throw new Error("proposal_slug_required");
+  const sql = getSql();
+  const [existing] = await sql`
+    select id, artifact_type
+    from brain_pages
+    where org_id = ${auth.organization.id}
+      and (${proposal.target_page_id}::uuid is null or id = ${proposal.target_page_id})
+      and slug = ${proposal.slug}
+    limit 1
+  `;
+  if (existing && (existing as { artifact_type: string }).artifact_type !== "skill") {
+    throw new Error("skill_slug_conflict");
+  }
+  if (proposal.proposal_type === "skill_update" && !existing) throw new Error("skill_not_found");
+
+  const {
+    compiled_body_md: _compiledBody,
+    correction_action: _correctionAction,
+    from_revision: _fromRevision,
+    to_revision: _toRevision,
+    review_reason: _reviewReason,
+    rejection_reason: _rejectionReason,
+    ...frontmatter
+  } = proposal.metadata ?? {};
+  let pageId = (existing as { id: string } | undefined)?.id;
+  if (pageId) {
+    await sql`
+      update brain_pages
+      set
+        title = ${proposal.title || proposal.slug},
+        artifact_type = 'skill',
+        trust_zone = ${proposal.trust_zone},
+        tags = ${Array.isArray(proposal.metadata?.scope) ? proposal.metadata.scope : []}::text[],
+        frontmatter = ${JSON.stringify(frontmatter)}::jsonb,
+        status = 'published',
+        valid_from = now(),
+        invalidated_at = null,
+        stale_flagged_at = null,
+        stale_reason = null,
+        updated_at = now()
+      where id = ${pageId}
+        and org_id = ${auth.organization.id}
+    `;
+  } else {
+    const [page] = await sql`
+      insert into brain_pages (
+        org_id,
+        source_id,
+        slug,
+        title,
+        artifact_type,
+        trust_zone,
+        tags,
+        frontmatter,
+        status,
+        valid_from,
+        created_by_user_id
+      ) values (
+        ${auth.organization.id},
+        ${proposal.source_ids[0] ?? null},
+        ${proposal.slug},
+        ${proposal.title || proposal.slug},
+        'skill',
+        ${proposal.trust_zone},
+        ${Array.isArray(proposal.metadata?.scope) ? proposal.metadata.scope : []}::text[],
+        ${JSON.stringify(frontmatter)}::jsonb,
+        'published',
+        now(),
+        ${auth.user.id}
+      )
+      returning id
+    `;
+    pageId = (page as { id: string }).id;
+  }
+
+  const [revision] = await sql`
+    insert into brain_page_revisions (
+      org_id,
+      page_id,
+      revision_number,
+      body_md,
+      summary,
+      proposal_id,
+      created_by_user_id
+    ) values (
+      ${auth.organization.id},
+      ${pageId},
+      coalesce((select max(revision_number) + 1 from brain_page_revisions where page_id = ${pageId}), 1),
+      ${proposal.body_md},
+      ${proposal.summary},
+      ${proposal.id},
+      ${auth.user.id}
+    )
+    returning id, revision_number
+  `;
+
+  return { page_id: pageId, revision };
+}
+
 function toMemoryProposal(row: Record<string, unknown>): MemoryProposal {
   return {
     id: row.id,
@@ -978,6 +1094,38 @@ export async function resolveMemoryProposal(
         acceptedResource = await acceptPageProposal(auth, typed);
       } else if (typed.proposal_type === "link_update") {
         acceptedResource = await acceptLinkProposal(auth, typed);
+      } else if (typed.proposal_type === "skill_create" || typed.proposal_type === "skill_update") {
+        acceptedResource = await acceptSkillProposal(auth, typed);
+        const compiledBody = typed.metadata?.compiled_body_md;
+        const fromRevision = Number(typed.metadata?.from_revision);
+        const toRevision = Number(typed.metadata?.to_revision);
+        if (
+          typed.metadata?.correction_action === "rollback"
+          && Number.isInteger(fromRevision)
+          && Number.isInteger(toRevision)
+        ) {
+          await logTelemetryEvent({
+            actor: { type: "user", auth },
+            action: SKILL_CORRECTED,
+            resourceType: SKILL_PROPOSAL_RESOURCE,
+            resourceId: typed.id,
+            proposalId: typed.id,
+            outcome: "success",
+            trustZone: typed.trust_zone,
+            metadata: { action: "rollback", from_revision: fromRevision, to_revision: toRevision },
+          });
+        } else if (typeof compiledBody === "string" && compiledBody !== typed.body_md) {
+          await logTelemetryEvent({
+            actor: { type: "user", auth },
+            action: SKILL_CORRECTED,
+            resourceType: SKILL_PROPOSAL_RESOURCE,
+            resourceId: typed.id,
+            proposalId: typed.id,
+            outcome: "success",
+            trustZone: typed.trust_zone,
+            metadata: { action: "edit", diff: { before: compiledBody, after: typed.body_md } },
+          });
+        }
       }
     } catch (err) {
       // Side effects failed after the claim: release it so the proposal can be
@@ -990,6 +1138,31 @@ export async function resolveMemoryProposal(
           and org_id = ${auth.organization.id}
       `.catch(() => undefined);
       throw err;
+    }
+  } else {
+    const typed = claimed as {
+      id: string;
+      proposal_type: MemoryProposalType;
+      trust_zone: TrustZone;
+      session_id: string | null;
+      metadata: Record<string, unknown>;
+    };
+    if (typed.proposal_type === "skill_create" || typed.proposal_type === "skill_update") {
+      await logTelemetryEvent({
+        actor: { type: "user", auth },
+        action: SKILL_CORRECTED,
+        resourceType: SKILL_PROPOSAL_RESOURCE,
+        resourceId: typed.id,
+        proposalId: typed.id,
+        sessionId: typed.session_id ?? undefined,
+        outcome: "success",
+        trustZone: typed.trust_zone,
+        metadata: {
+          action: "reject",
+          proposal: claimed as Record<string, unknown>,
+          reason: typed.metadata?.review_reason ?? typed.metadata?.rejection_reason ?? "rejected",
+        },
+      });
     }
   }
 
