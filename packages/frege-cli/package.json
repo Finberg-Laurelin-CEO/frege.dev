@@ -13,7 +13,7 @@
     "access": "public"
   },
   "bin": {
-    "frege": "bin/frege-mcp.mjs",
+    "frege": "bin/frege.mjs",
     "frege-mcp": "bin/frege-mcp.mjs"
   },
   "files": [
