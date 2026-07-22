@@ -98,6 +98,7 @@ type BrainPageRow = {
   id: string;
   slug: string;
   title: string;
+  artifact_type?: string;
   source_slug: string | null;
   status: string;
   trust_zone: string;
@@ -597,6 +598,26 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
         return next;
       });
       await refreshAdminData();
+    } catch (error) {
+      setStatus((error as Error).message);
+    }
+  }
+
+  async function proposeSkillRollback(page: BrainPageRow) {
+    const revision = Number(window.prompt(`Rollback ${page.slug} from revision ${page.revision_number} to which earlier revision?`, String(Math.max(1, page.revision_number - 1))));
+    if (!Number.isInteger(revision) || revision < 1 || revision >= page.revision_number) {
+      setStatus("choose an earlier revision number");
+      return;
+    }
+    setStatus("filing rollback proposal");
+    try {
+      await fetch(`/api/v1/skills/${encodeURIComponent(page.slug)}/rollback?org_slug=${encodeURIComponent(selectedOrgSlug)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ revision_number: revision }),
+      }).then(readJson);
+      await refreshAdminData();
+      setStatus("rollback proposal filed — review and accept it below");
     } catch (error) {
       setStatus((error as Error).message);
     }
@@ -1371,11 +1392,14 @@ Keep model credentials, tools, and execution in the user's agent client.`}</pre>
                 <h2 className={styles.sectionTitle}>brain pages</h2>
                 <table className={styles.table}>
                   <thead>
-                    <tr><th>slug</th><th>title</th><th>source</th><th>trust</th><th>rev</th><th>summary</th></tr>
+                    <tr><th>slug</th><th>title</th><th>source</th><th>trust</th><th>rev</th><th>summary</th>{skillsEnabled && <th></th>}</tr>
                   </thead>
                   <tbody>
                     {brainPages.map((page) => (
-                      <tr key={page.id}><td>{page.slug}</td><td>{page.title}</td><td>{page.source_slug ?? "-"}</td><td>{page.trust_zone}</td><td>{page.revision_number}</td><td>{page.summary}</td></tr>
+                      <tr key={page.id}>
+                        <td>{page.slug}</td><td>{page.title}</td><td>{page.source_slug ?? "-"}</td><td>{page.trust_zone}</td><td>{page.revision_number}</td><td>{page.summary}</td>
+                        {skillsEnabled && <td>{page.artifact_type === "skill" && <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={orgWriteLocked || page.revision_number <= 1} onClick={() => proposeSkillRollback(page)}>rollback</button>}</td>}
+                      </tr>
                     ))}
                   </tbody>
                 </table>

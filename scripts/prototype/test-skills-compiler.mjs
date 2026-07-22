@@ -10,6 +10,7 @@ const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.
 const VIRTUAL = {
   "@/lib/db": "export function getSql(){ return globalThis.__fakeSql; }",
   "@/lib/core/admin-auth": "export async function authenticateAdminRequest(){ return globalThis.__adminAuthResult; }",
+  "@/lib/core/actor-auth": "export async function authenticateFregeActor(){ return globalThis.__actorAuthResult; }",
   "@/lib/core/model-gateway": "export async function invokeModel(input){ return globalThis.__invokeModel(input); }",
   "@/lib/core/brain": `
     export async function createMemoryProposal(actor, input){ return globalThis.__createMemoryProposal(actor, input); }
@@ -50,6 +51,7 @@ registerHooks({
 const skills = await import(pathToFileURL(path.join(rootDir, "lib/core/skills.ts")).href);
 const compileRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1/skills/compile/route.ts")).href);
 const materialsRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1/materials/route.ts")).href);
+const rollbackRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1/skills/[slug]/rollback/route.ts")).href);
 const brain = await import(`${pathToFileURL(path.join(rootDir, "lib/core/brain.ts")).href}?actual=1`);
 
 const ORG_ID = "10000000-0000-4000-8000-000000000001";
@@ -277,7 +279,7 @@ function skillProposal(overrides = {}) {
   };
 }
 
-function makeProposalSql(proposals) {
+function makeProposalSql(proposals, { existingSkill = false } = {}) {
   const state = {
     proposals: new Map(proposals.map((proposal) => [proposal.id, proposal])),
     pageInserts: [],
@@ -294,7 +296,8 @@ function makeProposalSql(proposals) {
       return [{ ...proposal }];
     }
     if (text.startsWith("update memory_proposals set status = 'pending'")) return [];
-    if (text.startsWith("select id, artifact_type from brain_pages")) return [];
+    if (text.startsWith("select id, artifact_type from brain_pages")) return existingSkill ? [{ id: SKILL_ID, artifact_type: "skill" }] : [];
+    if (text.startsWith("update brain_pages set title =")) return [];
     if (text.startsWith("insert into brain_pages")) {
       state.pageInserts.push(values);
       return [{ id: SKILL_ID }];
@@ -336,10 +339,76 @@ test("skill proposal accept creates a skill page; reject emits skill.corrected",
   assert.equal(corrected.metadata.proposal.id, rejectedId);
 });
 
+test("rollback files a governed proposal and acceptance emits rollback telemetry", async () => {
+  process.env.FREGE_SKILLS_COMPILER = "true";
+  globalThis.__actorAuthResult = {
+    ok: true,
+    actor: {
+      actorType: "user",
+      userAuth: makeAdmin(),
+      organization: { id: ORG_ID, slug: "acme", name: "Acme", status: "active" },
+      allowedLabels: ["public", "internal", "restricted"],
+      capabilities: makeAdmin().capabilities,
+    },
+  };
+  globalThis.__createdProposals = [];
+  globalThis.__createMemoryProposal = async (_actor, input) => {
+    globalThis.__createdProposals.push(input);
+    return { id: PROPOSAL_ID };
+  };
+  globalThis.__fakeSql = sqlPromise((text) => {
+    if (text.includes("current_revision.revision_number as from_revision")) {
+      return [{
+        id: SKILL_ID,
+        slug: "release-check",
+        title: "Release check",
+        source_id: null,
+        trust_zone: "green",
+        frontmatter: { confidence: 0.9 },
+        from_revision: 2,
+        to_revision: 1,
+        body_md: "# Release check v1",
+        summary: "Original release check",
+      }];
+    }
+    throw new Error(`unexpected rollback SQL: ${text}`);
+  });
+
+  const response = await rollbackRoute.POST(new Request("http://localhost/api/v1/skills/release-check/rollback?org_slug=acme", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ revision_number: 1 }),
+  }), { params: Promise.resolve({ slug: "release-check" }) });
+  assert.equal(response.status, 201);
+  assert.equal(globalThis.__createdProposals[0].proposal_type, "skill_update");
+  assert.deepEqual(globalThis.__createdProposals[0].metadata, {
+    confidence: 0.9,
+    correction_action: "rollback",
+    from_revision: 2,
+    to_revision: 1,
+  });
+
+  globalThis.__telemetryEvents = [];
+  const accepted = makeProposalSql([skillProposal({
+    proposal_type: "skill_update",
+    body_md: "# Release check v1",
+    metadata: { correction_action: "rollback", from_revision: 2, to_revision: 1 },
+  })], { existingSkill: true });
+  globalThis.__fakeSql = accepted.sql;
+  await brain.resolveMemoryProposal(makeAdmin(), { proposalId: PROPOSAL_ID, action: "accept" });
+  assert.deepEqual(globalThis.__telemetryEvents.at(-1).metadata, {
+    action: "rollback",
+    from_revision: 2,
+    to_revision: 1,
+  });
+});
+
 test("feature flag off makes both compiler routes invisible", async () => {
   delete process.env.FREGE_SKILLS_COMPILER;
   const compile = await compileRoute.POST(request({ material_id: MATERIAL_ID }));
   const material = await materialsRoute.POST(new Request("http://localhost/api/v1/materials", { method: "POST" }));
+  const rollback = await rollbackRoute.POST(new Request("http://localhost/api/v1/skills/release-check/rollback", { method: "POST" }), { params: Promise.resolve({ slug: "release-check" }) });
   assert.equal(compile.status, 404);
   assert.equal(material.status, 404);
+  assert.equal(rollback.status, 404);
 });
