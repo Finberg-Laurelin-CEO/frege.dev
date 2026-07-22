@@ -91,10 +91,13 @@ type ProviderChatInput = {
 /** POST /chat/completions for openrouter / vercel-ai-gateway / openai-compatible. */
 export async function postOpenAiCompatibleChat(input: ProviderChatInput): Promise<OpenAiCompatibleChatJson> {
   const baseUrl = defaultModelBaseUrl(input.config, { detailedError: input.errorStyle === "status_with_body" });
+  const apiKey = input.config.api_key ?? (input.config.provider === "vercel-ai-gateway"
+    ? process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN
+    : undefined);
   const response = await fetchModel(`${baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
-      ...(input.config.api_key ? { Authorization: `Bearer ${input.config.api_key}` } : {}),
+      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

@@ -53,6 +53,7 @@ const compileRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1/s
 const materialsRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1/materials/route.ts")).href);
 const rollbackRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1/skills/[slug]/rollback/route.ts")).href);
 const brain = await import(`${pathToFileURL(path.join(rootDir, "lib/core/brain.ts")).href}?actual=1`);
+const providerCall = await import(pathToFileURL(path.join(rootDir, "lib/core/provider-call.ts")).href);
 
 const ORG_ID = "10000000-0000-4000-8000-000000000001";
 const USER_ID = "20000000-0000-4000-8000-000000000002";
@@ -189,6 +190,29 @@ test("citation validation resolves session events/materials and reports bad refs
     ok: false,
     unresolved: ["material:not-a-uuid"],
   });
+});
+
+test("Vercel AI Gateway uses the deployment OIDC token when no stored key exists", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env.VERCEL_OIDC_TOKEN;
+  process.env.VERCEL_OIDC_TOKEN = "test-oidc-token";
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init.headers.Authorization, "Bearer test-oidc-token");
+    return Response.json({ choices: [{ message: { content: "ok" } }] });
+  };
+  try {
+    const response = await providerCall.postOpenAiCompatibleChat({
+      config: { provider: "vercel-ai-gateway", base_url: null, model_name: "openai/gpt-5-mini", api_key: null },
+      prompt: "test",
+      maxTokens: 1,
+      errorStyle: "status_only",
+    });
+    assert.equal(response.choices[0].message.content, "ok");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = originalToken;
+  }
 });
 
 test("compile maps model output to proposal_filed, nothing_found, and failed", async () => {
