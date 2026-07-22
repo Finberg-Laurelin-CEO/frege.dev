@@ -673,8 +673,12 @@ test("stream: member replay carries ledger ids as SSE ids, then tears down on ab
 
   const { buffer, reader } = await readStreamUntil(res, (text) => text.includes("evt-2"));
   assert.ok(buffer.includes("id: evt-1"), "SSE id must be the ledger event id");
-  assert.ok(buffer.includes("event: run.live.started"));
   assert.ok(buffer.includes("id: evt-2"));
+  assert.ok(
+    !buffer.includes("\nevent:") && !buffer.startsWith("event:"),
+    "ledger rows must be default SSE messages (EventSource.onmessage) — no custom event field",
+  );
+  assert.ok(buffer.includes('"event_type":"run.live.started"'), "the kind travels in data.event_type");
 
   abort.abort();
   await assert.doesNotReject(async () => {
@@ -739,7 +743,17 @@ test("stream: stale bridge with undelivered directives surfaces run.live.bridge.
   const { buffer } = await readStreamUntil(res, (text) => text.includes("run.live.bridge.disconnected"));
   abort.abort();
 
-  assert.ok(buffer.includes("event: run.live.bridge.disconnected"), "watchers must see the bridge truth");
+  const frame = buffer
+    .split("\n\n")
+    .find((chunk) => chunk.includes("run.live.bridge.disconnected"));
+  assert.ok(frame, "watchers must see the bridge truth");
+  assert.ok(!frame.includes("event:"), "synthetic frame must be a default message so onmessage fires");
+  assert.ok(!/^id:/m.test(frame), "synthetic frame must carry NO SSE id — Last-Event-ID stays a ledger cursor");
+
+  const data = JSON.parse(frame.replace(/^data: /, ""));
+  assert.equal(data.event_type, "run.live.bridge.disconnected");
+  assert.match(data.id, /^bridge-disconnected-/, "data.id must be unique and non-ledger");
+  assert.equal(data.payload.bridge_last_seen_at, "2026-07-22T11:00:00.000Z");
 });
 
 test("events: bridge batch appends run.live.* ledger events and marks the bridge live", async () => {

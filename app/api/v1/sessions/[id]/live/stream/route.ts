@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { orgContextFromMembership } from "@/lib/core/org-guard";
 import {
   LIVE_RUN_ROOMS_ENABLED,
@@ -41,6 +42,9 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
+// Default SSE messages only (no custom `event:` field): the watcher UI consumes
+// EventSource.onmessage, and named events would never reach it. The kind lives
+// in data.event_type; the ledger id doubles as the SSE id for reconnect.
 function sseEvent(event: LiveLedgerEvent): string {
   const data = JSON.stringify({
     id: event.id,
@@ -52,7 +56,7 @@ function sseEvent(event: LiveLedgerEvent): string {
     payload: event.payload,
     created_at: event.created_at,
   });
-  return `id: ${event.id}\nevent: ${event.event_type}\ndata: ${data}\n\n`;
+  return `id: ${event.id}\ndata: ${data}\n\n`;
 }
 
 // Watcher live view. Replays the ledger from the reconnect cursor
@@ -124,10 +128,15 @@ export async function GET(req: Request, context: RouteContext) {
           if (sessionRow && sessionRow.live_status === "live") {
             const stale = bridgeIsStale(sessionRow) && (await hasUndeliveredDirectives(sql, id, sessionRow.org_id));
             if (stale && !bridgeDownAnnounced) {
+              // Default message with a unique non-ledger data.id so the UI
+              // renders it without deduping, but NO SSE id: Last-Event-ID must
+              // stay a real ledger cursor.
               write(
-                `event: run.live.bridge.disconnected\ndata: ${JSON.stringify({
+                `data: ${JSON.stringify({
+                  id: `bridge-disconnected-${randomUUID()}`,
                   session_id: id,
-                  bridge_last_seen_at: sessionRow.bridge_last_seen_at,
+                  event_type: "run.live.bridge.disconnected",
+                  payload: { bridge_last_seen_at: sessionRow.bridge_last_seen_at },
                 })}\n\n`,
               );
               bridgeDownAnnounced = true;
