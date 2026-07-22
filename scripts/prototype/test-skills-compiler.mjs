@@ -12,6 +12,7 @@ const VIRTUAL = {
   "@/lib/core/admin-auth": "export async function authenticateAdminRequest(){ return globalThis.__adminAuthResult; }",
   "@/lib/core/actor-auth": "export async function authenticateFregeActor(){ return globalThis.__actorAuthResult; }",
   "@/lib/core/model-gateway": "export async function invokeModel(input){ return globalThis.__invokeModel(input); }",
+  "@/lib/core/model-configs": "export async function resolveModelConfig(){ return globalThis.__modelConfig; }",
   "@/lib/core/brain": `
     export async function createMemoryProposal(actor, input){ return globalThis.__createMemoryProposal(actor, input); }
     export async function getBrainSession(actor, id){ return globalThis.__getBrainSession(actor, id); }
@@ -54,6 +55,7 @@ const materialsRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1
 const rollbackRoute = await import(pathToFileURL(path.join(rootDir, "app/api/v1/skills/[slug]/rollback/route.ts")).href);
 const brain = await import(`${pathToFileURL(path.join(rootDir, "lib/core/brain.ts")).href}?actual=1`);
 const providerCall = await import(pathToFileURL(path.join(rootDir, "lib/core/provider-call.ts")).href);
+const modelGateway = await import(`${pathToFileURL(path.join(rootDir, "lib/core/model-gateway.ts")).href}?actual=1`);
 
 const ORG_ID = "10000000-0000-4000-8000-000000000001";
 const USER_ID = "20000000-0000-4000-8000-000000000002";
@@ -208,6 +210,31 @@ test("Vercel AI Gateway uses the deployment OIDC token when no stored key exists
       errorStyle: "status_only",
     });
     assert.equal(response.choices[0].message.content, "ok");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalToken === undefined) delete process.env.VERCEL_OIDC_TOKEN;
+    else process.env.VERCEL_OIDC_TOKEN = originalToken;
+  }
+});
+
+test("model gateway accepts deployment OIDC before invoking Vercel AI Gateway", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalToken = process.env.VERCEL_OIDC_TOKEN;
+  process.env.VERCEL_OIDC_TOKEN = "test-oidc-token";
+  globalThis.__modelConfig = {
+    provider: "vercel-ai-gateway",
+    base_url: null,
+    model_name: "openai/gpt-5-mini",
+    api_key: null,
+    allowed_trust_zones: ["green"],
+  };
+  globalThis.fetch = async (_url, init) => {
+    assert.equal(init.headers.Authorization, "Bearer test-oidc-token");
+    return Response.json({ choices: [{ message: { content: "ok" } }] });
+  };
+  try {
+    const response = await modelGateway.invokeModel({ orgId: ORG_ID, modelConfigSlug: "skills-compiler", prompt: "test" });
+    assert.equal(response.content, "ok");
   } finally {
     globalThis.fetch = originalFetch;
     if (originalToken === undefined) delete process.env.VERCEL_OIDC_TOKEN;

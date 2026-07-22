@@ -67,7 +67,11 @@ export async function invokeModel(input: ModelInvokeInput): Promise<ModelInvokeR
     config.provider === "vercel-ai-gateway" ||
     config.provider === "openai-compatible"
   ) {
-    if ((config.provider === "openrouter" || config.provider === "vercel-ai-gateway") && !config.api_key) {
+    const hasDeploymentGatewayKey = Boolean(process.env.AI_GATEWAY_API_KEY ?? process.env.VERCEL_OIDC_TOKEN);
+    if (
+      (config.provider === "openrouter" && !config.api_key)
+      || (config.provider === "vercel-ai-gateway" && !config.api_key && !hasDeploymentGatewayKey)
+    ) {
       throw new Error("model_api_key_missing");
     }
     const json = await postOpenAiCompatibleChat({
