@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getSql } from "@/lib/db";
 import { authenticateAdminRequest } from "@/lib/core/admin-auth";
 import { resolveMemoryProposal } from "@/lib/core/brain";
 import { assertActiveHumanOrg } from "@/lib/core/org-guard";
@@ -14,6 +15,8 @@ type RouteContext = {
 
 const resolveSchema = z.object({
   action: z.enum(["accept", "reject"]),
+  body_md: z.string().trim().min(1).max(100_000).optional(),
+  reason: z.string().trim().min(1).max(2_000).optional(),
 });
 
 export async function PATCH(req: Request, context: RouteContext) {
@@ -34,6 +37,27 @@ export async function PATCH(req: Request, context: RouteContext) {
     }
 
     const { id } = await context.params;
+    if (parsed.data.body_md !== undefined || parsed.data.reason !== undefined) {
+      if (!authResult.auth.capabilities.canReviewMemoryProposals) {
+        return Response.json({ error: "memory_review_forbidden" }, { status: 403 });
+      }
+      const sql = getSql();
+      const [updated] = await sql`
+        update memory_proposals
+        set
+          body_md = coalesce(${parsed.data.body_md ?? null}, body_md),
+          metadata = case
+            when ${parsed.data.reason ?? null}::text is null then metadata
+            else jsonb_set(metadata, '{review_reason}', to_jsonb(${parsed.data.reason ?? null}::text), true)
+          end
+        where id = ${id}
+          and org_id = ${authResult.auth.organization.id}
+          and status = 'pending'
+          and proposal_type in ('skill_create', 'skill_update')
+        returning id
+      `;
+      if (!updated) return Response.json({ error: "memory_proposal_not_found" }, { status: 404 });
+    }
     const result = await resolveMemoryProposal(authResult.auth, { proposalId: id, action: parsed.data.action });
     await logTelemetryEvent({
       actor: { type: "user", auth: authResult.auth },

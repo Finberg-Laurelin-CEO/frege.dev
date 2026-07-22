@@ -227,6 +227,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
   const [approvedSkills, setApprovedSkills] = useState<ApprovedSkillRow[]>([]);
   const [uploadedMaterials, setUploadedMaterials] = useState<UploadedMaterialRow[]>([]);
   const [compileResults, setCompileResults] = useState<Record<string, CompileSummary>>({});
+  const [proposalEdits, setProposalEdits] = useState<Record<string, string>>({});
   const [contextOutput, setContextOutput] = useState("");
 
   const selectedOrg = useMemo(
@@ -319,6 +320,7 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
       setSkillsEnabled(null);
       setUploadedMaterials([]);
       setCompileResults({});
+      setProposalEdits({});
       void refreshAdminData(selectedOrgSlug);
     }
   }, [selectedOrgSlug]);
@@ -576,14 +578,24 @@ export default function AdminConsole({ embedded = false }: { embedded?: boolean 
     );
   }
 
-  async function resolveMemoryProposal(id: string, action: "accept" | "reject") {
+  async function resolveMemoryProposal(id: string, action: "accept" | "reject", bodyMd?: string) {
+    const reason = action === "reject" ? window.prompt("Why is this skill proposal being rejected?")?.trim() : undefined;
+    if (action === "reject" && !reason) {
+      setStatus("rejection reason required");
+      return;
+    }
     setStatus(`${action}ing proposal`);
     try {
       await fetch(`/api/v1/admin/brain/proposals/${id}?org_slug=${encodeURIComponent(selectedOrgSlug)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, body_md: bodyMd, reason }),
       }).then(readJson);
+      setProposalEdits((edits) => {
+        const next = { ...edits };
+        delete next[id];
+        return next;
+      });
       await refreshAdminData();
     } catch (error) {
       setStatus((error as Error).message);
@@ -1425,7 +1437,7 @@ Keep model credentials, tools, and execution in the user's agent client.`}</pre>
                             <td>
                               {proposal.status === "pending" && (
                                 <span className={styles.rowActions}>
-                                  <button className={styles.button} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "accept")}>accept</button>
+                                  <button className={styles.button} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "accept", isSkillProposal ? proposalEdits[proposal.id] ?? bodyMd : undefined)}>accept</button>
                                   <button className={`${styles.button} ${styles.buttonSecondary}`} type="button" disabled={orgWriteLocked} onClick={() => resolveMemoryProposal(proposal.id, "reject")}>reject</button>
                                 </span>
                               )}
@@ -1439,7 +1451,16 @@ Keep model credentials, tools, and execution in the user's agent client.`}</pre>
                                     <strong>SKILL.md</strong>
                                     <span className={styles.meta}>confidence: {confidence == null ? "not provided" : String(confidence)}</span>
                                   </div>
-                                  <pre className={styles.skillBody}>{bodyMd || "SKILL.md body unavailable in proposal payload."}</pre>
+                                  {proposal.status === "pending" ? (
+                                    <textarea
+                                      aria-label={`Edit ${proposal.title} SKILL.md`}
+                                      className={`${styles.textarea} ${styles.skillBody}`}
+                                      value={proposalEdits[proposal.id] ?? bodyMd}
+                                      onChange={(event) => setProposalEdits((edits) => ({ ...edits, [proposal.id]: event.target.value }))}
+                                    />
+                                  ) : (
+                                    <pre className={styles.skillBody}>{bodyMd || "SKILL.md body unavailable in proposal payload."}</pre>
+                                  )}
                                   <div>
                                     <span className={styles.label}>citations</span>
                                     {citations.length > 0 ? (
