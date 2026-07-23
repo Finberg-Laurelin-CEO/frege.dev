@@ -680,6 +680,7 @@ test("stream: member replay carries ledger ids as SSE ids, then tears down on ab
   );
   assert.ok(buffer.includes('"event_type":"run.live.started"'), "the kind travels in data.event_type");
 
+  await new Promise((resolve) => setTimeout(resolve, 2));
   abort.abort();
   await assert.doesNotReject(async () => {
     for (let i = 0; i < 50; i += 1) {
@@ -691,6 +692,22 @@ test("stream: member replay carries ledger ids as SSE ids, then tears down on ab
 
   const opened = globalThis.__telemetryLog.find((row) => row.action === "run_room.watch_opened");
   assert.ok(opened, "watch_opened telemetry must fire once per connection");
+  for (let i = 0; i < 20 && !globalThis.__telemetryLog.some((row) => row.action === "run_room.watch_metered"); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  const metered = globalThis.__telemetryLog.find((row) => row.action === "run_room.watch_metered");
+  assert.ok(metered, "watch_metered telemetry must capture the connection duration");
+  assert.equal(metered.metadata.billing_unit, "watcher_hour");
+  assert.ok(metered.metadata.watcher_seconds > 0);
+});
+
+test("runRoomWatcherUsage: produces a configurable per-hour cost estimate", () => {
+  delete process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR;
+  assert.deepEqual(runRooms.runRoomWatcherUsage(3_600_000), {
+    watcherHours: 1,
+    estimatedCostUsd: 0.08,
+    costRateUsdPerHour: 0.08,
+  });
 });
 
 test("stream: reconnect cursor (Last-Event-ID) replays only events after the cursor", async () => {

@@ -94,6 +94,7 @@ export type CreateDirectiveInput = {
 };
 
 export const RUN_ROOM_WATCH_OPENED = "run_room.watch_opened";
+export const RUN_ROOM_WATCH_METERED = "run_room.watch_metered";
 export const RUN_ROOM_CONTROL = "run_room.control";
 export const SESSION_LIVE_STOP = "session.live.stop";
 export const SESSION_LIVE_REDIRECT = "session.live.redirect";
@@ -103,6 +104,26 @@ export const SESSION_LIVE_LEASE = "session.live.lease";
 
 // The bridge is considered gone when it has not touched the server for this long.
 export const BRIDGE_STALE_MS = 60_000;
+export const DEFAULT_RUN_ROOM_WATCHER_COST_USD_PER_HOUR = 0.08;
+
+export function runRoomWatcherUsage(durationMs: number): {
+  watcherHours: number;
+  estimatedCostUsd: number;
+  costRateUsdPerHour: number;
+} {
+  const configuredRate = Number(process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR);
+  const costRateUsdPerHour =
+    Number.isFinite(configuredRate) && configuredRate >= 0
+      ? configuredRate
+      : DEFAULT_RUN_ROOM_WATCHER_COST_USD_PER_HOUR;
+  const watcherHours = Math.max(0, durationMs) / 3_600_000;
+
+  return {
+    watcherHours,
+    estimatedCostUsd: Number((watcherHours * costRateUsdPerHour).toFixed(6)),
+    costRateUsdPerHour,
+  };
+}
 
 const LEASE_RETURNING = "id, org_id, controller_user_id, lease_acquired_at";
 

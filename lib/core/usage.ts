@@ -165,13 +165,24 @@ export async function platformUsageByOrg(days = 30) {
       coalesce(sum(ud.denied_events), 0)::int as denied_events,
       coalesce(sum(ud.input_tokens), 0)::bigint as input_tokens,
       coalesce(sum(ud.output_tokens), 0)::bigint as output_tokens,
-      coalesce(sum(ud.estimated_cost_usd), 0)::float as estimated_cost_usd
+      coalesce(sum(ud.estimated_cost_usd), 0)::float as estimated_cost_usd,
+      coalesce(rr.watcher_hours, 0)::float as live_room_watcher_hours,
+      coalesce(rr.estimated_cost_usd, 0)::float as live_room_estimated_cost_usd
     from organizations o
     left join usage_daily ud
       on ud.org_id = o.id
       and ud.actor_user_id is null
       and ud.day > (now() - ${`${days} days`}::interval)::date
-    group by o.id, o.slug, o.name, o.status
+    left join lateral (
+      select
+        coalesce(sum((metadata->>'watcher_hours')::numeric), 0) as watcher_hours,
+        coalesce(sum(estimated_cost_usd), 0) as estimated_cost_usd
+      from telemetry_events
+      where org_id = o.id
+        and action = 'run_room.watch_metered'
+        and created_at > now() - ${`${days} days`}::interval
+    ) rr on true
+    group by o.id, o.slug, o.name, o.status, rr.watcher_hours, rr.estimated_cost_usd
     order by estimated_cost_usd desc, model_calls desc
   `;
 }
