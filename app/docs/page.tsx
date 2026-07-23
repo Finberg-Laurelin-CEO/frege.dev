@@ -39,11 +39,12 @@ const toc: [string, string, string][] = [
   ["06", "zsh-path", "Path fixes"],
   ["07", "mcp-register", "Register MCP"],
   ["08", "local-agent", "Frege Agent"],
-  ["09", "docs-push", "Push documents"],
-  ["10", "agent-instructions", "Agent rules"],
-  ["11", "tools", "MCP tools"],
-  ["12", "troubleshooting", "Troubleshooting"],
-  ["13", "security", "Security"],
+  ["09", "live-run-rooms", "Live Run Rooms"],
+  ["10", "docs-push", "Push documents"],
+  ["11", "agent-instructions", "Agent rules"],
+  ["12", "tools", "MCP tools"],
+  ["13", "troubleshooting", "Troubleshooting"],
+  ["14", "security", "Security"],
 ];
 
 const quickFacts: [string, string, string][] = [
@@ -456,6 +457,25 @@ frege-agent chat`}
               Frege does not receive your model-provider credential and does not run this
               agent. The profile runs through the open-source Hermes runtime and reaches
               Frege only through <code>frege mcp serve</code>.
+            </p>
+          </section>
+
+          <section id="live-run-rooms">
+            <h2>Share a live Codex run</h2>
+            <p>
+              Live Run Rooms are a Codex-first private beta. Authorized teammates can
+              watch tool activity and approval requests as they happen. One controller
+              can redirect or stop the run, resolve an exact pending approval, or hand
+              control to another teammate who continues the same thread.
+            </p>
+            <CopyableCodeBlock
+              label="start a live Codex run room"
+              value={`FREGE_LIVE_RUN_ROOMS=true frege run codex
+FREGE_LIVE_RUN_ROOMS=true frege run codex -- -c model="gpt-5"`}
+            />
+            <p className="docs__note">
+              The CLI prints the private watch URL. Codex, its sandbox, and its tools stay
+              on the originating machine; Frege records the shared event and control history.
             </p>
           </section>
 

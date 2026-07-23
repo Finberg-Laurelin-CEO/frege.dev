@@ -411,6 +411,13 @@ export default function ArchitecturePage() {
           redacting obvious API keys, passwords, authorization headers, cookies, and
           provider tokens.
         </p>
+        <p>
+          In the Live Run Rooms private beta, the local CLI streams Codex App Server events
+          into this ledger and polls recorded control directives. Authorized same-org
+          teammates can watch the feed while a controller lease gates redirects, stops,
+          exact approval resolution, and handoff. Codex still executes on the originating
+          machine under its existing sandbox and approval settings.
+        </p>
       </section>
 
       <section id="proposals-detail">

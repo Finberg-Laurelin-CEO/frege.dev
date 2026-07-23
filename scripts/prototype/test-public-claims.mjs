@@ -147,14 +147,21 @@ test("the public roadmap has statuses but no speculative dates", async () => {
 });
 
 test("live run room availability is public only behind its production flag", async () => {
-  const [home, readme] = await Promise.all([
+  const [home, readme, roadmap, docs, architecture] = await Promise.all([
     read("app/components/PublicHomeV2.tsx"),
     read("README.md"),
+    read("lib/public-roadmap.ts"),
+    read("app/docs/page.tsx"),
+    read("app/architecture/page.tsx"),
   ]);
 
   assert.match(home, /process\.env\.FREGE_LIVE_RUN_ROOMS === "true"/);
   assert.match(home, /Shared live agent sessions \(private beta, Codex\)/);
   assert.match(readme, /Shared live Codex sessions \(private beta\)/);
+  assert.match(roadmap, /title: "Shared live Codex sessions"[\s\S]*?status: "beta"/);
+  assert.match(roadmap, /title: "Durable workflow approval gates"/);
+  assert.match(docs, /Share a live Codex run/);
+  assert.match(architecture, /controller lease gates redirects, stops/);
 });
 
 test("optimized public artwork stays inside its performance budgets", async () => {
@@ -257,7 +264,7 @@ test("Docs copy controls cover runnable snippets without touching diagrams", asy
 
   assert.equal(
     [...docs.matchAll(/<CopyableCodeBlock\b/g)].length,
-    10,
+    11,
     "every runnable Docs snippet should have one copy control",
   );
   assert.match(copyable, /navigator\.clipboard\?\.writeText/);

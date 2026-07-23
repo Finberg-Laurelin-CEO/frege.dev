@@ -65,6 +65,13 @@ export const CAPABILITY_GROUPS = [
         status: "available",
       },
       {
+        id: "live-run-rooms",
+        title: "Shared live Codex sessions",
+        description:
+          "Authorized teammates can watch, redirect, stop, resolve exact approval requests, and hand off a live Codex run while execution stays on its originating machine.",
+        status: "beta",
+      },
+      {
         id: "mcp-cli-access",
         title: "MCP and CLI access",
         description:
@@ -140,9 +147,9 @@ export const CAPABILITY_GROUPS = [
       },
       {
         id: "approval-gates",
-        title: "Approval gates",
+        title: "Durable workflow approval gates",
         description:
-          "Pause consequential work, collect an authorized decision, and resume from recorded state.",
+          "Extend the live Codex approval path into durable, multi-step workflows that pause, collect an authorized decision, and resume from recorded state.",
         status: "planned",
       },
       {
