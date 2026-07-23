@@ -158,6 +158,21 @@ frege agent install codex
 frege agent install hermes
 ```
 
+## Experimental: live Codex run rooms
+
+With the server-side feature flag enabled, start a local Codex App Server and
+publish its live activity to a private Frege run room:
+
+```bash
+FREGE_LIVE_RUN_ROOMS=true frege run codex
+FREGE_LIVE_RUN_ROOMS=true frege run codex -- -c model="gpt-5"
+```
+
+The command uses the existing Frege connection, prints the private watch URL,
+and leaves Codex execution and its sandbox/approval policy on this machine.
+Unsent ledger events are spooled under `~/.frege/run-rooms/` if Frege stays
+unreachable after retries.
+
 ## Push Markdown Documents
 
 Use the CLI to push markdown into the Frege document store. Markdown is preserved, including normal links and wikilinks such as `[[self-serve signup]]`.

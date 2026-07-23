@@ -1825,6 +1825,19 @@
 .heroLead { max-width: 610px; }
 .hero .actions { align-items: center; }
 
+.liveRunBeta {
+  max-width: 680px;
+  margin: 20px 0 0;
+  padding: 12px 14px;
+  border-left: 2px solid rgba(197, 213, 170, 0.72);
+  background: rgba(3, 20, 13, 0.48);
+  color: rgba(246, 247, 245, 0.86);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.liveRunBeta strong { color: #f6f7f5; }
+
 .heroEnter {
   display: inline-flex;
   gap: 18px;
@@ -2058,6 +2071,11 @@
     max-width: 35ch;
     font-size: 16px;
     line-height: 1.48;
+  }
+
+  .liveRunBeta {
+    max-width: 40ch;
+    font-size: 13px;
   }
 
   .heroArt {

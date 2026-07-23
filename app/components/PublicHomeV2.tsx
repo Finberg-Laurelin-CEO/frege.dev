@@ -64,6 +64,8 @@ function AsciiDivider({ index, label }: { index: string; label: string }) {
 }
 
 export default function PublicHomeV2() {
+  const liveRunRoomsAvailable = process.env.FREGE_LIVE_RUN_ROOMS === "true";
+
   return (
     <main id="main" className={styles.site}>
       <section className={styles.hero} aria-labelledby="v2-hero-title">
@@ -107,6 +109,16 @@ export default function PublicHomeV2() {
               Enter the operating layer <span aria-hidden="true">↓</span>
             </a>
           </div>
+          {liveRunRoomsAvailable ? (
+            <p className={styles.liveRunBeta}>
+              <strong>Shared live agent sessions (private beta, Codex)</strong> — Authorized
+              teammates watch a running agent session live: tool calls, file changes, and
+              approval requests as they happen. One controller can redirect the run, stop it,
+              resolve approvals, or hand control to a teammate who continues the same thread.
+              Execution stays on your machine; every control decision is recorded in the
+              governed session history.
+            </p>
+          ) : null}
           <dl className={styles.heroFacts} aria-label="Frege product facts">
             <div><dt>Interface</dt><dd>MCP + REST</dd></div>
             <div><dt>Control</dt><dd>Organization + role</dd></div>

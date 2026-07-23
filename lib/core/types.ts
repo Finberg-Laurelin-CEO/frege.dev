@@ -117,6 +117,21 @@ export const BRAIN_SESSION_EVENT_TYPES = [
   "model_invoke",
   "memory_signal",
   "note",
+  "run.live.started",
+  "run.live.agent_message",
+  "run.live.command.started",
+  "run.live.command.finished",
+  "run.live.file_change",
+  "run.live.approval.requested",
+  "run.live.approval.resolved",
+  "run.live.interrupted",
+  "run.live.redirected",
+  "run.live.lease.claimed",
+  "run.live.lease.handed_off",
+  "run.live.lease.released",
+  "run.live.bridge.disconnected",
+  "run.live.ended",
+  "run.live.denied",
 ] as const;
 export type BrainSessionEventType = (typeof BRAIN_SESSION_EVENT_TYPES)[number];
 

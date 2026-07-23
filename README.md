@@ -40,6 +40,9 @@ roadmap.
   stdio MCP clients to the hosted Frege API.
 - A downloadable Frege Agent profile for Hermes that runs with the user's
   model, tools, credentials, and compute.
+- Shared live Codex sessions (private beta) where authorized teammates watch,
+  redirect, stop, resolve approvals, and hand off control while execution
+  remains on the originating machine.
 
 ### Planned
 

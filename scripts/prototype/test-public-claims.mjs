@@ -146,6 +146,17 @@ test("the public roadmap has statuses but no speculative dates", async () => {
   assert.doesNotMatch(copy, /\b20\d{2}\b|\bQ[1-4]\b/);
 });
 
+test("live run room availability is public only behind its production flag", async () => {
+  const [home, readme] = await Promise.all([
+    read("app/components/PublicHomeV2.tsx"),
+    read("README.md"),
+  ]);
+
+  assert.match(home, /process\.env\.FREGE_LIVE_RUN_ROOMS === "true"/);
+  assert.match(home, /Shared live agent sessions \(private beta, Codex\)/);
+  assert.match(readme, /Shared live Codex sessions \(private beta\)/);
+});
+
 test("optimized public artwork stays inside its performance budgets", async () => {
   const assets = [
     "public/art/hesperus/hesperus-duotone-desktop.avif",
