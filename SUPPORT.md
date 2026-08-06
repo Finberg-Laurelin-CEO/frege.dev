@@ -22,13 +22,21 @@ confidential customer content, or unredacted environment files. Frege support
 will ask for a safer transfer method if sensitive diagnostic material is
 necessary.
 
-## Bug form configuration
+## Bug form delivery and privacy
 
-The public form posts through the server using `FORMSPREE_BUG_REPORT_FORM_ID`.
-In Formspree, create or select that form, set its notification recipient to
-`bugs@agents.frege.dev`, complete Formspree's recipient verification, then set
-the server-only environment variable to the form ID. No Formspree or AgentMail
-credential belongs in browser code.
+The public form posts to a server route on frege.dev. The server validates the
+report and sends it as a plain-text email to `bugs@agents.frege.dev` through
+[AgentMail](https://agentmail.to), the email provider for the agents.frege.dev
+domain. AgentMail processes the report content as a third party. The server
+sends only the form fields. It does not attach IP addresses or browser
+metadata to the email. Rate-limit counters store a salted hash of the client
+IP, never the raw IP.
+
+The AgentMail credential is the server-only environment variable
+`AGENTMAIL_BUG_REPORT_API_KEY`. The key can only send mail to that inbox. It
+cannot read mail. No mail credential belongs in browser code or in the
+repository. If the variable is not set, the form returns a clear error and the
+`mailto:` fallback stays available.
 
 ## Support boundaries
 

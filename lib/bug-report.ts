@@ -1,7 +1,43 @@
+// Client-safe bug-report schema and constants. The server-side delivery flow
+// lives in lib/core/bug-report-flow.ts so no delivery code or credential
+// handling is pulled into the browser bundle.
 import { z } from "zod";
 
 export const BUG_REPORT_EMAIL = "bugs@agents.frege.dev";
 export const BUG_REPORT_MAX_BYTES = 24_000;
+
+// C0 controls plus DEL, excluding tab and newline (kept in multiline fields
+// after CRLF normalization). Raw CR never survives: multiline fields normalize
+// it away and single-line fields reject it, so no field can smuggle CRLF into
+// a mail header or upstream request.
+const FORBIDDEN_MULTILINE_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+const ANY_CONTROL = /[\u0000-\u001F\u007F]/;
+
+const controlCharMessage = "Remove control characters from this field.";
+
+function singleLine(min: number, max: number, minMessage: string, maxMessage?: string) {
+  return z
+    .string()
+    .trim()
+    .min(min, minMessage)
+    .max(max, maxMessage)
+    .refine((value) => !ANY_CONTROL.test(value), { message: controlCharMessage });
+}
+
+function multiline(min: number, max: number, minMessage: string) {
+  return z
+    .string()
+    .max(max * 2)
+    .transform((value) => value.replace(/\r\n?/g, "\n"))
+    .pipe(
+      z
+        .string()
+        .trim()
+        .min(min, minMessage)
+        .max(max)
+        .refine((value) => !FORBIDDEN_MULTILINE_CONTROL.test(value), { message: controlCharMessage }),
+    );
+}
 
 const optionalEmail = z
   .union([z.literal(""), z.string().trim().email("Enter a valid email address.").max(254)])
@@ -16,6 +52,9 @@ const optionalPageUrl = z
       .trim()
       .max(2_048, "Page URL is too long.")
       .url("Enter a valid page URL.")
+      // WHATWG URL parsing (which .url() uses) silently strips raw tab/CR/LF,
+      // so also reject control characters in the raw string.
+      .refine((value) => !ANY_CONTROL.test(value), { message: controlCharMessage })
       .refine((value) => ["http:", "https:"].includes(new URL(value).protocol), {
         message: "Page URL must start with http:// or https://.",
       }),
@@ -25,84 +64,15 @@ const optionalPageUrl = z
 
 export const bugReportSchema = z
   .object({
-    summary: z.string().trim().min(5, "Add a short summary.").max(160, "Keep the summary under 160 characters."),
-    details: z.string().trim().min(10, "Add enough detail to understand the bug.").max(5_000),
-    reproduction_steps: z.string().trim().min(5, "Add the steps that reproduce the bug.").max(5_000),
-    expected_behavior: z.string().trim().min(5, "Describe what you expected.").max(3_000),
-    actual_behavior: z.string().trim().min(5, "Describe what actually happened.").max(3_000),
+    summary: singleLine(5, 160, "Add a short summary.", "Keep the summary under 160 characters."),
+    details: multiline(10, 5_000, "Add enough detail to understand the bug."),
+    reproduction_steps: multiline(5, 5_000, "Add the steps that reproduce the bug."),
+    expected_behavior: multiline(5, 3_000, "Describe what you expected."),
+    actual_behavior: multiline(5, 3_000, "Describe what actually happened."),
     contact_email: optionalEmail,
     page_url: optionalPageUrl,
     _gotcha: z.string().max(200).optional().default(""),
   })
   .strict();
 
-type BugReportDeps = {
-  formId?: string;
-  fetch: typeof fetch;
-};
-
-function errorResponse(error: string, status: number): Response {
-  return Response.json({ error, fallback_email: BUG_REPORT_EMAIL }, { status });
-}
-
-export async function handleBugReportRequest(req: Request, deps: BugReportDeps): Promise<Response> {
-  if (!req.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
-    return errorResponse("unsupported_media_type", 415);
-  }
-
-  const declaredBytes = Number(req.headers.get("content-length"));
-  if (Number.isFinite(declaredBytes) && declaredBytes > BUG_REPORT_MAX_BYTES) {
-    return errorResponse("payload_too_large", 413);
-  }
-
-  let rawBody: string;
-  try {
-    rawBody = await req.text();
-  } catch {
-    return errorResponse("invalid_body", 400);
-  }
-  if (new TextEncoder().encode(rawBody).byteLength > BUG_REPORT_MAX_BYTES) {
-    return errorResponse("payload_too_large", 413);
-  }
-
-  let body: unknown;
-  try {
-    body = JSON.parse(rawBody);
-  } catch {
-    return errorResponse("invalid_json", 400);
-  }
-
-  const parsed = bugReportSchema.safeParse(body);
-  if (!parsed.success) return errorResponse("validation", 400);
-
-  // Bots get a normal-looking success so the honeypot does not teach them how
-  // to bypass it, while no third-party request or email is generated.
-  if (parsed.data._gotcha) return Response.json({ ok: true });
-
-  const formId = deps.formId?.trim();
-  if (!formId || !/^[a-zA-Z0-9]+$/.test(formId)) {
-    return errorResponse("not_configured", 503);
-  }
-
-  const { _gotcha, ...report } = parsed.data;
-  try {
-    const response = await deps.fetch(`https://formspree.io/f/${formId}`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...report,
-        email: report.contact_email,
-        _subject: `Frege bug report: ${report.summary}`,
-        source: "frege.dev/report-a-bug",
-      }),
-    });
-    if (!response.ok) return errorResponse("delivery_failed", 502);
-  } catch {
-    return errorResponse("delivery_failed", 502);
-  }
-
-  return Response.json({ ok: true });
-}
+export type BugReport = Omit<z.infer<typeof bugReportSchema>, "_gotcha">;

@@ -62,6 +62,8 @@ export default function BugReportForm() {
       <p className={styles.warning}>
         <strong>Do not submit secrets or sensitive personal data.</strong> Redact API keys,
         credentials, customer content, and private identifiers before sending.
+        Reports go to {BUG_REPORT_EMAIL} through AgentMail, the email provider for
+        agents.frege.dev. Only the fields below are sent.
       </p>
 
       {submitError ? (
@@ -116,7 +118,7 @@ export default function BugReportForm() {
             minLength={5}
             maxLength={5_000}
             rows={6}
-            placeholder="1. Open…\n2. Select…\n3. Observe…"
+            placeholder={"1. Open…\n2. Select…\n3. Observe…"}
             aria-invalid={Boolean(errors.reproduction_steps)}
             aria-describedby={errors.reproduction_steps ? "reproduction_steps-error" : undefined}
           />

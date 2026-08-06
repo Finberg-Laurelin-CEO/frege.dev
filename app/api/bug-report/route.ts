@@ -1,4 +1,5 @@
-import { handleBugReportRequest } from "@/lib/bug-report";
+import { handleBugReportRequest } from "@/lib/core/bug-report-flow";
+import { checkRateLimit, rateLimitedResponse } from "@/lib/core/rate-limit";
 import { assertSafeBrowserMutation } from "@/lib/core/request-guards";
 
 export const runtime = "nodejs";
@@ -9,7 +10,9 @@ export async function POST(req: Request) {
   if (originError) return originError;
 
   return handleBugReportRequest(req, {
-    formId: process.env.FORMSPREE_BUG_REPORT_FORM_ID,
+    apiKey: process.env.AGENTMAIL_BUG_REPORT_API_KEY,
     fetch,
+    checkRateLimit,
+    rateLimitedResponse,
   });
 }
