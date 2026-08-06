@@ -3,7 +3,7 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 const FORK_URL = "https://github.com/Finberg-Laurelin-CEO/graphify-frege";
-const FORK_COMMIT = "d61ab06a2c23d4bcf2c748b573e6b13b309ee0d4";
+const FORK_COMMIT = "ed68f66338644355c5102ec1282661912ee77300";
 const INSTALL_HINT = `Install the compatible fork: uv tool install --force git+${FORK_URL}.git@${FORK_COMMIT}`;
 const SCHEMA = "frege.graphify.code-graph";
 const VERSION = 1;
@@ -15,6 +15,26 @@ const MAX_EDGES = 200_000;
 const MAX_QUERY_CHARS = 2_000;
 const MAX_QUERY_BUDGET = 4_000;
 const MAX_PROCESS_OUTPUT = 64 * 1024;
+// The Graphify child receives only what an installed local executable needs:
+// executable resolution, home/temp directories, platform essentials on
+// Windows, locale, and the Graphify settings this adapter itself owns. It
+// never receives FREGE_API_KEY, database URLs, or other application secrets.
+const CHILD_ENV_KEYS = [
+  "PATH", "PATHEXT",
+  "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH",
+  "TMPDIR", "TEMP", "TMP",
+  "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC",
+  "LANG", "LC_ALL", "LC_CTYPE", "LC_MESSAGES", "TZ",
+  "GRAPHIFY_OUT", "GRAPHIFY_NO_TIPS",
+];
+
+function childEnvironment(env, testOnlyChildEnv) {
+  const child = {};
+  for (const key of CHILD_ENV_KEYS) {
+    if (env[key] !== undefined) child[key] = env[key];
+  }
+  return { ...child, ...testOnlyChildEnv };
+}
 
 export const graphifyMcpTools = [
   {
@@ -125,7 +145,7 @@ export function runGraphify(argv, options = {}) {
     let settled = false;
     const child = spawn(binary, argv, {
       cwd,
-      env,
+      env: childEnvironment(env, options.testOnlyChildEnv),
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
@@ -293,12 +313,15 @@ export async function graphifyIndex(target = ".", options = {}) {
   const graphExists = await stat(paths.graph).then((info) => info.isFile(), () => false);
   const graphifyEnv = { ...env, GRAPHIFY_OUT: paths.out, GRAPHIFY_NO_TIPS: "1" };
   const command = graphExists ? ["update", root] : ["extract", root, "--code-only", "--out", paths.out];
-  await runGraphify(command, { cwd: paths.root, env: graphifyEnv, timeoutMs: 120_000 });
+  await runGraphify(command, {
+    cwd: paths.root, env: graphifyEnv, timeoutMs: 120_000, testOnlyChildEnv: options.testOnlyChildEnv,
+  });
   try {
     await runGraphify(["export", "frege", "--graph", paths.graph, "--output", paths.artifact], {
       cwd: paths.root,
       env: graphifyEnv,
       timeoutMs: 30_000,
+      testOnlyChildEnv: options.testOnlyChildEnv,
     });
   } catch {
     throw new Error(`The installed Graphify build lacks the Frege v1 export contract. ${INSTALL_HINT}`);
@@ -319,14 +342,34 @@ export async function graphifyQuery(query, options = {}) {
     cwd: paths.root,
     env: { ...env, GRAPHIFY_OUT: paths.out },
     timeoutMs: 15_000,
+    testOnlyChildEnv: options.testOnlyChildEnv,
   });
   if (!output) throw new Error("Graphify returned no local query result.");
   return output;
 }
 
-export async function callGraphifyTool(name, input, options) {
+// MCP clients are not obliged to enforce the advertised JSON Schema, so tool
+// arguments are re-validated here at runtime. The CLI keeps parsing numeric
+// flags from argv strings through positiveInteger instead.
+function toolArguments(input) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error("tool arguments must be an object.");
+  }
+  if (typeof input.query !== "string") throw new Error("query must be a string.");
+  for (const key of ["budget", "limit"]) {
+    if (input[key] !== undefined && typeof input[key] !== "number") {
+      throw new Error(`${key} must be a number when provided.`);
+    }
+  }
+  return input;
+}
+
+export async function callGraphifyTool(name, rawInput, options) {
+  if (name !== "frege_code_graph_query" && name !== "frege_code_context") {
+    throw new Error(`unknown_tool:${name}`);
+  }
+  const input = toolArguments(rawInput);
   if (name === "frege_code_graph_query") return graphifyQuery(input.query, { ...options, budget: input.budget });
-  if (name !== "frege_code_context") throw new Error(`unknown_tool:${name}`);
 
   const query = queryText(input.query);
   const limit = positiveInteger(input.limit, 8, 25, "limit");

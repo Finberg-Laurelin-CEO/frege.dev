@@ -11,7 +11,7 @@ The Frege CLI can invoke a separately installed Graphify fork for opt-in local
 code-graph indexing and query. Frege does not bundle or redistribute Graphify.
 
 - Fork: https://github.com/Finberg-Laurelin-CEO/graphify-frege
-- Pinned fork commit: `d61ab06a2c23d4bcf2c748b573e6b13b309ee0d4`
+- Pinned fork commit: `ed68f66338644355c5102ec1282661912ee77300`
 - Upstream: https://github.com/Graphify-Labs/graphify
 - Pinned upstream v8 baseline: `07b9143d4b90b1e1cb88dc71423f742a501efd29`
   (Graphify `0.9.34`)

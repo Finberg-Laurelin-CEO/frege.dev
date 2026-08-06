@@ -165,7 +165,7 @@ graph. Pin the accepted fork; the upstream `graphifyy` 0.9.34 package does not
 contain the required Frege v1 export contract.
 
 ```bash
-uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@d61ab06a2c23d4bcf2c748b573e6b13b309ee0d4"
+uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@ed68f66338644355c5102ec1282661912ee77300"
 graphify --version
 
 export FREGE_CODE_GRAPH=true
@@ -182,8 +182,10 @@ joins that response with the local Graphify result in this CLI process. Source,
 hosted request or telemetry.
 
 `GRAPHIFY_OUT` may select another output directory inside the current project.
-`FREGE_GRAPHIFY_BIN` may name an executable path. Project escapes, symlink
-escapes, incompatible schemas, oversized files/output, and timeouts fail closed.
+`FREGE_GRAPHIFY_BIN` may name an executable path. The Graphify process runs
+with a minimal environment; `FREGE_API_KEY` and other application secrets are
+never passed to it. Project escapes, symlink escapes, incompatible schemas,
+oversized files/output, and timeouts fail closed.
 Unset `FREGE_CODE_GRAPH` to remove the commands and MCP tools without changing
 any hosted Frege behavior.
 

@@ -8,6 +8,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  callGraphifyTool,
   graphifyDoctor,
   graphifyIndex,
   graphifyQuery,
@@ -49,7 +50,8 @@ import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 const args = process.argv.slice(2);
 if (process.env.STUB_LOG) appendFileSync(process.env.STUB_LOG, JSON.stringify(args) + "\\n");
-if (process.env.STUB_MODE === "hang") setInterval(() => {}, 1000);
+if (args[0] === "env") console.log(JSON.stringify(process.env));
+else if (process.env.STUB_MODE === "hang") setInterval(() => {}, 1000);
 else if (process.env.STUB_MODE === "fail") process.exit(7);
 else if (process.env.STUB_MODE === "huge") process.stdout.write("x".repeat(10000));
 else if (args[0] === "--version") console.log("graphify " + (process.env.STUB_VERSION || "0.9.34"));
@@ -134,7 +136,7 @@ test("doctor reports missing and incompatible binaries without leaking paths", a
 
   const stub = await stubGraphify(root);
   await assert.rejects(
-    graphifyDoctor({ cwd: root, env: envFor(stub, { STUB_VERSION: "0.9.33" }) }),
+    graphifyDoctor({ cwd: root, env: envFor(stub), testOnlyChildEnv: { STUB_VERSION: "0.9.33" } }),
     /0\.9\.34 or newer/,
   );
   assert.equal((await graphifyDoctor({ cwd: root, env: envFor(stub) })).schema, "frege.graphify.code-graph");
@@ -179,23 +181,24 @@ test("schema, malformed, oversized, and privacy-unsafe artifacts are rejected", 
 test("process execution bounds timeout, failure, and output without exposing stderr", async () => {
   const root = await fixtureProject();
   const stub = await stubGraphify(root);
-  await assert.rejects(runGraphify(["query"], { cwd: root, env: envFor(stub, { STUB_MODE: "hang" }), timeoutMs: 25 }), /timed out/);
-  await assert.rejects(runGraphify(["query"], { cwd: root, env: envFor(stub, { STUB_MODE: "fail", SECRET: "do-not-print" }) }),
+  await assert.rejects(runGraphify(["query"], { cwd: root, env: envFor(stub), testOnlyChildEnv: { STUB_MODE: "hang" }, timeoutMs: 25 }), /timed out/);
+  await assert.rejects(runGraphify(["query"], { cwd: root, env: envFor(stub, { SECRET: "do-not-print" }), testOnlyChildEnv: { STUB_MODE: "fail" } }),
     (error) => error.message.includes("failed safely") && !error.message.includes("do-not-print"));
-  await assert.rejects(runGraphify(["query"], { cwd: root, env: envFor(stub, { STUB_MODE: "huge" }), maxOutputBytes: 32 }), /safe local limit/);
+  await assert.rejects(runGraphify(["query"], { cwd: root, env: envFor(stub), testOnlyChildEnv: { STUB_MODE: "huge" }, maxOutputBytes: 32 }), /safe local limit/);
 });
 
 test("index and query use deterministic bounded argv with no shell interpretation", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "graphify argv project "));
   const stub = await stubGraphify(root);
   const log = path.join(root, "argv.jsonl");
-  const env = envFor(stub, { STUB_LOG: log });
-  const indexed = await graphifyIndex(".", { cwd: root, env });
+  const env = envFor(stub);
+  const childEnv = { STUB_LOG: log, STUB_ARTIFACT: Buffer.from(JSON.stringify(artifact())).toString("base64") };
+  const indexed = await graphifyIndex(".", { cwd: root, env, testOnlyChildEnv: childEnv });
   assert.equal(indexed.action, "indexed");
 
   const query = `main; touch ${path.join(root, "should-not-exist")}`;
-  const first = await graphifyQuery(query, { cwd: root, env, budget: 4000 });
-  const second = await graphifyQuery(query, { cwd: root, env, budget: 4000 });
+  const first = await graphifyQuery(query, { cwd: root, env, testOnlyChildEnv: childEnv, budget: 4000 });
+  const second = await graphifyQuery(query, { cwd: root, env, testOnlyChildEnv: childEnv, budget: 4000 });
   assert.equal(first, "LOCAL_SECRET_RESULT");
   assert.equal(second, first);
   await assert.rejects(graphifyQuery("main", { cwd: root, env, budget: 4001 }), /1 to 4000/);
@@ -206,6 +209,76 @@ test("index and query use deterministic bounded argv with no shell interpretatio
   assert(calls.some((args) => args[0] === "export" && args[1] === "frege"));
   assert(calls.some((args) => args[0] === "query" && args[1] === query && args.includes("4000")));
   await assert.rejects(readFile(path.join(root, "should-not-exist")), /ENOENT/);
+});
+
+test("graphify child receives a minimal environment without application secrets", async () => {
+  const root = await fixtureProject();
+  const stub = await stubGraphify(root);
+  const parentEnv = envFor(stub, {
+    FREGE_API_KEY: "sk-frege-secret",
+    DATABASE_URL: "postgres://user:password@host/db",
+    OPENAI_API_KEY: "sk-oai-secret",
+    ANTHROPIC_API_KEY: "sk-ant-secret",
+    STRIPE_SECRET_KEY: "sk-stripe-secret",
+    AWS_SECRET_ACCESS_KEY: "aws-secret",
+    GRAPHIFY_OUT: "graphify-out",
+  });
+
+  const observed = JSON.parse(await runGraphify(["env"], {
+    cwd: root,
+    env: parentEnv,
+    testOnlyChildEnv: { STUB_PROOF: "injected" },
+  }));
+
+  for (const secret of [
+    "FREGE_API_KEY", "FREGE_CODE_GRAPH", "FREGE_GRAPHIFY_BIN", "DATABASE_URL",
+    "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "STRIPE_SECRET_KEY", "AWS_SECRET_ACCESS_KEY",
+    "STUB_ARTIFACT",
+  ]) {
+    assert.equal(secret in observed, false, `${secret} must not reach the child`);
+  }
+  assert.equal(typeof observed.PATH, "string");
+  assert.equal(observed.GRAPHIFY_OUT, "graphify-out");
+  assert.equal(observed.STUB_PROOF, "injected");
+});
+
+test("combined context keeps the healthy section when one side fails", async () => {
+  const root = await fixtureProject();
+  const stub = await stubGraphify(root);
+  const env = envFor(stub);
+
+  const hostedDown = await callGraphifyTool("frege_code_context", { query: "main" }, {
+    cwd: root,
+    env,
+    hostedContext: async () => { throw new Error("ECONNREFUSED 127.0.0.1:9 sk-internal"); },
+  });
+  assert.match(hostedDown, /## Hosted context\nHosted context unavailable/);
+  assert.match(hostedDown, /## Local code graph\nLOCAL_SECRET_RESULT/);
+  assert.equal(hostedDown.includes("ECONNREFUSED"), false);
+  assert.equal(hostedDown.includes("sk-internal"), false);
+
+  const emptyRoot = await mkdtemp(path.join(tmpdir(), "graphify no graph "));
+  const emptyStub = await stubGraphify(emptyRoot);
+  const localDown = await callGraphifyTool("frege_code_context", { query: "main" }, {
+    cwd: emptyRoot,
+    env: envFor(emptyStub),
+    hostedContext: async () => ({ packet: "HOSTED_ONLY" }),
+  });
+  assert.match(localDown, /## Hosted context[\s\S]*HOSTED_ONLY/);
+  assert.match(localDown, /## Local code graph\nLocal code graph unavailable: .*missing/);
+});
+
+test("MCP tool arguments are re-validated at runtime", async () => {
+  const root = await fixtureProject();
+  const stub = await stubGraphify(root);
+  const options = { cwd: root, env: envFor(stub), hostedContext: async () => ({}) };
+
+  await assert.rejects(callGraphifyTool("frege_code_graph_query", null, options), /must be an object/);
+  await assert.rejects(callGraphifyTool("frege_code_graph_query", ["main"], options), /must be an object/);
+  await assert.rejects(callGraphifyTool("frege_code_graph_query", { query: 42 }, options), /query must be a string/);
+  await assert.rejects(callGraphifyTool("frege_code_graph_query", { query: "main", budget: "2000" }, options), /budget must be a number/);
+  await assert.rejects(callGraphifyTool("frege_code_context", { query: "main", limit: "3" }, options), /limit must be a number/);
+  await assert.rejects(callGraphifyTool("frege_code_other", { query: "main" }, options), /unknown_tool/);
 });
 
 test("combined MCP context never uploads the graph or local query result", async () => {

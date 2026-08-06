@@ -82,7 +82,10 @@ hosted Frege
   stores nothing new
 ```
 
-The adapter spawns `graphify` with an argument array, never through a shell.
+The adapter spawns `graphify` with an argument array, never through a shell,
+and with a minimal child environment: executable resolution, home/temp,
+platform and locale essentials, and the adapter-owned Graphify settings.
+`FREGE_API_KEY` and other application secrets never reach the child process.
 It accepts only project-contained `graphify-out/` paths, caps process time and
 output, caps graph and artifact sizes, and strictly validates schema
 `frege.graphify.code-graph` version 1 before every query. The v1 artifact is the
@@ -117,7 +120,7 @@ its full local graph so Frege does not duplicate graph search.
 - The accepted fork is
   `https://github.com/Finberg-Laurelin-CEO/graphify-frege`, branch
   `Finberg-Laurelin-CEO/frege-export-contract`, commit
-  `d61ab06a2c23d4bcf2c748b573e6b13b309ee0d4`. It is based on upstream v8 commit
+  `ed68f66338644355c5102ec1282661912ee77300`. It is based on upstream v8 commit
   `07b9143d4b90b1e1cb88dc71423f742a501efd29` (`0.9.34`) and adds only the
   `graphify export frege` adapter, its v1 schema, tests, and documentation.
 - The fork preserves upstream `LICENSE`, `LICENSE-MIT`, and `NOTICE`. Modified
