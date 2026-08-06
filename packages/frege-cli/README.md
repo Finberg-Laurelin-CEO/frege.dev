@@ -158,6 +158,35 @@ frege agent install codex
 frege agent install hermes
 ```
 
+## Optional local Graphify code context
+
+Frege can use a customer-installed Graphify fork as an opt-in, local-only code
+graph. Pin the accepted fork; the upstream `graphifyy` 0.9.34 package does not
+contain the required Frege v1 export contract.
+
+```bash
+uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@d61ab06a2c23d4bcf2c748b573e6b13b309ee0d4"
+graphify --version
+
+export FREGE_CODE_GRAPH=true
+frege code index .
+frege code doctor
+frege code query "where is context assembled?" --budget 2000
+```
+
+With the flag set, MCP also registers `frege_code_graph_query` and
+`frege_code_context`. The first is entirely local. The combined tool sends only
+its query and bounded result limit to the existing Frege context endpoint, then
+joins that response with the local Graphify result in this CLI process. Source,
+`graph.json`, the v1 export, and local query results are never included in the
+hosted request or telemetry.
+
+`GRAPHIFY_OUT` may select another output directory inside the current project.
+`FREGE_GRAPHIFY_BIN` may name an executable path. Project escapes, symlink
+escapes, incompatible schemas, oversized files/output, and timeouts fail closed.
+Unset `FREGE_CODE_GRAPH` to remove the commands and MCP tools without changing
+any hosted Frege behavior.
+
 ## Experimental: live Codex run rooms
 
 With the server-side feature flag enabled, start a local Codex App Server and

@@ -1,13 +1,12 @@
 # Graphify Integration
 
-Status: accepted decision record, not yet implemented. This document is the
-implementation contract for the first release.
+Status: accepted and implemented for the opt-in local release.
 
 ## Decision
 
 Frege integrates Graphify as a local, customer-run code graph. The
-`@frege-dev/cli` package gets a thin adapter that invokes a locally installed
-`graphify` binary and reads its `graphify-out/` output. An opt-in MCP tool
+`@frege-dev/cli` package gets a thin adapter that invokes the pinned compatible
+Graphify fork and validates its deterministic v1 export. An opt-in MCP tool
 combines that local code context with the hosted Frege context packet. Source
 code and the generated graph never leave the customer machine. The hosted
 product keeps its existing governed knowledge graph and gains no new tables,
@@ -52,9 +51,9 @@ symbol graphs, or AST parsing finds nothing. The adjacent pieces are:
 Graphify therefore adds a capability Frege lacks. It does not duplicate an
 existing one.
 
-Draft PR #16 publishes `@frege-dev/cli` 0.3.0 with the Live Run Rooms
-dispatcher. The Graphify adapter touches the same command dispatch table in
-`frege-mcp.mjs` and must land after that publish, as version 0.4.0.
+Draft PR #16 owns the next CLI package-version change. This integration does
+not bump the package version and avoids its live-run dispatcher, billing, and
+bridge files.
 
 ## Zero-code baseline
 
@@ -71,8 +70,9 @@ scoped, private, always-current case.
 
 ```text
 customer machine
-  graphify extract --code-only   -> graphify-out/graph.json  (local only)
-  frege code query "question"    -> spawns graphify, prints subgraph text
+  graphify extract/update        -> graphify-out/graph.json  (local only)
+  graphify export frege          -> frege-code-graph.v1.json (privacy gate)
+  frege code query "question"    -> validates v1, then runs graphify query
   agent via MCP
     frege_code_graph_query       -> local graphify, no network
     frege_code_context           -> local graphify
@@ -83,8 +83,11 @@ hosted Frege
 ```
 
 The adapter spawns `graphify` with an argument array, never through a shell.
-It reads only the `graphify-out/` directory, resolved from the working
-directory or the `GRAPHIFY_OUT` environment variable.
+It accepts only project-contained `graphify-out/` paths, caps process time and
+output, caps graph and artifact sizes, and strictly validates schema
+`frege.graphify.code-graph` version 1 before every query. The v1 artifact is the
+compatibility and privacy gate; Graphify's own local query engine still queries
+its full local graph so Frege does not duplicate graph search.
 
 ## Threat and privacy model
 
@@ -96,9 +99,8 @@ directory or the `GRAPHIFY_OUT` environment variable.
 - The documented extraction mode is `graphify extract --code-only`, which runs
   offline with no API key. LLM-backed extraction is a customer choice with
   customer credentials and is out of scope for Frege support.
-- Graphify has no telemetry, and its query log is off by default and local
-  (upstream `README.md`, `querylog.py:16`). Verified by source grep at the
-  pinned commit.
+- The Frege adapter adds no telemetry. Graphify's query log is off by default
+  and local (upstream `README.md`, `querylog.py:16`).
 - Agents can still write session events or memory proposals about code through
   existing tools. The existing review flow and secret redaction
   (`lib/core/brain.ts:183`) govern those writes. Nothing becomes automatic.
@@ -109,15 +111,18 @@ directory or the `GRAPHIFY_OUT` environment variable.
 
 - Upstream Graphify is Apache-2.0, with pre-relicense portions also available
   under MIT. There is no copyleft in required dependencies.
-- Frege does not redistribute Graphify. Customers install the `graphifyy`
-  package themselves. Apache-2.0 redistribution obligations (license copy,
-  NOTICE reproduction, modified-file marks) therefore do not attach, and
-  `THIRD_PARTY_NOTICES.md` needs no change.
-- The local fork at `graphify-frege` is pinned to upstream v8 commit
-  `07b9143d4b90b1e1cb88dc71423f742a501efd29` with zero local changes. Keep it
-  that way. Send needed changes upstream first. Patch the fork only when
-  upstream declines a change the machine contract requires, and record each
-  patch in the fork's NOTICE file.
+- Frege does not redistribute Graphify. Customers install the compatible fork
+  themselves. `THIRD_PARTY_NOTICES.md` nevertheless records conservative
+  attribution, the upstream baseline, licenses, fork URL, and modification.
+- The accepted fork is
+  `https://github.com/Finberg-Laurelin-CEO/graphify-frege`, branch
+  `Finberg-Laurelin-CEO/frege-export-contract`, commit
+  `d61ab06a2c23d4bcf2c748b573e6b13b309ee0d4`. It is based on upstream v8 commit
+  `07b9143d4b90b1e1cb88dc71423f742a501efd29` (`0.9.34`) and adds only the
+  `graphify export frege` adapter, its v1 schema, tests, and documentation.
+- The fork preserves upstream `LICENSE`, `LICENSE-MIT`, and `NOTICE`. Modified
+  upstream files carry a dated Frege modification notice; Frege-owned additions
+  identify themselves directly.
 - Do not use the Graphify name in product branding. Use it only to describe
   origin.
 
@@ -126,12 +131,13 @@ directory or the `GRAPHIFY_OUT` environment variable.
 CLI commands, added to the dispatch table in
 `packages/frege-cli/bin/frege-mcp.mjs`:
 
-- `frege code doctor` prints whether the `graphify` binary and a readable
-  `graphify-out/graph.json` are present, with install guidance when not.
+- `frege code doctor` verifies the binary version, project-contained raw graph,
+  and strict v1 export, with pinned-fork install guidance when not.
 - `frege code index [PATH]` runs `graphify extract PATH --code-only`, or
-  `graphify update PATH` when a graph already exists.
-- `frege code query "QUESTION" [--budget N]` runs `graphify query` and prints
-  its text output unchanged.
+  `graphify update PATH` when a graph already exists, then runs
+  `graphify export frege`.
+- `frege code query "QUESTION" [--budget N]` validates v1, runs Graphify's
+  query engine with a bounded budget, and prints its bounded text output.
 
 All other Graphify commands stay available through `graphify` directly. The
 adapter does not wrap them.
@@ -148,15 +154,13 @@ existing `FREGE_SKILLS_COMPILER` pattern (`frege-mcp.mjs:59`):
 
 ## Version and compatibility behavior
 
-- Minimum supported Graphify version: 0.9.34, the pinned upstream commit.
-- The machine contract is `graphify-out/graph.json` (NetworkX node-link JSON)
-  plus pass-through of Graphify's human-readable query text. The adapter must
-  accept both `links` and legacy `edges` keys when it reads graph metadata.
-- The adapter must not parse Graphify stdout into structured data. Upstream
-  documents no output or exit-code contract, and `graphify path` exits 0 when
-  no path exists. Structured needs go through `graph.json` in a later phase.
-- `@frege-dev/cli` ships the adapter as a minor version after the 0.3.0
-  publish from PR #16.
+- Minimum supported Graphify version: 0.9.34.
+- The machine contract is `graphify-out/frege-code-graph.v1.json`, schema
+  `frege.graphify.code-graph`, version 1. The fork accepts `links` and legacy
+  `edges` in its source graph and emits deterministic `nodes` and `edges`.
+- The adapter strictly validates the v1 artifact and does not parse Graphify's
+  human-readable query output into a second graph model.
+- The package version is intentionally unchanged while draft PR #16 is pending.
 
 ## Rollout flag
 
@@ -175,8 +179,9 @@ appears in the current `context_builds` telemetry like any other build.
 
 - Missing `graphify` binary: tools return a short error text with the doctor
   hint. Every other CLI and MCP function is unaffected.
-- Missing, malformed, or oversized `graph.json`: the local section reports the
-  problem as text. The hosted context path is unaffected.
+- Missing, malformed, incompatible, path-unsafe, or oversized graph/export:
+  the local section reports a redacted actionable error. The hosted context
+  path is unaffected.
 - Combined tool with one side failing: return the healthy section plus a
   one-line note about the failed section. Never fail the whole call because
   one side failed.
@@ -195,19 +200,21 @@ Acceptance criteria for the first release:
    byte-identical to the prior release.
 2. With the flag set and no `graphify` binary, `frege code doctor` exits 1
    with install guidance, and the MCP tools return the guidance as text.
-3. With the fixture graph, `frege code query` and `frege_code_graph_query`
-   return the stub subgraph text.
+3. With the fixture graph and v1 export, `frege code query` and
+   `frege_code_graph_query` return deterministic bounded stub subgraph text.
 4. `frege_code_context` returns both labeled sections, and a request-capture
    test proves no outbound request body contains fixture graph content.
-5. The adapter never invokes a shell. A test asserts spawn arguments.
+5. The adapter never invokes a shell. A metacharacter test asserts argv remains
+   a single argument and cannot create a file.
 6. `pnpm typecheck`, `pnpm test`, `pnpm test:public-claims`, and
    `pnpm test:public-repository` pass.
 
 ## Phased roadmap
 
 - Phase 0: this decision record. Done.
-- Phase 1: CLI adapter, flag-gated MCP tools, package tests wired into CI,
-  `@frege-dev/cli` 0.4.0. Exit test: the acceptance criteria above.
+- Phase 1: CLI adapter, flag-gated MCP tools, and package tests wired into CI.
+  Package versioning remains with draft PR #16. Exit test: the acceptance
+  criteria above.
 - Phase 2: run the adapter against this repository and one external project.
   Decide defaults, budget limits, and whether `frege_code_context` merges
   into `frege_build_context` as a parameter. Update

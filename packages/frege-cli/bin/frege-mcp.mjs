@@ -6,6 +6,13 @@ import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import {
+  callGraphifyTool,
+  graphifyEnabled,
+  graphifyMcpTools,
+  runGraphifyCli,
+} from "./graphify-local.mjs";
+
 const packageMetadata = JSON.parse(
   await readFile(new URL("../package.json", import.meta.url), "utf8"),
 );
@@ -74,6 +81,7 @@ const tools = [
         },
       ]
     : []),
+  ...(graphifyEnabled() ? graphifyMcpTools : []),
   {
     name: "frege_list_vault",
     description:
@@ -709,6 +717,11 @@ function parseSimpleManifest(text, filename) {
 }
 
 async function callTool(name, input = {}) {
+  if (graphifyEnabled() && name.startsWith("frege_code_")) {
+    return callGraphifyTool(name, input, {
+      hostedContext: (body) => frege("/api/v1/context/build", { method: "POST", body }),
+    });
+  }
   if (name === "frege_status") return frege("/api/v1/me");
   if (name === "frege_brain_status") return frege("/api/v1/brain/status");
   if (name === "frege_list_sources") return frege(`/api/v1/brain/sources${queryString({ limit: input.limit })}`);
@@ -902,7 +915,7 @@ async function handle(message) {
     try {
       const output = await callTool(message.params?.name, message.params?.arguments ?? {});
       result(message.id, {
-        content: [{ type: "text", text: JSON.stringify(output, null, 2) }],
+        content: [{ type: "text", text: typeof output === "string" ? output : JSON.stringify(output, null, 2) }],
       });
     } catch (err) {
       error(message.id, err);
@@ -1300,6 +1313,9 @@ Usage:
   frege docs sync frege.docs.yml [--dry-run]
   frege search "query"
   frege context "query"
+  FREGE_CODE_GRAPH=true frege code doctor
+  FREGE_CODE_GRAPH=true frege code index [PATH]
+  FREGE_CODE_GRAPH=true frege code query "question" [--budget N]
   frege mcp serve
   frege agent install claude|codex                   register Frege with an existing MCP client
   frege agent install hermes [--yes] [--force]       install the local Frege Agent profile
@@ -1312,6 +1328,7 @@ Compatibility:
 Env:
   FREGE_BASE_URL   overrides stored baseUrl
   FREGE_API_KEY    overrides stored apiKey
+  FREGE_CODE_GRAPH enables the local Graphify adapter only when exactly "true"
 
 Local config:
   ${CONFIG_PATH}
@@ -1379,6 +1396,10 @@ async function main() {
   }
   if (command === "context") {
     await buildContextCli(args);
+    return;
+  }
+  if (command === "code") {
+    console.log(await runGraphifyCli(args));
     return;
   }
   if (command === "agent" && subcommand === "install") {

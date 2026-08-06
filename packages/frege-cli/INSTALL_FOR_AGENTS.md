@@ -219,6 +219,24 @@ frege docs sync frege.docs.yml
 
 Markdown wikilinks such as `[[hosted brain architecture]]` are okay to preserve in pushed documents. For canonical wikilinked brain pages and graph traversal, submit a reviewable page proposal with `frege_write_page_proposal` rather than silently changing canonical memory.
 
+## Optional: enable local Graphify code context
+
+Do this only when the user explicitly wants the local code-graph tools. Install
+the pinned compatible fork, enable the local flag in the MCP client's
+environment, then index and verify from the project root:
+
+```bash
+uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@d61ab06a2c23d4bcf2c748b573e6b13b309ee0d4"
+export FREGE_CODE_GRAPH=true
+frege code index .
+frege code doctor
+```
+
+This registers `frege_code_graph_query` and `frege_code_context`. The local
+graph and local query result stay on the machine. The combined tool sends only
+the user's query and bounded limit to the hosted context endpoint. Do not point
+`GRAPHIFY_OUT` or the index path outside the current project.
+
 ## Operating protocol
 
 - Use Frege MCP tools for org memory.
