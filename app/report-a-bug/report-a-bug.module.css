@@ -1,0 +1,136 @@
+.formSection {
+  --bug-border: var(--line-strong);
+  --bug-field: var(--surface);
+  --bug-ink: var(--ink);
+  --bug-muted: var(--muted);
+  --bug-accent: var(--accent-dark);
+  max-width: 820px;
+}
+
+.v2 .formSection {
+  --bug-border: var(--secondary-rule);
+  --bug-field: rgba(6, 47, 37, 0.44);
+  --bug-ink: var(--secondary-paper);
+  --bug-muted: var(--secondary-muted);
+  --bug-accent: var(--secondary-signal);
+}
+
+.warning,
+.status {
+  margin: 0 0 28px;
+  padding: 16px 18px;
+  color: var(--bug-muted);
+  border: 1px solid var(--bug-border);
+  background: var(--bug-field);
+  line-height: 1.55;
+}
+
+.warning strong,
+.status h2 {
+  color: var(--bug-ink);
+}
+
+.status h2,
+.status p:last-child {
+  margin-bottom: 0;
+}
+
+.form {
+  display: grid;
+  gap: 24px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.field label {
+  color: var(--bug-ink);
+  font-weight: 600;
+}
+
+.optional {
+  color: var(--bug-muted);
+  font-weight: 400;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  color: var(--bug-ink);
+  border: 1px solid var(--bug-border);
+  border-radius: 0;
+  background: var(--bug-field);
+  font: inherit;
+  line-height: 1.45;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field input:focus-visible,
+.field textarea:focus-visible,
+.actions button:focus-visible {
+  outline: 2px solid var(--bug-accent);
+  outline-offset: 3px;
+}
+
+.field [aria-invalid="true"] {
+  border-color: #d95b5b;
+}
+
+.fieldError {
+  color: #d95b5b;
+  font-size: 0.85rem;
+}
+
+.v2 .fieldError {
+  color: #ffb8b8;
+}
+
+.twoColumn {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: center;
+}
+
+.actions button {
+  min-height: 46px;
+  padding: 0 20px;
+  color: var(--bug-field);
+  border: 1px solid var(--bug-accent);
+  background: var(--bug-accent);
+  font: inherit;
+  cursor: pointer;
+}
+
+.actions button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.honeypot {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+@media (max-width: 680px) {
+  .twoColumn {
+    grid-template-columns: 1fr;
+  }
+}
