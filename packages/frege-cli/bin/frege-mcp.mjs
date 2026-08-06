@@ -913,9 +913,16 @@ async function handle(message) {
 
   if (message.method === "tools/call") {
     try {
-      const output = await callTool(message.params?.name, message.params?.arguments ?? {});
+      const toolName = message.params?.name;
+      const output = await callTool(toolName, message.params?.arguments ?? {});
+      // Only the two Graphify tools return preformatted text. Every other
+      // tool keeps the original JSON-stringified rendering, so string
+      // API responses stay quoted exactly as before this integration.
+      const preformatted = typeof output === "string"
+        && graphifyEnabled()
+        && (toolName === "frege_code_graph_query" || toolName === "frege_code_context");
       result(message.id, {
-        content: [{ type: "text", text: typeof output === "string" ? output : JSON.stringify(output, null, 2) }],
+        content: [{ type: "text", text: preformatted ? output : JSON.stringify(output, null, 2) }],
       });
     } catch (err) {
       error(message.id, err);

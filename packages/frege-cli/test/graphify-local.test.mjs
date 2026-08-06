@@ -152,13 +152,13 @@ test("schema, malformed, oversized, and privacy-unsafe artifacts are rejected", 
   ], edges: [] })), /normalized relative POSIX path/);
   assert.throws(() => validateGraphifyArtifact(artifact({ nodes: [
     { id: "src_main", label: "main", path: "~alice/private.mjs", line: 1 },
-  ], edges: [] })), /normalized relative POSIX path/);
+  ], edges: [] })), /absolute host path or URI/);
   assert.throws(() => validateGraphifyArtifact(artifact({ nodes: [
     { id: "src_main", label: "main", path: " /Users/alice/private.mjs", line: 1 },
-  ], edges: [] })), /normalized relative POSIX path/);
+  ], edges: [] })), /surrounding whitespace/);
   assert.throws(() => validateGraphifyArtifact(artifact({ nodes: [
     { id: "src_main", label: "main", path: "src/ padded /private.mjs", line: 1 },
-  ], edges: [] })), /normalized relative POSIX path/);
+  ], edges: [] })), /absolute host path or URI/);
 
   const root = await fixtureProject();
   const stub = await stubGraphify(root);
@@ -209,6 +209,47 @@ test("index and query use deterministic bounded argv with no shell interpretatio
   assert(calls.some((args) => args[0] === "export" && args[1] === "frege"));
   assert(calls.some((args) => args[0] === "query" && args[1] === query && args.includes("4000")));
   await assert.rejects(readFile(path.join(root, "should-not-exist")), /ENOENT/);
+});
+
+test("validator rejects embedded host paths and URI schemes in every string field", () => {
+  const unsafeValues = [
+    "mailto:alice@corp.example",
+    "data:text/plain;base64,U0VDUkVU",
+    "file:/Users/alice/private.mjs",
+    "see /Users/alice/private.mjs for details",
+    "compare C:\\Users\\alice\\secrets.txt first",
+    "share at \\\\fileserver\\finance\\q3.xlsx",
+    "C:secrets.txt",
+    "backup ~alice/dump.sql nightly",
+    "urn:uuid:6e8bc430-9c3a-11d9-9669-0800200c9a66",
+    "tel:+15551234567",
+  ];
+  const withNode = (field, value) => artifact({
+    nodes: [{ id: "src_main", label: "main", path: "src/main.mjs", line: 1, [field]: value }],
+    edges: [],
+  });
+  const withEdge = (field, value) => artifact({
+    edges: [{
+      source: "src_main", target: "src_run", relation: "calls", confidence: "EXTRACTED",
+      path: "src/main.mjs", line: 2, [field]: value,
+    }],
+  });
+  for (const unsafe of unsafeValues) {
+    for (const field of ["id", "label", "path"]) {
+      assert.throws(() => validateGraphifyArtifact(withNode(field, unsafe)), /host path or URI|surrounding whitespace|normalized relative/, `node ${field}: ${unsafe}`);
+    }
+    for (const field of ["source", "target", "relation", "confidence", "path"]) {
+      assert.throws(() => validateGraphifyArtifact(withEdge(field, unsafe)), /host path or URI|surrounding whitespace|normalized relative|existing nodes/, `edge ${field}: ${unsafe}`);
+    }
+  }
+
+  for (const safe of ["~Finalizer", "std::vector::push_back", "Args: the request payload", "Data: summary of fields"]) {
+    const checked = validateGraphifyArtifact(artifact({
+      nodes: [{ id: "src_main", label: safe, path: "src/main.mjs", line: 1 }],
+      edges: [],
+    }));
+    assert.equal(checked.nodes, 1, `safe label must validate: ${safe}`);
+  }
 });
 
 test("graphify child receives a minimal environment without application secrets", async () => {
@@ -279,6 +320,37 @@ test("MCP tool arguments are re-validated at runtime", async () => {
   await assert.rejects(callGraphifyTool("frege_code_graph_query", { query: "main", budget: "2000" }, options), /budget must be a number/);
   await assert.rejects(callGraphifyTool("frege_code_context", { query: "main", limit: "3" }, options), /limit must be a number/);
   await assert.rejects(callGraphifyTool("frege_code_other", { query: "main" }, options), /unknown_tool/);
+});
+
+test("pre-existing tools keep JSON-stringified rendering for string responses", async () => {
+  const root = await fixtureProject();
+  const stub = await stubGraphify(root);
+  const server = createServer((request, response) => {
+    response.setHeader("Content-Type", "application/json");
+    response.end(JSON.stringify("ok-string"));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+
+  try {
+    for (const flag of ["true", "false"]) {
+      const responses = await runMcp(root, {
+        ...envFor(stub),
+        FREGE_CODE_GRAPH: flag,
+        FREGE_BASE_URL: `http://127.0.0.1:${address.port}`,
+        FREGE_API_KEY: "test-key",
+      }, [
+        { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "frege_status", arguments: {} } },
+      ]);
+      assert.equal(
+        responses.get(1).result.content[0].text,
+        JSON.stringify("ok-string", null, 2),
+        `frege_status must stay JSON-stringified with FREGE_CODE_GRAPH=${flag}`,
+      );
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("combined MCP context never uploads the graph or local query result", async () => {

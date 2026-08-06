@@ -107,8 +107,13 @@ its full local graph so Frege does not duplicate graph search.
 - Agents can still write session events or memory proposals about code through
   existing tools. The existing review flow and secret redaction
   (`lib/core/brain.ts:183`) govern those writes. Nothing becomes automatic.
-- No server code changes in the first release, so the hosted attack surface
-  does not change.
+- The Graphify adapter adds no server code, so it adds no hosted attack
+  surface. The separate dependency-remediation commit on this branch does
+  touch the hosted build: it updates Next.js and forces PostCSS and Sharp to
+  patched versions (see the override note in `pnpm-workspace.yaml`). The Sharp
+  override to 0.35.0 sits outside Next 15.5's declared `^0.34.3` range; it is
+  intentionally kept because GHSA-f88m-g3jw-g9cj is high severity and patched
+  only at >=0.35.0, and the production build and image path pass with it.
 
 ## Fork, upstream, and license policy
 
@@ -120,7 +125,7 @@ its full local graph so Frege does not duplicate graph search.
 - The accepted fork is
   `https://github.com/Finberg-Laurelin-CEO/graphify-frege`, branch
   `Finberg-Laurelin-CEO/frege-export-contract`, commit
-  `ed68f66338644355c5102ec1282661912ee77300`. It is based on upstream v8 commit
+  `ca4785446bd17c38edac11aafebe962230fdee49`. It is based on upstream v8 commit
   `07b9143d4b90b1e1cb88dc71423f742a501efd29` (`0.9.34`) and adds only the
   `graphify export frege` adapter, its v1 schema, tests, and documentation.
 - The fork preserves upstream `LICENSE`, `LICENSE-MIT`, and `NOTICE`. Modified
@@ -150,7 +155,8 @@ existing `FREGE_SKILLS_COMPILER` pattern (`frege-mcp.mjs:59`):
 
 - `frege_code_graph_query` with input `{ query, budget? }`. Runs
   `graphify query` locally and returns its text. It makes no network request.
-- `frege_code_context` with input `{ query, limit? }`. Calls the local query
+- `frege_code_context` with input `{ query, limit?, budget? }`. The optional
+  `budget` bounds only the local query and is never sent hosted. Calls the local query
   and `POST /api/v1/context/build`, then returns one text response with a
   `## Hosted context` section and a `## Local code graph` section. The client
   assembles the combination. The server never receives the local section.
@@ -194,8 +200,8 @@ appears in the current `context_builds` telemetry like any other build.
 ## Tests and acceptance criteria
 
 Tests live in `packages/frege-cli/test/` with a stub `graphify` executable on
-`PATH` and a small fixture `graph.json`. Note: that directory is currently
-outside the `pnpm test` glob and CI (see appendix). Wire it in first.
+`PATH` and a small fixture `graph.json`. That directory is wired into the root
+`pnpm test` glob, which CI runs.
 
 Acceptance criteria for the first release:
 
@@ -284,8 +290,8 @@ audit date.
   that `lib/core/public-url.ts:12` owns. Replace the body with a call.
 - Two hand-rolled `AbortController` timeout patterns (`lib/core/http.ts:45`,
   `lib/hermes-webhook.ts:38`) can use native `AbortSignal.timeout(ms)`.
-- `packages/frege-cli/test/run-bridge.test.mjs` (9 tests) is outside the
-  `pnpm test` glob and CI. Add the package test path to the test script.
+- Completed: `packages/frege-cli/test/*.test.mjs` (including
+  `run-bridge.test.mjs`) is now in the root `pnpm test` glob and runs in CI.
 
 ### Deferred audit items
 

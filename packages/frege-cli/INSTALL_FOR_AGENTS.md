@@ -226,7 +226,7 @@ the pinned compatible fork, enable the local flag in the MCP client's
 environment, then index and verify from the project root:
 
 ```bash
-uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@ed68f66338644355c5102ec1282661912ee77300"
+uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@ca4785446bd17c38edac11aafebe962230fdee49"
 export FREGE_CODE_GRAPH=true
 frege code index .
 frege code doctor

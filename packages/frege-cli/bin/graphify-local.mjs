@@ -3,7 +3,7 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 const FORK_URL = "https://github.com/Finberg-Laurelin-CEO/graphify-frege";
-const FORK_COMMIT = "ed68f66338644355c5102ec1282661912ee77300";
+const FORK_COMMIT = "ca4785446bd17c38edac11aafebe962230fdee49";
 const INSTALL_HINT = `Install the compatible fork: uv tool install --force git+${FORK_URL}.git@${FORK_COMMIT}`;
 const SCHEMA = "frege.graphify.code-graph";
 const VERSION = 1;
@@ -213,12 +213,38 @@ function exactKeys(value, keys, label) {
   }
 }
 
+// Mirrors the fork exporter's privacy predicate so the validator stays an
+// independent second gate: any scheme:// URL, curated non-hierarchical URI
+// schemes (a curated list, not a generic "word:" rule, so prose labels like
+// "Args: ..." survive), and host paths — absolute POSIX/Windows, UNC,
+// drive-relative, ~user/ — whether whole-value or embedded as a token.
+const URL_SCHEME = /[A-Za-z][A-Za-z0-9+.-]*:\/\//;
+const URI_SCHEMES = /(?:^|[\s"'()[\]{}<>,;=])(?:mailto|data|file|urn|tel|sms|callto|javascript|vbscript|blob|magnet|otpauth|ssh|scp|sftp|smb|nfs|ldap|ldaps|jdbc|odbc|redis|amqp|mongodb|postgres|postgresql|mysql|mssql|s3|gs|ftp|ftps|news|nntp|irc|vnc|rdp):\S/i;
+const TOKEN_SEPARATORS = /[\s"'()[\]{}<>,;=]+/;
+const BARE_SEPARATOR_TOKENS = new Set(["/", "//", "\\", "\\\\"]);
+
+function hostPathToken(token) {
+  // "c:" at index 1 (drive-relative or absolute), leading slash/backslash
+  // (absolute or UNC), or "~<user>/" — but not "~Finalizer" or "std::name".
+  return /^(?:[a-z]:|[\\/]|~[^\\/]*[\\/])/i.test(token);
+}
+
+function privacyUnsafe(value) {
+  if (URL_SCHEME.test(value) || URI_SCHEMES.test(value)) return true;
+  return value
+    .split(TOKEN_SEPARATORS)
+    .some((token) => token && !BARE_SEPARATOR_TOKENS.has(token) && hostPathToken(token));
+}
+
 function safeString(value, label, maximum = 1_024) {
-  if (typeof value !== "string" || !value || value.length > maximum || /[\x00-\x1f\x7f]/.test(value)) {
-    throw new Error(`${label} must be a bounded single-line string.`);
+  if (
+    typeof value !== "string" || !value || value.length > maximum ||
+    /[\x00-\x1f\x7f]/.test(value) || value !== value.trim()
+  ) {
+    throw new Error(`${label} must be a bounded single-line string without surrounding whitespace.`);
   }
-  if (/^(?:[a-z]:[\\/]|[\\/]{1,2}|~[\\/])/i.test(value)) {
-    throw new Error(`${label} must not contain an absolute host path.`);
+  if (privacyUnsafe(value)) {
+    throw new Error(`${label} must not contain an absolute host path or URI.`);
   }
   return value;
 }
