@@ -7,6 +7,7 @@
   <url><loc>https://frege.dev/roadmap</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://frege.dev/pricing</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
   <url><loc>https://frege.dev/contact</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://frege.dev/report-a-bug</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>
   <url><loc>https://frege.dev/privacy</loc><changefreq>yearly</changefreq><priority>0.4</priority></url>
   <url><loc>https://frege.dev/terms</loc><changefreq>yearly</changefreq><priority>0.4</priority></url>
 </urlset>

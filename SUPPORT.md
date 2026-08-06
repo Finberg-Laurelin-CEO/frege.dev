@@ -8,6 +8,8 @@ Frege supports the hosted Frege service and the current published version of
 - Use the [Frege support page](https://frege.dev/support) when signed in.
 - For account, access, billing, or general product help, email
   [hello@frege.dev](mailto:hello@frege.dev).
+- Report product bugs through the [public bug-report form](https://frege.dev/report-a-bug)
+  or email [bugs@agents.frege.dev](mailto:bugs@agents.frege.dev).
 - For a suspected vulnerability, follow [`SECURITY.md`](SECURITY.md) instead of
   filing a public issue.
 
@@ -19,6 +21,14 @@ Never send API keys, passwords, provider credentials, session cookies,
 confidential customer content, or unredacted environment files. Frege support
 will ask for a safer transfer method if sensitive diagnostic material is
 necessary.
+
+## Bug form configuration
+
+The public form posts through the server using `FORMSPREE_BUG_REPORT_FORM_ID`.
+In Formspree, create or select that form, set its notification recipient to
+`bugs@agents.frege.dev`, complete Formspree's recipient verification, then set
+the server-only environment variable to the form ID. No Formspree or AgentMail
+credential belongs in browser code.
 
 ## Support boundaries
 

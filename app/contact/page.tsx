@@ -32,6 +32,7 @@ export default function ContactPage() {
             className={publicSiteV2 ? `button button--primary ${v2Styles.action} ${v2Styles.primaryAction}` : "button button--primary"}
             href="mailto:hello@frege.dev"
           >Email hello@frege.dev</a>
+          <a className={publicSiteV2 ? `button ${v2Styles.action}` : "button"} href="/report-a-bug">Report a bug</a>
           <a className={publicSiteV2 ? `button ${v2Styles.action}` : "button"} href="/signup">Create account</a>
           {publicSiteV2 ? (
             <a className={`button ${v2Styles.action}`} href="/roadmap">Product roadmap</a>

@@ -12,6 +12,7 @@ const publicV2Routes = new Set([
   "/docs",
   "/pricing",
   "/privacy",
+  "/report-a-bug",
   "/roadmap",
   "/terms",
 ]);

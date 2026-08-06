@@ -16,6 +16,7 @@ export default function SiteFooter() {
           <a href="/roadmap">roadmap</a>
           <a href="/pricing">pricing</a>
           <a href="/contact">contact</a>
+          <a href="/report-a-bug">report a bug</a>
           <a href="/signup">sign up</a>
           <a href="/login?next=/console">sign in</a>
           <a href={githubUrl}>github</a>
@@ -37,6 +38,7 @@ export default function SiteFooter() {
           <a href="/architecture">architecture</a>
           <a href="/pricing">pricing</a>
           <a href="/contact">contact</a>
+          <a href="/report-a-bug">report a bug</a>
           <a href="/signup">sign up</a>
           <a href="/login?next=/console">sign in</a>
           <a href={githubUrl}>github</a>
