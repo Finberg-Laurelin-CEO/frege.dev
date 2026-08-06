@@ -1,0 +1,6 @@
+overrides:
+  postcss@<=8.5.22: 8.5.23
+  # Outside Next 15.5's declared ^0.34.3 range, kept intentionally:
+  # GHSA-f88m-g3jw-g9cj is high severity and patched only at >=0.35.0.
+  # Production build and the image path pass with this version.
+  sharp@<0.35.0: 0.35.0
