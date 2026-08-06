@@ -148,6 +148,15 @@ test("schema, malformed, oversized, and privacy-unsafe artifacts are rejected", 
   assert.throws(() => validateGraphifyArtifact(artifact({ nodes: [
     { id: "src_main", label: "main", path: "src/../private.mjs", line: 1 },
   ], edges: [] })), /normalized relative POSIX path/);
+  assert.throws(() => validateGraphifyArtifact(artifact({ nodes: [
+    { id: "src_main", label: "main", path: "~alice/private.mjs", line: 1 },
+  ], edges: [] })), /normalized relative POSIX path/);
+  assert.throws(() => validateGraphifyArtifact(artifact({ nodes: [
+    { id: "src_main", label: "main", path: " /Users/alice/private.mjs", line: 1 },
+  ], edges: [] })), /normalized relative POSIX path/);
+  assert.throws(() => validateGraphifyArtifact(artifact({ nodes: [
+    { id: "src_main", label: "main", path: "src/ padded /private.mjs", line: 1 },
+  ], edges: [] })), /normalized relative POSIX path/);
 
   const root = await fixtureProject();
   const stub = await stubGraphify(root);
@@ -190,6 +199,7 @@ test("index and query use deterministic bounded argv with no shell interpretatio
   assert.equal(first, "LOCAL_SECRET_RESULT");
   assert.equal(second, first);
   await assert.rejects(graphifyQuery("main", { cwd: root, env, budget: 4001 }), /1 to 4000/);
+  await assert.rejects(graphifyQuery("main", { cwd: root, env, budget: true }), /1 to 4000/);
 
   const calls = (await readFile(log, "utf8")).trim().split("\n").map(JSON.parse);
   assert(calls.some((args) => args[0] === "extract" && args.includes("--code-only")));

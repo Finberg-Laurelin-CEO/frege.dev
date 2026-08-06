@@ -97,7 +97,7 @@ async function assertProspectivePathInside(root, candidate, label) {
 }
 
 function positiveInteger(value, fallback, maximum, label) {
-  const number = value === undefined ? fallback : Number(value);
+  const number = value === undefined ? fallback : typeof value === "boolean" ? NaN : Number(value);
   if (!Number.isInteger(number) || number < 1 || number > maximum) {
     throw new Error(`${label} must be an integer from 1 to ${maximum}.`);
   }
@@ -205,7 +205,11 @@ function safeString(value, label, maximum = 1_024) {
 
 function relativePosixPath(value, label) {
   const clean = safeString(value, label);
-  if (clean.includes("\\") || clean.includes("://") || clean.split("/").some((part) => !part || part === "." || part === "..")) {
+  const parts = clean.split("/");
+  if (
+    clean.includes("\\") || clean.includes("://") || clean.startsWith("~") ||
+    parts.some((part) => !part.trim() || part !== part.trim() || part === "." || part === "..")
+  ) {
     throw new Error(`${label} must be a normalized relative POSIX path.`);
   }
   return clean;
