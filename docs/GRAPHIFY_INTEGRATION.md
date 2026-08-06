@@ -125,7 +125,7 @@ its full local graph so Frege does not duplicate graph search.
 - The accepted fork is
   `https://github.com/Finberg-Laurelin-CEO/graphify-frege`, branch
   `Finberg-Laurelin-CEO/frege-export-contract`, commit
-  `ca4785446bd17c38edac11aafebe962230fdee49`. It is based on upstream v8 commit
+  `46101385b218847cef904ce52ecc4dad209b9f83`. It is based on upstream v8 commit
   `07b9143d4b90b1e1cb88dc71423f742a501efd29` (`0.9.34`) and adds only the
   `graphify export frege` adapter, its v1 schema, tests, and documentation.
 - The fork preserves upstream `LICENSE`, `LICENSE-MIT`, and `NOTICE`. Modified

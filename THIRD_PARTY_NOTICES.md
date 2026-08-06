@@ -11,7 +11,7 @@ The Frege CLI can invoke a separately installed Graphify fork for opt-in local
 code-graph indexing and query. Frege does not bundle or redistribute Graphify.
 
 - Fork: https://github.com/Finberg-Laurelin-CEO/graphify-frege
-- Pinned fork commit: `ca4785446bd17c38edac11aafebe962230fdee49`
+- Pinned fork commit: `46101385b218847cef904ce52ecc4dad209b9f83`
 - Upstream: https://github.com/Graphify-Labs/graphify
 - Pinned upstream v8 baseline: `07b9143d4b90b1e1cb88dc71423f742a501efd29`
   (Graphify `0.9.34`)
@@ -20,7 +20,8 @@ code-graph indexing and query. Frege does not bundle or redistribute Graphify.
 
 The fork preserves upstream `LICENSE`, `LICENSE-MIT`, and `NOTICE`. Its Frege
 modification adds the deterministic local `graphify export frege` command,
-schema `frege.graphify.code-graph` version 1, tests, and documentation. Modified
+schema `frege.graphify.code-graph` version 1, tests, documentation, and a
+refreshed `uv.lock` version entry. Modified
 upstream files carry a dated modification notice; Frege-owned additions identify
 themselves directly. Graphify remains the copyright of Safi Shamsi and the
 Graphify contributors; this notice does not imply affiliation or endorsement.

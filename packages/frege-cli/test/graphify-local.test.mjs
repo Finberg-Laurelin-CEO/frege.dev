@@ -223,6 +223,9 @@ test("validator rejects embedded host paths and URI schemes in every string fiel
     "backup ~alice/dump.sql nightly",
     "urn:uuid:6e8bc430-9c3a-11d9-9669-0800200c9a66",
     "tel:+15551234567",
+    "see `/Users/alice/private` now",
+    "see `mailto:alice@corp` now",
+    "path:/Users/alice/private",
   ];
   const withNode = (field, value) => artifact({
     nodes: [{ id: "src_main", label: "main", path: "src/main.mjs", line: 1, [field]: value }],
@@ -243,7 +246,10 @@ test("validator rejects embedded host paths and URI schemes in every string fiel
     }
   }
 
-  for (const safe of ["~Finalizer", "std::vector::push_back", "Args: the request payload", "Data: summary of fields"]) {
+  for (const safe of [
+    "~Finalizer", "std::vector::push_back", "std::symbol", "Args: prose",
+    "Args: the request payload", "Data: summary of fields", "a / b comparison helper",
+  ]) {
     const checked = validateGraphifyArtifact(artifact({
       nodes: [{ id: "src_main", label: safe, path: "src/main.mjs", line: 1 }],
       edges: [],

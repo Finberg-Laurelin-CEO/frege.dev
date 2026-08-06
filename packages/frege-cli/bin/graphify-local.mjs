@@ -3,7 +3,7 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import path from "node:path";
 
 const FORK_URL = "https://github.com/Finberg-Laurelin-CEO/graphify-frege";
-const FORK_COMMIT = "ca4785446bd17c38edac11aafebe962230fdee49";
+const FORK_COMMIT = "46101385b218847cef904ce52ecc4dad209b9f83";
 const INSTALL_HINT = `Install the compatible fork: uv tool install --force git+${FORK_URL}.git@${FORK_COMMIT}`;
 const SCHEMA = "frege.graphify.code-graph";
 const VERSION = 1;
@@ -219,8 +219,10 @@ function exactKeys(value, keys, label) {
 // "Args: ..." survive), and host paths — absolute POSIX/Windows, UNC,
 // drive-relative, ~user/ — whether whole-value or embedded as a token.
 const URL_SCHEME = /[A-Za-z][A-Za-z0-9+.-]*:\/\//;
-const URI_SCHEMES = /(?:^|[\s"'()[\]{}<>,;=])(?:mailto|data|file|urn|tel|sms|callto|javascript|vbscript|blob|magnet|otpauth|ssh|scp|sftp|smb|nfs|ldap|ldaps|jdbc|odbc|redis|amqp|mongodb|postgres|postgresql|mysql|mssql|s3|gs|ftp|ftps|news|nntp|irc|vnc|rdp):\S/i;
-const TOKEN_SEPARATORS = /[\s"'()[\]{}<>,;=]+/;
+const URI_SCHEMES = /(?:^|[\s"'`()[\]{}<>,;=])(?:mailto|data|file|urn|tel|sms|callto|javascript|vbscript|blob|magnet|otpauth|ssh|scp|sftp|smb|nfs|ldap|ldaps|jdbc|odbc|redis|amqp|mongodb|postgres|postgresql|mysql|mssql|s3|gs|ftp|ftps|news|nntp|irc|vnc|rdp):\S/i;
+// Token separators include Markdown backticks. ":" is deliberately not a
+// separator so drive-relative "C:secrets" stays whole for the drive check.
+const TOKEN_SEPARATORS = /[\s"'`()[\]{}<>,;=]+/;
 const BARE_SEPARATOR_TOKENS = new Set(["/", "//", "\\", "\\\\"]);
 
 function hostPathToken(token) {
@@ -229,11 +231,24 @@ function hostPathToken(token) {
   return /^(?:[a-z]:|[\\/]|~[^\\/]*[\\/])/i.test(token);
 }
 
+function tokenIsHostPath(token) {
+  if (BARE_SEPARATOR_TOKENS.has(token)) return false;
+  // Whole-token check first, so Windows drive-relative forms are decided
+  // before colon splitting could hide the drive.
+  if (hostPathToken(token)) return true;
+  // "path:/Users/alice/private" hides an absolute path after a colon;
+  // "std::symbol" splits into non-path parts and stays valid.
+  if (token.includes(":")) {
+    return token
+      .split(":")
+      .some((part) => part && !BARE_SEPARATOR_TOKENS.has(part) && hostPathToken(part));
+  }
+  return false;
+}
+
 function privacyUnsafe(value) {
   if (URL_SCHEME.test(value) || URI_SCHEMES.test(value)) return true;
-  return value
-    .split(TOKEN_SEPARATORS)
-    .some((token) => token && !BARE_SEPARATOR_TOKENS.has(token) && hostPathToken(token));
+  return value.split(TOKEN_SEPARATORS).some((token) => token && tokenIsHostPath(token));
 }
 
 function safeString(value, label, maximum = 1_024) {

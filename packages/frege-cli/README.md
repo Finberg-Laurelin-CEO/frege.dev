@@ -165,7 +165,7 @@ graph. Pin the accepted fork; the upstream `graphifyy` 0.9.34 package does not
 contain the required Frege v1 export contract.
 
 ```bash
-uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@ca4785446bd17c38edac11aafebe962230fdee49"
+uv tool install --force "git+https://github.com/Finberg-Laurelin-CEO/graphify-frege.git@46101385b218847cef904ce52ecc4dad209b9f83"
 graphify --version
 
 export FREGE_CODE_GRAPH=true
