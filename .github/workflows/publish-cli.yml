@@ -1,0 +1,64 @@
+name: Publish CLI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact @frege-dev/cli version to publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: publish-frege-cli
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish @frege-dev/cli
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: npm
+
+    defaults:
+      run:
+        working-directory: packages/frege-cli
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+          package-manager-cache: false
+
+      - name: Verify trusted-publishing runtime
+        run: |
+          set -euo pipefail
+          node --version
+          npm_version="$(npm --version)"
+          node -e 'const match = /^(\d+)\.(\d+)\.(\d+)/.exec(process.argv[1]); if (!match) process.exit(1); const [, major, minor, patch] = match.map(Number); if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) process.exit(1)' "$npm_version"
+
+      - name: Verify requested package and version
+        env:
+          REQUESTED_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          package_name="$(node --print "require('./package.json').name")"
+          package_version="$(node --print "require('./package.json').version")"
+          test "$package_name" = "@frege-dev/cli"
+          test "$package_version" = "$REQUESTED_VERSION"
+          npm view "$package_name@$package_version" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1 && {
+            echo "Refusing to overwrite existing $package_name@$package_version" >&2
+            exit 1
+          }
+          npm pack --dry-run --json >/dev/null
+
+      - name: Publish package with provenance
+        run: npm publish --access public --provenance --registry=https://registry.npmjs.org/
