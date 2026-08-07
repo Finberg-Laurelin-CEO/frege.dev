@@ -111,7 +111,8 @@ export function runRoomWatcherUsage(durationMs: number): {
   estimatedCostUsd: number;
   costRateUsdPerHour: number;
 } {
-  const configuredRate = Number(process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR);
+  // Operational estimate only: this telemetry does not debit credits or bill Stripe.
+  const configuredRate = Number(process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR?.trim() || Number.NaN);
   const costRateUsdPerHour =
     Number.isFinite(configuredRate) && configuredRate >= 0
       ? configuredRate

@@ -1729,13 +1729,16 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               )}
 
               <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Usage by org (30 days)</h2>
+              <p className={styles.meta}>
+                Operational estimates only: the room estimate is included in the total, not an additional charge. This telemetry does not debit credits or create Stripe invoices.
+              </p>
               {usage.length === 0 ? (
                 <div className={styles.empty}><strong>No per-org usage yet.</strong></div>
               ) : (
               <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>org</th><th>status</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>room watcher h</th><th>room est.</th><th>est. cost</th></tr>
+                  <tr><th>org</th><th>status</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>room watcher h</th><th>room est. (included)</th><th>total est.</th></tr>
                 </thead>
                 <tbody>
                   {usage.map((u) => (

@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -56,6 +56,7 @@ registerHooks({
 });
 
 const runRooms = await import(pathToFileURL(path.join(rootDir, "lib/core/run-rooms.ts")).href);
+const usage = await import(pathToFileURL(path.join(rootDir, "lib/core/usage.ts")).href);
 const routeModule = (relative) => import(pathToFileURL(path.join(rootDir, relative)).href);
 const eventsRoute = await routeModule("app/api/v1/sessions/[id]/live/events/route.ts");
 const streamRoute = await routeModule("app/api/v1/sessions/[id]/live/stream/route.ts");
@@ -708,6 +709,47 @@ test("runRoomWatcherUsage: produces a configurable per-hour cost estimate", () =
     estimatedCostUsd: 0.08,
     costRateUsdPerHour: 0.08,
   });
+});
+
+test("runRoomWatcherUsage: blank rates use the default while numeric zero remains valid", () => {
+  for (const blank of ["", " \t "]) {
+    process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR = blank;
+    assert.equal(runRooms.runRoomWatcherUsage(3_600_000).costRateUsdPerHour, 0.08);
+  }
+  process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR = "0";
+  assert.deepEqual(runRooms.runRoomWatcherUsage(3_600_000), {
+    watcherHours: 1,
+    estimatedCostUsd: 0,
+    costRateUsdPerHour: 0,
+  });
+  delete process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR;
+});
+
+test("usage rollup counts room cost once and the console presents it as an included estimate", async () => {
+  const queries = [];
+  globalThis.__fakeSql = (strings) => {
+    queries.push(normalize(strings));
+    return Promise.resolve([]);
+  };
+
+  await usage.rollupUsage(14);
+  await usage.platformUsageByOrg(30);
+
+  const orgRollup = queries.find((query) => query.includes("null::uuid"));
+  assert.ok(orgRollup);
+  assert.match(orgRollup, /coalesce\(sum\(estimated_cost_usd\), 0\)::numeric/);
+  assert.doesNotMatch(orgRollup.split("from telemetry_events")[1].split("group by")[0], /\baction\b/);
+
+  const platformRollup = queries.find((query) => query.includes("from organizations o"));
+  assert.ok(platformRollup);
+  assert.match(platformRollup, /coalesce\(sum\(ud\.estimated_cost_usd\), 0\)::float as estimated_cost_usd/);
+  assert.match(platformRollup, /coalesce\(rr\.estimated_cost_usd, 0\)::float as live_room_estimated_cost_usd/);
+  assert.doesNotMatch(platformRollup, /sum\(ud\.estimated_cost_usd\)[^,]*\+/);
+
+  const consoleSource = readFileSync(path.join(rootDir, "app/platform/PlatformConsole.tsx"), "utf8");
+  assert.match(consoleSource, /room est\. \(included\)/);
+  assert.match(consoleSource, /room estimate is included in the total, not an additional charge/i);
+  assert.match(consoleSource, /does not debit credits or create Stripe invoices/i);
 });
 
 test("stream: reconnect cursor (Last-Event-ID) replays only events after the cursor", async () => {
