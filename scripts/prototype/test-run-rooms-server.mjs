@@ -67,8 +67,12 @@ const ackRoute = await routeModule("app/api/v1/sessions/[id]/live/directives/[di
 
 const FIXED_NOW = "2026-07-22T12:00:00.000Z";
 
+function normalizeSql(text) {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 function normalize(strings) {
-  return strings.join(" ? ").toLowerCase().replace(/\s+/g, " ").trim();
+  return normalizeSql(strings.join(" ? "));
 }
 
 // --- in-memory stand-in for the run-rooms SQL surface -----------------------
@@ -732,7 +736,7 @@ test("runRoomWatcherUsage: blank rates use the default while numeric zero remain
   delete process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR;
 });
 
-test("usage rollup counts room cost once and the console presents it as an included estimate", async () => {
+test("both usage rollups persist the metered room subset without removing it from total cost", async () => {
   const queries = [];
   globalThis.__fakeSql = (strings) => {
     queries.push(normalize(strings));
@@ -740,20 +744,60 @@ test("usage rollup counts room cost once and the console presents it as an inclu
   };
 
   await usage.rollupUsage(14);
+
+  const prototypeSource = readFileSync(path.join(rootDir, "scripts/prototype/rollup-usage.mjs"), "utf8");
+  const prototypeRollups = [...prototypeSource.matchAll(/await pool\.query\(\s*`([\s\S]*?)`\s*,\s*\[since\],?\s*\)/g)]
+    .map((match) => normalizeSql(match[1]));
+  const implementations = [
+    ["application", queries],
+    ["prototype", prototypeRollups],
+  ];
+
+  for (const [name, rollups] of implementations) {
+    assert.equal(rollups.length, 2, `${name} must roll up per-user and per-org rows`);
+    assert.ok(rollups.some((query) => query.includes("actor_user_id is not null")));
+    assert.ok(rollups.some((query) => query.includes("null::uuid")));
+
+    for (const query of rollups) {
+      assert.match(query, /estimated_cost_usd, live_room_watcher_seconds, live_room_estimated_cost_usd, updated_at/);
+      assert.match(query, /coalesce\(sum\(estimated_cost_usd\), 0\)::numeric, coalesce\(sum\(\(metadata->>'watcher_seconds'\)::numeric\) filter \(where action = 'run_room\.watch_metered'\), 0\)::numeric/);
+      assert.match(query, /coalesce\(sum\(estimated_cost_usd\) filter \(where action = 'run_room\.watch_metered'\), 0\)::numeric/);
+      assert.match(query, /on conflict .* do update set/);
+      assert.match(query, /live_room_watcher_seconds = excluded\.live_room_watcher_seconds/);
+      assert.match(query, /live_room_estimated_cost_usd = excluded\.live_room_estimated_cost_usd/);
+      assert.doesNotMatch(query.split("from telemetry_events")[1].split("group by")[0], /\baction\b/);
+    }
+  }
+});
+
+test("platform room reporting uses the same usage_daily rows and converts seconds on read", async () => {
+  let platformRollup = "";
+  globalThis.__fakeSql = (strings) => {
+    platformRollup = normalize(strings);
+    return Promise.resolve([]);
+  };
+
   await usage.platformUsageByOrg(30);
 
-  const orgRollup = queries.find((query) => query.includes("null::uuid"));
-  assert.ok(orgRollup);
-  assert.match(orgRollup, /coalesce\(sum\(estimated_cost_usd\), 0\)::numeric/);
-  assert.doesNotMatch(orgRollup.split("from telemetry_events")[1].split("group by")[0], /\baction\b/);
-
-  const platformRollup = queries.find((query) => query.includes("from organizations o"));
-  assert.ok(platformRollup);
+  assert.match(platformRollup, /from organizations o left join usage_daily ud/);
   assert.match(platformRollup, /coalesce\(sum\(ud\.estimated_cost_usd\), 0\)::float as estimated_cost_usd/);
-  assert.match(platformRollup, /coalesce\(rr\.estimated_cost_usd, 0\)::float as live_room_estimated_cost_usd/);
+  assert.match(platformRollup, /\(coalesce\(sum\(ud\.live_room_watcher_seconds\), 0\) \/ 3600\)::float as live_room_watcher_hours/);
+  assert.match(platformRollup, /coalesce\(sum\(ud\.live_room_estimated_cost_usd\), 0\)::float as live_room_estimated_cost_usd/);
   assert.doesNotMatch(platformRollup, /sum\(ud\.estimated_cost_usd\)[^,]*\+/);
+  assert.doesNotMatch(platformRollup, /telemetry_events|\blateral\b|\brr\./);
+  assert.equal((platformRollup.match(/usage_daily/g) ?? []).length, 1);
+  assert.equal((platformRollup.match(/\bday >/g) ?? []).length, 1);
+  assert.equal((platformRollup.match(/\?/g) ?? []).length, 1, "one bound window must select every reported total");
+});
+
+test("room breakout migration is additive and staff copy describes the rollup snapshot", () => {
+  const migration = normalizeSql(readFileSync(path.join(rootDir, "db/032_usage_daily_run_room_breakout.sql"), "utf8"));
+  assert.match(migration, /alter table usage_daily add column if not exists live_room_watcher_seconds numeric not null default 0/);
+  assert.match(migration, /add column if not exists live_room_estimated_cost_usd numeric not null default 0/);
+  assert.doesNotMatch(migration, /live_room_watcher_hours|update usage_daily|insert into usage_daily/);
 
   const consoleSource = readFileSync(path.join(rootDir, "app/platform/PlatformConsole.tsx"), "utf8");
+  assert.match(consoleSource, /all values are from the latest completed usage rollup/i);
   assert.match(consoleSource, /room est\. \(included\)/);
   assert.match(consoleSource, /room estimate is included in the total, not an additional charge/i);
   assert.match(consoleSource, /does not debit credits or create Stripe invoices/i);

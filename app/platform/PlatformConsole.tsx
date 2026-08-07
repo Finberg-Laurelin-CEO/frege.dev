@@ -1730,7 +1730,7 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
 
               <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Usage by org (30 days)</h2>
               <p className={styles.meta}>
-                Operational estimates only: the room estimate is included in the total, not an additional charge. This telemetry does not debit credits or create Stripe invoices.
+                All values are from the latest completed usage rollup. Operational estimates only: the room estimate is included in the total, not an additional charge. This telemetry does not debit credits or create Stripe invoices.
               </p>
               {usage.length === 0 ? (
                 <div className={styles.empty}><strong>No per-org usage yet.</strong></div>

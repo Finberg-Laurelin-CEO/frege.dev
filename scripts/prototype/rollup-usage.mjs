@@ -28,7 +28,8 @@ async function main() {
     insert into usage_daily (
       org_id, day, actor_user_id,
       model_calls, context_builds, denied_events,
-      input_tokens, output_tokens, estimated_cost_usd, updated_at
+      input_tokens, output_tokens, estimated_cost_usd,
+      live_room_watcher_seconds, live_room_estimated_cost_usd, updated_at
     )
     select
       org_id, created_at::date, actor_user_id,
@@ -38,6 +39,8 @@ async function main() {
       coalesce(sum(input_tokens), 0)::bigint,
       coalesce(sum(output_tokens), 0)::bigint,
       coalesce(sum(estimated_cost_usd), 0)::numeric,
+      coalesce(sum((metadata->>'watcher_seconds')::numeric) filter (where action = 'run_room.watch_metered'), 0)::numeric,
+      coalesce(sum(estimated_cost_usd) filter (where action = 'run_room.watch_metered'), 0)::numeric,
       now()
     from telemetry_events
     where org_id is not null and actor_user_id is not null
@@ -51,6 +54,8 @@ async function main() {
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       estimated_cost_usd = excluded.estimated_cost_usd,
+      live_room_watcher_seconds = excluded.live_room_watcher_seconds,
+      live_room_estimated_cost_usd = excluded.live_room_estimated_cost_usd,
       updated_at = now()
   `,
     [since],
@@ -61,7 +66,8 @@ async function main() {
     insert into usage_daily (
       org_id, day, actor_user_id,
       model_calls, context_builds, denied_events,
-      input_tokens, output_tokens, estimated_cost_usd, updated_at
+      input_tokens, output_tokens, estimated_cost_usd,
+      live_room_watcher_seconds, live_room_estimated_cost_usd, updated_at
     )
     select
       org_id, created_at::date, null::uuid,
@@ -71,6 +77,8 @@ async function main() {
       coalesce(sum(input_tokens), 0)::bigint,
       coalesce(sum(output_tokens), 0)::bigint,
       coalesce(sum(estimated_cost_usd), 0)::numeric,
+      coalesce(sum((metadata->>'watcher_seconds')::numeric) filter (where action = 'run_room.watch_metered'), 0)::numeric,
+      coalesce(sum(estimated_cost_usd) filter (where action = 'run_room.watch_metered'), 0)::numeric,
       now()
     from telemetry_events
     where org_id is not null
@@ -84,6 +92,8 @@ async function main() {
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       estimated_cost_usd = excluded.estimated_cost_usd,
+      live_room_watcher_seconds = excluded.live_room_watcher_seconds,
+      live_room_estimated_cost_usd = excluded.live_room_estimated_cost_usd,
       updated_at = now()
   `,
     [since],
