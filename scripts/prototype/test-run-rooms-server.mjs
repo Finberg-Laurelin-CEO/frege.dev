@@ -711,6 +711,13 @@ test("runRoomWatcherUsage: produces a configurable per-hour cost estimate", () =
   });
 });
 
+test("runRoomWatcherUsage: sixty one-minute estimates preserve the one-hour total", () => {
+  delete process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR;
+  const total = Array.from({ length: 60 }, () => runRooms.runRoomWatcherUsage(60_000).estimatedCostUsd)
+    .reduce((sum, cost) => sum + cost, 0);
+  assert.ok(Math.abs(total - 0.08) < 1e-9, `one-minute estimates summed to ${total}`);
+});
+
 test("runRoomWatcherUsage: blank rates use the default while numeric zero remains valid", () => {
   for (const blank of ["", " \t "]) {
     process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR = blank;

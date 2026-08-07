@@ -51,9 +51,9 @@ symbol graphs, or AST parsing finds nothing. The adjacent pieces are:
 Graphify therefore adds a capability Frege lacks. It does not duplicate an
 existing one.
 
-The combined draft PR #16 integration releases CLI version `0.4.0`. Published
-version `0.3.0` came from the earlier live-run tree and does not contain these
-Graphify or hardened MCP files.
+CLI version `0.4.0` is the first combined package. Published version `0.3.0`
+came from the earlier live-run tree and does not contain these Graphify or
+hardened MCP files.
 
 ## Zero-code baseline
 
@@ -223,8 +223,8 @@ Acceptance criteria for the first release:
 
 - Phase 0: this decision record. Done.
 - Phase 1: CLI adapter, flag-gated MCP tools, and package tests wired into CI.
-  The combined draft PR #16 package is versioned `0.4.0`. Exit test: the
-  acceptance criteria above.
+  The combined package is versioned `0.4.0`. Exit test: the acceptance criteria
+  above.
 - Phase 2: run the adapter against this repository and one external project.
   Decide defaults, budget limits, and whether `frege_code_context` merges
   into `frege_build_context` as a parameter. Update

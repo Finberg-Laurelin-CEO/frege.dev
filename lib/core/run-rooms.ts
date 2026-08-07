@@ -121,7 +121,7 @@ export function runRoomWatcherUsage(durationMs: number): {
 
   return {
     watcherHours,
-    estimatedCostUsd: Number((watcherHours * costRateUsdPerHour).toFixed(6)),
+    estimatedCostUsd: Number((watcherHours * costRateUsdPerHour).toFixed(12)),
     costRateUsdPerHour,
   };
 }
