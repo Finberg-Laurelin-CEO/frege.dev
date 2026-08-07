@@ -10,6 +10,8 @@ export type UsageRow = {
   input_tokens: number;
   output_tokens: number;
   estimated_cost_usd: number;
+  live_room_watcher_seconds: number;
+  live_room_estimated_cost_usd: number;
 };
 
 export type UsageTotals = {
@@ -41,7 +43,8 @@ export async function rollupUsage(days = 14): Promise<{ rows: number }> {
     insert into usage_daily (
       org_id, day, actor_user_id,
       model_calls, context_builds, denied_events,
-      input_tokens, output_tokens, estimated_cost_usd, updated_at
+      input_tokens, output_tokens, estimated_cost_usd,
+      live_room_watcher_seconds, live_room_estimated_cost_usd, updated_at
     )
     select
       org_id,
@@ -53,6 +56,8 @@ export async function rollupUsage(days = 14): Promise<{ rows: number }> {
       coalesce(sum(input_tokens), 0)::bigint,
       coalesce(sum(output_tokens), 0)::bigint,
       coalesce(sum(estimated_cost_usd), 0)::numeric,
+      coalesce(sum((metadata->>'watcher_seconds')::numeric) filter (where action = 'run_room.watch_metered'), 0)::numeric,
+      coalesce(sum(estimated_cost_usd) filter (where action = 'run_room.watch_metered'), 0)::numeric,
       now()
     from telemetry_events
     where org_id is not null
@@ -67,6 +72,8 @@ export async function rollupUsage(days = 14): Promise<{ rows: number }> {
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       estimated_cost_usd = excluded.estimated_cost_usd,
+      live_room_watcher_seconds = excluded.live_room_watcher_seconds,
+      live_room_estimated_cost_usd = excluded.live_room_estimated_cost_usd,
       updated_at = now()
     returning 1
   `;
@@ -76,7 +83,8 @@ export async function rollupUsage(days = 14): Promise<{ rows: number }> {
     insert into usage_daily (
       org_id, day, actor_user_id,
       model_calls, context_builds, denied_events,
-      input_tokens, output_tokens, estimated_cost_usd, updated_at
+      input_tokens, output_tokens, estimated_cost_usd,
+      live_room_watcher_seconds, live_room_estimated_cost_usd, updated_at
     )
     select
       org_id,
@@ -88,6 +96,8 @@ export async function rollupUsage(days = 14): Promise<{ rows: number }> {
       coalesce(sum(input_tokens), 0)::bigint,
       coalesce(sum(output_tokens), 0)::bigint,
       coalesce(sum(estimated_cost_usd), 0)::numeric,
+      coalesce(sum((metadata->>'watcher_seconds')::numeric) filter (where action = 'run_room.watch_metered'), 0)::numeric,
+      coalesce(sum(estimated_cost_usd) filter (where action = 'run_room.watch_metered'), 0)::numeric,
       now()
     from telemetry_events
     where org_id is not null
@@ -101,6 +111,8 @@ export async function rollupUsage(days = 14): Promise<{ rows: number }> {
       input_tokens = excluded.input_tokens,
       output_tokens = excluded.output_tokens,
       estimated_cost_usd = excluded.estimated_cost_usd,
+      live_room_watcher_seconds = excluded.live_room_watcher_seconds,
+      live_room_estimated_cost_usd = excluded.live_room_estimated_cost_usd,
       updated_at = now()
     returning 1
   `;
@@ -165,7 +177,9 @@ export async function platformUsageByOrg(days = 30) {
       coalesce(sum(ud.denied_events), 0)::int as denied_events,
       coalesce(sum(ud.input_tokens), 0)::bigint as input_tokens,
       coalesce(sum(ud.output_tokens), 0)::bigint as output_tokens,
-      coalesce(sum(ud.estimated_cost_usd), 0)::float as estimated_cost_usd
+      coalesce(sum(ud.estimated_cost_usd), 0)::float as estimated_cost_usd,
+      (coalesce(sum(ud.live_room_watcher_seconds), 0) / 3600)::float as live_room_watcher_hours,
+      coalesce(sum(ud.live_room_estimated_cost_usd), 0)::float as live_room_estimated_cost_usd
     from organizations o
     left join usage_daily ud
       on ud.org_id = o.id

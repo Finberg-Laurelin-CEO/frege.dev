@@ -51,9 +51,9 @@ symbol graphs, or AST parsing finds nothing. The adjacent pieces are:
 Graphify therefore adds a capability Frege lacks. It does not duplicate an
 existing one.
 
-Draft PR #16 owns the next CLI package-version change. This integration does
-not bump the package version and avoids its live-run dispatcher, billing, and
-bridge files.
+CLI version `0.4.0` is the first combined package. Published version `0.3.0`
+came from the earlier live-run tree and does not contain these Graphify or
+hardened MCP files.
 
 ## Zero-code baseline
 
@@ -169,7 +169,8 @@ existing `FREGE_SKILLS_COMPILER` pattern (`frege-mcp.mjs:59`):
   `edges` in its source graph and emits deterministic `nodes` and `edges`.
 - The adapter strictly validates the v1 artifact and does not parse Graphify's
   human-readable query output into a second graph model.
-- The package version is intentionally unchanged while draft PR #16 is pending.
+- CLI version `0.4.0` is the first combined package with the local Graphify
+  adapter, hardened MCP, and live-run dispatcher.
 
 ## Rollout flag
 
@@ -222,8 +223,8 @@ Acceptance criteria for the first release:
 
 - Phase 0: this decision record. Done.
 - Phase 1: CLI adapter, flag-gated MCP tools, and package tests wired into CI.
-  Package versioning remains with draft PR #16. Exit test: the acceptance
-  criteria above.
+  The combined package is versioned `0.4.0`. Exit test: the acceptance criteria
+  above.
 - Phase 2: run the adapter against this repository and one external project.
   Decide defaults, budget limits, and whether `frege_code_context` merges
   into `frege_build_context` as a parameter. Update

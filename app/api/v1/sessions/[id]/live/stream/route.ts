@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { orgContextFromMembership } from "@/lib/core/org-guard";
 import {
   LIVE_RUN_ROOMS_ENABLED,
+  RUN_ROOM_WATCH_METERED,
   RUN_ROOM_WATCH_OPENED,
   bridgeIsStale,
   getLiveSessionRow,
@@ -10,6 +11,7 @@ import {
   liveRunRoomsNotFound,
   resolveEventCursor,
   resolveWatcher,
+  runRoomWatcherUsage,
   type LiveLedgerEvent,
 } from "@/lib/core/run-rooms";
 import { logTelemetryEvent } from "@/lib/core/telemetry";
@@ -23,6 +25,7 @@ type RouteContext = {
 };
 
 const HEARTBEAT_MS = 15_000;
+const METER_INTERVAL_MS = 60_000;
 
 function pollIntervalMs(): number {
   const configured = Number(process.env.FREGE_LIVE_POLL_MS ?? 1000);
@@ -69,13 +72,14 @@ export async function GET(req: Request, context: RouteContext) {
   const resolution = await resolveWatcher(req, id);
   if (!resolution.ok) return resolution.response;
   const { watcher } = resolution;
+  const actor = { type: "user" as const, auth: orgContextFromMembership(watcher.userSession, watcher.membership) };
 
   const sql = getSql();
   const cursorId = req.headers.get("last-event-id") ?? new URL(req.url).searchParams.get("after");
   const cursor = cursorId ? await resolveEventCursor(sql, id, watcher.session.org_id, cursorId) : null;
 
   await logTelemetryEvent({
-    actor: { type: "user", auth: orgContextFromMembership(watcher.userSession, watcher.membership) },
+    actor,
     req,
     action: RUN_ROOM_WATCH_OPENED,
     resourceType: "brain_session",
@@ -103,7 +107,31 @@ export async function GET(req: Request, context: RouteContext) {
 
       let after = cursor;
       let lastWriteAt = Date.now();
+      let lastMeteredAt = Date.now();
       let bridgeDownAnnounced = false;
+
+      const meterWatch = async (endedAt: number) => {
+        const durationMs = Math.max(0, endedAt - lastMeteredAt);
+        if (durationMs === 0) return;
+        const usage = runRoomWatcherUsage(durationMs);
+        await logTelemetryEvent({
+          actor,
+          req,
+          action: RUN_ROOM_WATCH_METERED,
+          resourceType: "brain_session",
+          resourceId: id,
+          sessionId: id,
+          outcome: "success",
+          estimatedCostUsd: usage.estimatedCostUsd,
+          metadata: {
+            watcher_seconds: Number((durationMs / 1000).toFixed(3)),
+            watcher_hours: Number(usage.watcherHours.toFixed(6)),
+            billing_unit: "watcher_hour",
+            cost_rate_usd_per_hour: usage.costRateUsdPerHour,
+          },
+        });
+        lastMeteredAt = endedAt;
+      };
 
       write("retry: 3000\n\n");
 
@@ -151,11 +179,16 @@ export async function GET(req: Request, context: RouteContext) {
             lastWriteAt = Date.now();
           }
 
+          if (Date.now() - lastMeteredAt >= METER_INTERVAL_MS) {
+            await meterWatch(Date.now());
+          }
+
           await sleep(pollMs, signal);
         }
       } catch (err) {
         console.error("live stream poll failed", { message: (err as Error)?.message });
       } finally {
+        await meterWatch(Date.now());
         closed = true;
         try {
           controller.close();

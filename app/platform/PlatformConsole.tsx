@@ -214,6 +214,8 @@ type UsageOrgRow = {
   input_tokens: number;
   output_tokens: number;
   estimated_cost_usd: number;
+  live_room_watcher_hours: number;
+  live_room_estimated_cost_usd: number;
 };
 
 type OrgDetail = {
@@ -1727,13 +1729,16 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
               )}
 
               <h2 className={styles.sectionTitle} style={{ marginTop: 18 }}>Usage by org (30 days)</h2>
+              <p className={styles.meta}>
+                All values are from the latest completed usage rollup. Operational estimates only: the room estimate is included in the total, not an additional charge. This telemetry does not debit credits or create Stripe invoices.
+              </p>
               {usage.length === 0 ? (
                 <div className={styles.empty}><strong>No per-org usage yet.</strong></div>
               ) : (
               <div className={styles.tableScroll}>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>org</th><th>status</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>est. cost</th></tr>
+                  <tr><th>org</th><th>status</th><th>model calls</th><th>context builds</th><th>denied</th><th>in tok</th><th>out tok</th><th>room watcher h</th><th>room est. (included)</th><th>total est.</th></tr>
                 </thead>
                 <tbody>
                   {usage.map((u) => (
@@ -1745,6 +1750,8 @@ export default function PlatformConsole({ staffEmail }: { staffEmail: string }) 
                       <td>{num(u.denied_events)}</td>
                       <td>{num(u.input_tokens)}</td>
                       <td>{num(u.output_tokens)}</td>
+                      <td>{u.live_room_watcher_hours.toFixed(1)}</td>
+                      <td>{money(u.live_room_estimated_cost_usd)}</td>
                       <td>{money(u.estimated_cost_usd)}</td>
                     </tr>
                   ))}

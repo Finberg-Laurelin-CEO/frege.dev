@@ -2,7 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { registerHooks } from "node:module";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -56,6 +56,7 @@ registerHooks({
 });
 
 const runRooms = await import(pathToFileURL(path.join(rootDir, "lib/core/run-rooms.ts")).href);
+const usage = await import(pathToFileURL(path.join(rootDir, "lib/core/usage.ts")).href);
 const routeModule = (relative) => import(pathToFileURL(path.join(rootDir, relative)).href);
 const eventsRoute = await routeModule("app/api/v1/sessions/[id]/live/events/route.ts");
 const streamRoute = await routeModule("app/api/v1/sessions/[id]/live/stream/route.ts");
@@ -66,8 +67,12 @@ const ackRoute = await routeModule("app/api/v1/sessions/[id]/live/directives/[di
 
 const FIXED_NOW = "2026-07-22T12:00:00.000Z";
 
+function normalizeSql(text) {
+  return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 function normalize(strings) {
-  return strings.join(" ? ").toLowerCase().replace(/\s+/g, " ").trim();
+  return normalizeSql(strings.join(" ? "));
 }
 
 // --- in-memory stand-in for the run-rooms SQL surface -----------------------
@@ -680,6 +685,7 @@ test("stream: member replay carries ledger ids as SSE ids, then tears down on ab
   );
   assert.ok(buffer.includes('"event_type":"run.live.started"'), "the kind travels in data.event_type");
 
+  await new Promise((resolve) => setTimeout(resolve, 2));
   abort.abort();
   await assert.doesNotReject(async () => {
     for (let i = 0; i < 50; i += 1) {
@@ -691,6 +697,110 @@ test("stream: member replay carries ledger ids as SSE ids, then tears down on ab
 
   const opened = globalThis.__telemetryLog.find((row) => row.action === "run_room.watch_opened");
   assert.ok(opened, "watch_opened telemetry must fire once per connection");
+  for (let i = 0; i < 20 && !globalThis.__telemetryLog.some((row) => row.action === "run_room.watch_metered"); i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  }
+  const metered = globalThis.__telemetryLog.find((row) => row.action === "run_room.watch_metered");
+  assert.ok(metered, "watch_metered telemetry must capture the connection duration");
+  assert.equal(metered.metadata.billing_unit, "watcher_hour");
+  assert.ok(metered.metadata.watcher_seconds > 0);
+});
+
+test("runRoomWatcherUsage: produces a configurable per-hour cost estimate", () => {
+  delete process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR;
+  assert.deepEqual(runRooms.runRoomWatcherUsage(3_600_000), {
+    watcherHours: 1,
+    estimatedCostUsd: 0.08,
+    costRateUsdPerHour: 0.08,
+  });
+});
+
+test("runRoomWatcherUsage: sixty one-minute estimates preserve the one-hour total", () => {
+  delete process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR;
+  const total = Array.from({ length: 60 }, () => runRooms.runRoomWatcherUsage(60_000).estimatedCostUsd)
+    .reduce((sum, cost) => sum + cost, 0);
+  assert.ok(Math.abs(total - 0.08) < 1e-9, `one-minute estimates summed to ${total}`);
+});
+
+test("runRoomWatcherUsage: blank rates use the default while numeric zero remains valid", () => {
+  for (const blank of ["", " \t "]) {
+    process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR = blank;
+    assert.equal(runRooms.runRoomWatcherUsage(3_600_000).costRateUsdPerHour, 0.08);
+  }
+  process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR = "0";
+  assert.deepEqual(runRooms.runRoomWatcherUsage(3_600_000), {
+    watcherHours: 1,
+    estimatedCostUsd: 0,
+    costRateUsdPerHour: 0,
+  });
+  delete process.env.FREGE_LIVE_WATCHER_COST_USD_PER_HOUR;
+});
+
+test("both usage rollups persist the metered room subset without removing it from total cost", async () => {
+  const queries = [];
+  globalThis.__fakeSql = (strings) => {
+    queries.push(normalize(strings));
+    return Promise.resolve([]);
+  };
+
+  await usage.rollupUsage(14);
+
+  const prototypeSource = readFileSync(path.join(rootDir, "scripts/prototype/rollup-usage.mjs"), "utf8");
+  const prototypeRollups = [...prototypeSource.matchAll(/await pool\.query\(\s*`([\s\S]*?)`\s*,\s*\[since\],?\s*\)/g)]
+    .map((match) => normalizeSql(match[1]));
+  const implementations = [
+    ["application", queries],
+    ["prototype", prototypeRollups],
+  ];
+
+  for (const [name, rollups] of implementations) {
+    assert.equal(rollups.length, 2, `${name} must roll up per-user and per-org rows`);
+    assert.ok(rollups.some((query) => query.includes("actor_user_id is not null")));
+    assert.ok(rollups.some((query) => query.includes("null::uuid")));
+
+    for (const query of rollups) {
+      assert.match(query, /estimated_cost_usd, live_room_watcher_seconds, live_room_estimated_cost_usd, updated_at/);
+      assert.match(query, /coalesce\(sum\(estimated_cost_usd\), 0\)::numeric, coalesce\(sum\(\(metadata->>'watcher_seconds'\)::numeric\) filter \(where action = 'run_room\.watch_metered'\), 0\)::numeric/);
+      assert.match(query, /coalesce\(sum\(estimated_cost_usd\) filter \(where action = 'run_room\.watch_metered'\), 0\)::numeric/);
+      assert.match(query, /on conflict .* do update set/);
+      assert.match(query, /live_room_watcher_seconds = excluded\.live_room_watcher_seconds/);
+      assert.match(query, /live_room_estimated_cost_usd = excluded\.live_room_estimated_cost_usd/);
+      assert.doesNotMatch(query.split("from telemetry_events")[1].split("group by")[0], /\baction\b/);
+    }
+  }
+});
+
+test("platform room reporting uses the same usage_daily rows and converts seconds on read", async () => {
+  let platformRollup = "";
+  globalThis.__fakeSql = (strings) => {
+    platformRollup = normalize(strings);
+    return Promise.resolve([]);
+  };
+
+  await usage.platformUsageByOrg(30);
+
+  assert.match(platformRollup, /from organizations o left join usage_daily ud/);
+  assert.match(platformRollup, /coalesce\(sum\(ud\.estimated_cost_usd\), 0\)::float as estimated_cost_usd/);
+  assert.match(platformRollup, /\(coalesce\(sum\(ud\.live_room_watcher_seconds\), 0\) \/ 3600\)::float as live_room_watcher_hours/);
+  assert.match(platformRollup, /coalesce\(sum\(ud\.live_room_estimated_cost_usd\), 0\)::float as live_room_estimated_cost_usd/);
+  assert.doesNotMatch(platformRollup, /sum\(ud\.estimated_cost_usd\)[^,]*\+/);
+  assert.doesNotMatch(platformRollup, /telemetry_events|\blateral\b|\brr\./);
+  assert.equal((platformRollup.match(/usage_daily/g) ?? []).length, 1);
+  assert.equal((platformRollup.match(/\bday >/g) ?? []).length, 1);
+  assert.equal((platformRollup.match(/\?/g) ?? []).length, 1, "one bound window must select every reported total");
+});
+
+test("room breakout migration is additive and staff copy describes the rollup snapshot", () => {
+  const migration = normalizeSql(readFileSync(path.join(rootDir, "db/032_usage_daily_run_room_breakout.sql"), "utf8"));
+  assert.match(migration, /alter table usage_daily add column if not exists live_room_watcher_seconds numeric not null default 0/);
+  assert.match(migration, /add column if not exists live_room_estimated_cost_usd numeric not null default 0/);
+  assert.doesNotMatch(migration, /live_room_watcher_hours|update usage_daily|insert into usage_daily/);
+
+  const consoleSource = readFileSync(path.join(rootDir, "app/platform/PlatformConsole.tsx"), "utf8");
+  assert.match(consoleSource, /all values are from the latest completed usage rollup/i);
+  assert.match(consoleSource, /room est\. \(included\)/);
+  assert.match(consoleSource, /room estimate is included in the total, not an additional charge/i);
+  assert.match(consoleSource, /does not debit credits or create Stripe invoices/i);
 });
 
 test("stream: reconnect cursor (Last-Event-ID) replays only events after the cursor", async () => {
