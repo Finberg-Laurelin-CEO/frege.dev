@@ -32,6 +32,7 @@
     "smoke:public": "node scripts/prototype/smoke-public.mjs",
     "smoke:admin": "node scripts/prototype/smoke-admin.mjs",
     "smoke:admin:live": "node scripts/prototype/smoke-admin.mjs --live",
+    "smoke:mcp": "node scripts/prototype/smoke-stateless-mcp.mjs",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-*.mjs packages/frege-cli/test/*.test.mjs",
     "test:public-claims": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-public-claims.mjs",
     "test:public-repository": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-public-repository.mjs",
@@ -40,6 +41,7 @@
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.23.0",
     "@clerk/backend": "^3.11.3",
+    "@modelcontextprotocol/server": "2.0.0",
     "@neondatabase/serverless": "^0.10.4",
     "@vercel/analytics": "^2.0.1",
     "next": "15.5.21",
@@ -47,7 +49,8 @@
     "react-dom": "19.0.0",
     "resend": "^6.14.0",
     "stripe": "^22.2.3",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "zod4": "npm:zod@4.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.5",

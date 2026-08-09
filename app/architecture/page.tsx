@@ -257,7 +257,8 @@ export default function ArchitecturePage() {
         </p>
         <p className="docs__note">
           Customers do not run the Frege database themselves. They connect agents to the
-          hosted Frege API through the Frege CLI and MCP client.
+          hosted Frege API through the local Frege CLI or the opt-in stateless hosted MCP
+          read endpoint.
         </p>
       </section>
 
@@ -273,7 +274,7 @@ export default function ArchitecturePage() {
         <ul>
           <li><b>Control plane</b>: the hosted app, admin UI, REST APIs, permissions, review, and provenance.</li>
           <li><b>Brain database</b>: the canonical store of governed pages, sources, sessions, and proposals.</li>
-          <li><b>Thin client</b>: the local <code>frege</code> CLI and MCP server, which only ever call REST APIs.</li>
+          <li><b>MCP transports</b>: the local <code>frege</code> stdio server for the full governed workflow, plus an opt-in stateless HTTP endpoint for authorized retry-safe reads. Both reuse REST route authorization.</li>
         </ul>
       </section>
 
@@ -537,9 +538,11 @@ export default function ArchitecturePage() {
         <h2>Agent execution boundary</h2>
         <p>
           The customer&apos;s agent supplies the model access, tools, and compute. Codex, Claude
-          Code, or an internal agent runs in the customer&apos;s environment and calls the local
-          <code> frege mcp serve</code> bridge. Frege authenticates that client, returns scoped
-          and cited context, and accepts session events or reviewable memory proposals.
+          Code, or an internal agent runs in the customer&apos;s environment and calls either the
+          local <code> frege mcp serve</code> bridge or the opt-in hosted read endpoint. Frege
+          authenticates every call and returns scoped, cited data. Session events and
+          reviewable proposals remain on the local stdio path until remote writes have a
+          durable idempotency ledger.
         </p>
         <p>
           The hosted app is a memory and control plane, not an inference host. Frege does not
@@ -588,12 +591,12 @@ export default function ArchitecturePage() {
       <section id="mcp">
         <h2>MCP surface</h2>
         <p>
-          The Frege CLI and MCP server call REST APIs only; they never read the database
-          directly. Agents use MCP tools to check status, search and read brain pages and
-          documents, build governed context, manage sessions, and propose memory. The
-          recommended workflow is to start or attach to a session, append
-          important events, search the brain, build governed context before answering, cite
-          slugs and source IDs, and create proposals for durable updates.
+          MCP transports reuse Frege&apos;s authenticated REST route boundary; they never add a
+          second database or authorization path. The local stdio server supports status,
+          reads, context builds, durable session writes, and proposals. The modern hosted
+          endpoint is process-stateless and read-only: it can search governed knowledge and
+          visible task sessions, then read one by explicit <code>session_id</code>, but it cannot mutate
+          knowledge, meter a context build, or invoke local Graphify.
         </p>
         <div className="hero__actions">
           <a className="button button--primary" href="/docs">Set up the CLI</a>

@@ -38,6 +38,8 @@ roadmap.
 - Audit and telemetry records for product activity.
 - A thin local CLI/MCP client that connects Codex, Claude Code, and compatible
   stdio MCP clients to the hosted Frege API.
+- An opt-in, modern-only stateless HTTP MCP endpoint for retry-safe hosted reads;
+  it is disabled by default while client compatibility is validated.
 - A downloadable Frege Agent profile for Hermes that runs with the user's
   model, tools, credentials, and compute.
 - Shared live Codex sessions (private beta) where authorized teammates watch,
@@ -68,8 +70,9 @@ Human administrators
 
 AI agent
   -> agent model and tools run in the customer's environment
-  -> frege mcp serve (local stdio bridge)
-  -> scoped API key
+  -> either frege mcp serve (local stdio, full governed workflow)
+     or https://frege.dev/mcp (opt-in stateless HTTP, read-only)
+  -> scoped API key, authorized on every call
   -> hosted Frege API
   -> organization and trust-zone gates
   -> permitted pages, documents, context, sessions, and proposals
@@ -77,7 +80,10 @@ AI agent
 
 The CLI is agent-side glue. It stores local connection configuration, exposes a
 stdio MCP server, and calls the hosted Frege REST API. It does not connect to
-the Frege database.
+the Frege database. Updated clients that support MCP `2026-07-28` and custom
+Bearer headers may instead use the opt-in hosted read endpoint documented in
+[`docs/STATELESS_MCP.md`](docs/STATELESS_MCP.md). Stdio remains required for
+writes, metered context builds, and local Graphify tools.
 
 Canonical knowledge is separate from task history. Agents can append events to
 a session while they work, but durable knowledge changes go through memory

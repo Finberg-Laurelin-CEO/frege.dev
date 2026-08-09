@@ -2,8 +2,9 @@
 
 Frege is a hosted control plane and governed memory layer for AI agents. Human
 operators manage organizations, access, sources, and proposed changes in the
-browser. Agents connect through a thin local CLI/MCP process and call the hosted
-API.
+browser. Agents connect either through the thin local CLI/MCP process or, for
+modern retry-safe reads, an opt-in stateless hosted MCP endpoint. Both paths use
+the same governed API boundary.
 
 ```text
 Human operator
@@ -11,14 +12,18 @@ Human operator
   -> organizations, roles, sources, review, and activity
 
 AI agent
-  -> frege mcp serve
-  -> scoped API key
+  -> frege mcp serve (stdio; reads and governed writes)
+     OR /mcp (MCP 2026-07-28; opt-in read-only HTTP)
+  -> scoped API key, reauthenticated per call
   -> hosted Frege API
   -> permission-filtered context and memory operations
 ```
 
 The CLI stores local connection configuration and translates MCP tools into
-REST requests. It does not connect directly to Frege's database.
+REST requests. It does not connect directly to Frege's database. The hosted MCP
+route also invokes the existing authenticated route handlers rather than adding
+a second database or authorization path. Its server and actor context are
+created afresh for each request.
 
 ## Identity and authorization
 
@@ -52,8 +57,10 @@ source material
 ## Sessions and auditability
 
 Sessions provide durable task context for user messages, agent messages, tool
-activity, context builds, and memory signals. Audit and telemetry records make
-important reads, writes, proposals, and administrative actions reviewable.
+activity, context builds, and memory signals. They remain explicit database
+records addressed by `session_id`; they are not MCP transport sessions. Audit
+and telemetry records make important reads, writes, proposals, and
+administrative actions reviewable.
 
 Obvious credentials and authorization material are redacted before session
 events are persisted. Clients must still avoid sending secrets as ordinary
@@ -77,3 +84,5 @@ credentials, customer data, incident records, and operator runbooks are not part
 of the public documentation set.
 
 For the supported client setup, see [`FREGE_MCP_INSTALL.md`](FREGE_MCP_INSTALL.md).
+For the feature-flagged hosted transport and its security boundary, see
+[`STATELESS_MCP.md`](STATELESS_MCP.md).
