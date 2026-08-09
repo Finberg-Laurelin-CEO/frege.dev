@@ -345,10 +345,17 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   parsed = await readBoundedMcpJson(validQuotedParameters);
   assert.equal(parsed.ok, true);
 
+  const validEmptyListMembers = request("tools/list", { _meta: meta }, {
+    headers: { Accept: ", \t, application/json,, text/event-stream, " },
+  });
+  parsed = await readBoundedMcpJson(validEmptyListMembers);
+  assert.equal(parsed.ok, true);
+
   for (const accept of [
     'application/json;q="1", text/event-stream',
     "application/json;q=1;q=0, text/event-stream",
     'application/json;note="unterminated, text/event-stream',
+    "\u00a0, application/json, text/event-stream",
     `application/json, text/event-stream;note="${"x".repeat(MCP_MAX_REQUEST_BYTES)}"`,
   ]) {
     parsed = await readBoundedMcpJson(

@@ -375,6 +375,7 @@ function responseIdMatches(
 }
 
 const HTTP_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const trimHttpOws = (value: string) => value.replace(/^[ \t]+|[ \t]+$/g, "");
 
 function splitQuotedHttpValue(value: string, separator: "," | ";"): string[] | null {
   const parts: string[] = [];
@@ -423,9 +424,13 @@ function acceptsMcpResponseTypes(header: string | null): boolean {
 
   const accepted = new Set<string>();
   for (const rawRange of ranges) {
-    const parts = splitQuotedHttpValue(rawRange, ";");
+    const range = trimHttpOws(rawRange);
+    // Accept is a #rule list: RFC 9110 requires recipients to ignore a
+    // reasonable number of empty members. The 8 KiB header cap bounds them.
+    if (!range) continue;
+    const parts = splitQuotedHttpValue(range, ";");
     if (!parts || parts.length === 0) return false;
-    const mediaType = parts[0].trim().toLowerCase();
+    const mediaType = trimHttpOws(parts[0]).toLowerCase();
     const mediaParts = mediaType.split("/");
     if (
       mediaParts.length !== 2 ||
@@ -437,11 +442,11 @@ function acceptsMcpResponseTypes(header: string | null): boolean {
 
     let qValue: string | undefined;
     for (const rawParameter of parts.slice(1)) {
-      const parameter = rawParameter.trim();
+      const parameter = trimHttpOws(rawParameter);
       const equals = parameter.indexOf("=");
       if (equals <= 0) return false;
-      const name = parameter.slice(0, equals).trim().toLowerCase();
-      const value = parameter.slice(equals + 1).trim();
+      const name = trimHttpOws(parameter.slice(0, equals)).toLowerCase();
+      const value = trimHttpOws(parameter.slice(equals + 1));
       if (!HTTP_TOKEN.test(name) || !value) return false;
       const quoted = value.startsWith('"');
       if (quoted ? !validHttpQuotedString(value) : !HTTP_TOKEN.test(value)) return false;
