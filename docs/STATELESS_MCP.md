@@ -27,9 +27,10 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
 - Responses are JSON, capped at 512 KiB, marked `private, no-store`, and never
   contain `Mcp-Session-Id`. GET, DELETE, PUT, PATCH, and OPTIONS do not establish
   streams or sessions.
-- Database-backed pre-auth and API-key rate limits are shared across serverless
-  instances. Underlying read routes remain the single audit/telemetry source;
-  the MCP transport does not duplicate usage events.
+- Database-backed pre-auth IP limits and authenticated key-global limits are
+  shared across serverless instances; rotating source IPs does not multiply one
+  key's allowance. Underlying read routes remain the single audit/telemetry
+  source; the MCP transport does not duplicate usage events.
 
 The production host and origin are `frege.dev`. Vercel's exact `VERCEL_URL` is
 admitted for that deployment. Additional exact hostnames require explicit
@@ -45,12 +46,17 @@ operations:
 - sources, page search/read, vault links, bounded graph traversal and paths;
 - visible documents and document search/read;
 - visible durable Frege task-session search/read when the key can read sessions;
-- audit events when the key can read audit data;
 - approved skill list/read when `FREGE_SKILLS_COMPILER=true`.
 
+Audit-event listing is also omitted: the canonical audit route records each
+access, so ambiguous retries are not externally idempotent and can change a
+later listing.
+
 Tool schemas reject extra properties and bound strings, arrays, graph depth, and
-result counts. The tool catalog is capability-aware, but every call still
-performs its normal server-side authorization.
+result counts. Graph links, relationship counts, and evidence include only
+endpoints visible to the caller; only links with a null target are classified as
+dangling. The tool catalog is capability-aware, but every call still performs
+its normal server-side authorization.
 
 The following side-effecting or metered tools remain available through
 `frege mcp serve` over stdio but are intentionally absent from hosted MCP:
@@ -100,5 +106,8 @@ or call a hosted graph backend.
 6. Verify existing stdio behavior and CLI package contents are unaffected.
 7. Enable the flag on the public production project only after CI, independent
    security review, and the authenticated production canary pass.
-8. Roll back immediately by removing or setting
-   `FREGE_STATELESS_MCP_ENABLED=false`; no database migration is required.
+8. To roll back on Vercel, remove or set
+   `FREGE_STATELESS_MCP_ENABLED=false`, then create and promote a new public
+   deployment; changing an environment value does not mutate an already-running
+   deployment. Verify no-store `404` responses for public `/mcp` and `/mcp/` and
+   for the brain/admin authorities. No database migration is required.

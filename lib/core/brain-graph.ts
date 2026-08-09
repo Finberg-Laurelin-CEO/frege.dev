@@ -58,25 +58,45 @@ export async function getPageLinks(r: GraphReader, slug: string): Promise<PageLi
   if (!page) return null;
   const sql = getSql();
 
-  // Outgoing: links whose source is this page. Join targets to get titles and
-  // filter targets to the visible trust zone. target_page_id null => unresolved.
+  // Resolved targets must themselves be visible. A resolved-but-hidden target
+  // is omitted rather than relabeled as dangling, which would leak its slug and
+  // evidence. Only a genuinely null target_page_id is returned as unresolved.
   const outgoingRows = (await sql`
-    select
-      ${page.slug} as source_slug,
-      bl.target_slug,
-      tp.title as target_title,
-      bl.link_type,
-      bl.confidence,
-      bl.evidence,
-      (tp.id is not null) as resolved
-    from brain_links bl
-    left join brain_pages tp
-      on tp.id = bl.target_page_id
-      and tp.status = 'published'
-      and tp.trust_zone = any(${r.trustZones}::text[])
-    where bl.org_id = ${r.orgId}
-      and bl.source_page_id = ${page.id}
-    order by resolved desc, bl.target_slug asc
+    select *
+    from (
+      select
+        ${page.slug} as source_slug,
+        bl.target_slug,
+        tp.title as target_title,
+        bl.link_type,
+        bl.confidence,
+        bl.evidence,
+        true as resolved
+      from brain_links bl
+      join brain_pages tp
+        on tp.id = bl.target_page_id
+        and tp.org_id = ${r.orgId}
+        and tp.status = 'published'
+        and tp.trust_zone = any(${r.trustZones}::text[])
+      where bl.org_id = ${r.orgId}
+        and bl.source_page_id = ${page.id}
+
+      union all
+
+      select
+        ${page.slug} as source_slug,
+        bl.target_slug,
+        null::text as target_title,
+        bl.link_type,
+        bl.confidence,
+        bl.evidence,
+        false as resolved
+      from brain_links bl
+      where bl.org_id = ${r.orgId}
+        and bl.source_page_id = ${page.id}
+        and bl.target_page_id is null
+    ) visible_links
+    order by resolved desc, target_slug asc
   `) as LinkEdge[];
 
   // Backlinks: links pointing at this page from other visible pages.
@@ -92,6 +112,7 @@ export async function getPageLinks(r: GraphReader, slug: string): Promise<PageLi
     from brain_links bl
     join brain_pages sp
       on sp.id = bl.source_page_id
+      and sp.org_id = ${r.orgId}
       and sp.status = 'published'
       and sp.trust_zone = any(${r.trustZones}::text[])
     where bl.org_id = ${r.orgId}
@@ -137,8 +158,10 @@ export async function getNeighbors(
       select sp.slug as source_slug, tp.slug as target_slug
       from brain_links bl
       join brain_pages sp on sp.id = bl.source_page_id
+        and sp.org_id = ${r.orgId}
         and sp.status = 'published' and sp.trust_zone = any(${r.trustZones}::text[])
       join brain_pages tp on tp.id = bl.target_page_id
+        and tp.org_id = ${r.orgId}
         and tp.status = 'published' and tp.trust_zone = any(${r.trustZones}::text[])
       where bl.org_id = ${r.orgId}
         and (sp.slug = any(${frontier}::text[]) or tp.slug = any(${frontier}::text[]))
@@ -168,9 +191,38 @@ async function buildSubgraph(r: GraphReader, root: string | null, slugs: string[
     select
       bp.slug,
       bp.title,
-      (select count(*)::int from brain_links bl
+      (
+        select count(*)::int
+        from brain_links bl
         where bl.org_id = ${r.orgId}
-          and (bl.source_page_id = bp.id or bl.target_page_id = bp.id)) as link_count
+          and (
+            (
+              bl.source_page_id = bp.id
+              and (
+                bl.target_page_id is null
+                or exists (
+                  select 1
+                  from brain_pages target
+                  where target.id = bl.target_page_id
+                    and target.org_id = ${r.orgId}
+                    and target.status = 'published'
+                    and target.trust_zone = any(${r.trustZones}::text[])
+                )
+              )
+            )
+            or (
+              bl.target_page_id = bp.id
+              and exists (
+                select 1
+                from brain_pages source
+                where source.id = bl.source_page_id
+                  and source.org_id = ${r.orgId}
+                  and source.status = 'published'
+                  and source.trust_zone = any(${r.trustZones}::text[])
+              )
+            )
+          )
+      ) as link_count
     from brain_pages bp
     where bp.org_id = ${r.orgId}
       and bp.slug = any(${slugs}::text[])
@@ -183,12 +235,16 @@ async function buildSubgraph(r: GraphReader, root: string | null, slugs: string[
     select sp.slug as source, tp.slug as target, bl.link_type
     from brain_links bl
     join brain_pages sp on sp.id = bl.source_page_id
+      and sp.org_id = ${r.orgId}
+      and sp.status = 'published'
+      and sp.trust_zone = any(${r.trustZones}::text[])
     join brain_pages tp on tp.id = bl.target_page_id
+      and tp.org_id = ${r.orgId}
+      and tp.status = 'published'
+      and tp.trust_zone = any(${r.trustZones}::text[])
     where bl.org_id = ${r.orgId}
       and sp.slug = any(${slugs}::text[])
       and tp.slug = any(${slugs}::text[])
-      and sp.trust_zone = any(${r.trustZones}::text[])
-      and tp.trust_zone = any(${r.trustZones}::text[])
   `) as GraphEdge[];
 
   return { root, nodes, edges };
@@ -226,10 +282,37 @@ export async function listVault(r: GraphReader, limit = 200): Promise<VaultEntry
       bp.title,
       bp.status,
       bp.updated_at,
-      (select count(*)::int from brain_links bl
-        where bl.org_id = ${r.orgId} and bl.source_page_id = bp.id) as outgoing_count,
-      (select count(*)::int from brain_links bl
-        where bl.org_id = ${r.orgId} and bl.target_page_id = bp.id) as backlink_count
+      (
+        select count(*)::int
+        from brain_links bl
+        where bl.org_id = ${r.orgId}
+          and bl.source_page_id = bp.id
+          and (
+            bl.target_page_id is null
+            or exists (
+              select 1
+              from brain_pages target
+              where target.id = bl.target_page_id
+                and target.org_id = ${r.orgId}
+                and target.status = 'published'
+                and target.trust_zone = any(${r.trustZones}::text[])
+            )
+          )
+      ) as outgoing_count,
+      (
+        select count(*)::int
+        from brain_links bl
+        where bl.org_id = ${r.orgId}
+          and bl.target_page_id = bp.id
+          and exists (
+            select 1
+            from brain_pages source
+            where source.id = bl.source_page_id
+              and source.org_id = ${r.orgId}
+              and source.status = 'published'
+              and source.trust_zone = any(${r.trustZones}::text[])
+          )
+      ) as backlink_count
     from brain_pages bp
     where bp.org_id = ${r.orgId}
       and bp.status = 'published'
@@ -274,8 +357,10 @@ export async function findConnections(
       select sp.slug as source_slug, tp.slug as target_slug
       from brain_links bl
       join brain_pages sp on sp.id = bl.source_page_id
+        and sp.org_id = ${r.orgId}
         and sp.status = 'published' and sp.trust_zone = any(${r.trustZones}::text[])
       join brain_pages tp on tp.id = bl.target_page_id
+        and tp.org_id = ${r.orgId}
         and tp.status = 'published' and tp.trust_zone = any(${r.trustZones}::text[])
       where bl.org_id = ${r.orgId}
         and (sp.slug = any(${frontier}::text[]) or tp.slug = any(${frontier}::text[]))
@@ -314,8 +399,12 @@ export async function findConnections(
   }
 
   const titled = (await sql`
-    select slug, title from brain_pages
-    where org_id = ${r.orgId} and slug = any(${slugPath}::text[])
+    select slug, title
+    from brain_pages
+    where org_id = ${r.orgId}
+      and slug = any(${slugPath}::text[])
+      and status = 'published'
+      and trust_zone = any(${r.trustZones}::text[])
   `) as Array<{ slug: string; title: string }>;
   const titleBySlug = new Map(titled.map((row) => [row.slug, row.title]));
 

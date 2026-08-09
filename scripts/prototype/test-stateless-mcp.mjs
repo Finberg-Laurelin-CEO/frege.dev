@@ -149,10 +149,21 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   assert.equal(parsed.ok, false);
   assert.equal(parsed.response.status, 400);
 
-  const subscription = request("subscriptions/listen", { notifications: {}, _meta: meta });
+  const subscription = request(
+    "subscriptions/listen",
+    { notifications: {}, _meta: meta },
+    { id: "subscription-42" },
+  );
   parsed = await readBoundedMcpJson(subscription);
   assert.equal(parsed.ok, false);
   assert.equal(parsed.response.status, 404);
+  assert.equal((await json(parsed.response)).id, "subscription-42");
+
+  const unknown = request("resources/list", { _meta: meta }, { id: 77 });
+  parsed = await readBoundedMcpJson(unknown);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.response.status, 404);
+  assert.equal((await json(parsed.response)).id, 77);
 
   const invalidVersion = request("tools/list", { _meta: meta }, {
     body: JSON.stringify({ jsonrpc: "1.0", id: 1, method: "tools/list", params: { _meta: meta } }),
@@ -160,6 +171,7 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   parsed = await readBoundedMcpJson(invalidVersion);
   assert.equal(parsed.ok, false);
   assert.equal(parsed.response.status, 400);
+  assert.equal((await json(parsed.response)).id, 1);
 
   const invalidId = request("tools/list", { _meta: meta }, {
     body: JSON.stringify({ jsonrpc: "2.0", id: {}, method: "tools/list", params: { _meta: meta } }),
@@ -172,6 +184,19 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   parsed = await readBoundedMcpJson(missingAccept);
   assert.equal(parsed.ok, false);
   assert.equal(parsed.response.status, 406);
+
+  const missingProtocolVersion = request("tools/list", { _meta: meta }, {
+    headers: { "MCP-Protocol-Version": "" },
+  });
+  parsed = await readBoundedMcpJson(missingProtocolVersion);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.response.status, 400);
+
+  const parameterizedJson = request("tools/list", { _meta: meta }, {
+    headers: { "Content-Type": 'application/json; profile="mcp"' },
+  });
+  parsed = await readBoundedMcpJson(parameterizedJson);
+  assert.equal(parsed.ok, true);
 
   const sessionHeader = request("tools/list", { _meta: meta }, {
     headers: { "Mcp-Session-Id": "legacy-session" },
@@ -215,6 +240,7 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
       Host: "frege.dev",
       "Content-Type": "application/json",
       Accept: "application/json, text/event-stream",
+      "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
     },
     body: brokenBody,
     duplex: "half",
@@ -281,7 +307,6 @@ test("hosted production source excludes writes, metering, and Graphify execution
     "frege_get_skill",
     "frege_search_sessions",
     "frege_get_session",
-    "frege_audit_events",
   ];
   assert.deepEqual([...registered].sort(), [...allowed].sort());
   const forbidden = [
@@ -295,8 +320,12 @@ test("hosted production source excludes writes, metering, and Graphify execution
     "frege_propose_revision",
     "frege_code_graph_query",
     "frege_code_context",
+    "frege_audit_events",
   ];
   for (const name of forbidden) assert.equal(registered.includes(name), false, `${name} must not register`);
+  assert.match(source, /response\.body\.getReader\(\)/);
+  assert.doesNotMatch(source, /response\.text\(\)/);
+  assert.match(source, /"X-Real-IP": clientIp\(sourceRequest\)/);
   assert.doesNotMatch(source, /graphify-local|child_process|spawnSync|runGraphify|FREGE_CODE_GRAPH/);
   assert.match(source, /!\/\[%_\]\/.test\(value\)/);
   assert.ok(registered.includes("frege_search_sessions"));
@@ -315,6 +344,7 @@ test("gateway source is bearer-only, feature-gated, rate-limited, and non-redire
   assert.match(gateway, /assertActiveOrg\(auth\)/);
   assert.match(gateway, /mcp_http_auth/);
   assert.match(gateway, /mcp_http_key/);
+  assert.match(gateway, /includeClientIp: !auth/);
   assert.match(gateway, /hostHeaderValidationResponse/);
   assert.match(gateway, /originValidationResponse/);
   assert.match(middleware, /reqPath === "\/mcp"/);

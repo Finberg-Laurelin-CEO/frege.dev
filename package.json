@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@10.19.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "bin": {
     "frege": "packages/frege-cli/bin/frege.mjs",
     "frege-mcp": "packages/frege-cli/bin/frege-mcp.mjs"

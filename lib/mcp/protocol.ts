@@ -1,6 +1,7 @@
 import {
   McpServer,
   createMcpHandler,
+  isJsonContentType,
   type AuthInfo,
   type McpRequestContext,
   type StandardSchemaWithJSON,
@@ -121,18 +122,16 @@ type JsonReadResult =
   | { ok: true; value: Record<string, unknown> }
   | { ok: false; response: Response };
 
-function jsonRpcError(status: number, code: number, message: string): Response {
+function jsonRpcError(
+  status: number,
+  code: number,
+  message: string,
+  id: string | number | null = null,
+): Response {
   return Response.json(
-    { jsonrpc: "2.0", error: { code, message }, id: null },
+    { jsonrpc: "2.0", error: { code, message }, id },
     { status },
   );
-}
-
-function isExactJsonContentType(value: string | null): boolean {
-  if (!value) return false;
-  const parts = value.split(";").map((part) => part.trim().toLowerCase());
-  if (parts.shift() !== "application/json") return false;
-  return parts.every((part) => part === "charset=utf-8");
 }
 
 function acceptsMcpResponseTypes(header: string | null): boolean {
@@ -166,7 +165,14 @@ export async function readBoundedMcpJson(
     };
   }
 
-  if (!isExactJsonContentType(req.headers.get("content-type"))) {
+  if (!req.headers.get("mcp-protocol-version")?.trim()) {
+    return {
+      ok: false,
+      response: jsonRpcError(400, -32000, "MCP-Protocol-Version is required"),
+    };
+  }
+
+  if (!isJsonContentType(req.headers.get("content-type"))) {
     return {
       ok: false,
       response: jsonRpcError(415, -32000, "Content-Type must be application/json"),
@@ -237,8 +243,13 @@ export async function readBoundedMcpJson(
   }
 
   const message = value as Record<string, unknown>;
+  const responseId =
+    typeof message.id === "string" || typeof message.id === "number" ? message.id : null;
   if (message.jsonrpc !== "2.0") {
-    return { ok: false, response: jsonRpcError(400, -32600, "JSON-RPC version must be 2.0") };
+    return {
+      ok: false,
+      response: jsonRpcError(400, -32600, "JSON-RPC version must be 2.0", responseId),
+    };
   }
   if (!("id" in message) || message.id === null) {
     return { ok: false, response: jsonRpcError(400, -32600, "Notifications are not supported") };
@@ -247,10 +258,16 @@ export async function readBoundedMcpJson(
     return { ok: false, response: jsonRpcError(400, -32600, "JSON-RPC request id must be a string or number") };
   }
   if (typeof message.method !== "string") {
-    return { ok: false, response: jsonRpcError(400, -32600, "JSON-RPC request method is required") };
+    return {
+      ok: false,
+      response: jsonRpcError(400, -32600, "JSON-RPC request method is required", message.id),
+    };
   }
   if (!HOSTED_METHODS.has(message.method)) {
-    return { ok: false, response: jsonRpcError(404, -32601, "Method not found") };
+    return {
+      ok: false,
+      response: jsonRpcError(404, -32601, "Method not found", message.id),
+    };
   }
 
   return { ok: true, value: message };

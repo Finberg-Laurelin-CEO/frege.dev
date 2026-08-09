@@ -1,5 +1,6 @@
 import { z } from "zod4";
 import type { AuthInfo, McpRequestContext } from "@modelcontextprotocol/server";
+import { clientIp } from "@/lib/core/client-ip";
 import {
   HostedMcpToolError,
   MCP_MAX_RESULT_BYTES,
@@ -21,7 +22,6 @@ import { GET as getSession } from "@/app/api/v1/sessions/[id]/route";
 import { GET as listDocuments } from "@/app/api/v1/documents/route";
 import { GET as searchDocuments } from "@/app/api/v1/documents/search/route";
 import { GET as readDocument } from "@/app/api/v1/documents/[slug]/route";
-import { GET as listAuditEvents } from "@/app/api/v1/audit-events/route";
 
 const slug = z
   .string()
@@ -36,12 +36,6 @@ const safeSearch = z
   .min(2)
   .max(1000)
   .refine((value) => !/[%_]/.test(value), "SQL wildcard characters are not supported");
-const safeFilter = z
-  .string()
-  .trim()
-  .min(1)
-  .max(120)
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/);
 const emptyInput = z.object({}).strict();
 
 export type HostedMcpActor = {
@@ -70,22 +64,75 @@ function bearerFromRequest(req?: Request): string {
   return authorization;
 }
 
+function safeAttributionHeader(value: string | null, maxLength: number): string | null {
+  if (!value) return null;
+  const safe = value.replace(/[^\x20-\x7e]/g, "").slice(0, maxLength).trim();
+  return safe || null;
+}
+
 function internalRequest(
   pathname: string,
   authorization: string,
   params: Record<string, string | number | undefined> = {},
+  sourceRequest?: Request,
 ): Request {
   const url = new URL(pathname, "https://frege.internal");
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined) url.searchParams.set(key, String(value));
   }
-  return new Request(url, {
-    method: "GET",
-    headers: {
-      Authorization: authorization,
-      "User-Agent": "frege-hosted-mcp/1.0",
-    },
+  const headers = new Headers({
+    Authorization: authorization,
+    "User-Agent":
+      safeAttributionHeader(sourceRequest?.headers.get("user-agent") ?? null, 256) ??
+      "frege-hosted-mcp/1.0",
+    "X-Real-IP": clientIp(sourceRequest),
   });
+  const requestId = safeAttributionHeader(
+    sourceRequest?.headers.get("x-request-id") ?? sourceRequest?.headers.get("x-vercel-id") ?? null,
+    256,
+  );
+  if (requestId) headers.set("X-Request-ID", requestId);
+  return new Request(url, { method: "GET", headers });
+}
+
+async function readBoundedRouteText(response: Response): Promise<string> {
+  const declaredLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > MCP_MAX_RESULT_BYTES) {
+    await response.body?.cancel().catch(() => undefined);
+    throw new HostedMcpToolError("result_too_large", 413);
+  }
+  if (!response.body) return "";
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MCP_MAX_RESULT_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new HostedMcpToolError("result_too_large", 413);
+      }
+      chunks.push(value);
+    }
+  } catch (error) {
+    if (error instanceof HostedMcpToolError) throw error;
+    throw new HostedMcpToolError("service_unavailable", 503);
+  }
+
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch {
+    throw new HostedMcpToolError("service_unavailable", 503);
+  }
 }
 
 async function invoke(
@@ -95,15 +142,7 @@ async function invoke(
 ): Promise<unknown> {
   const context: DynamicContext = { params: Promise.resolve(params ?? {}) };
   const response = await handler(req, context as never);
-  let text: string;
-  try {
-    text = await response.text();
-  } catch {
-    throw new HostedMcpToolError("service_unavailable", 503);
-  }
-  if (Buffer.byteLength(text, "utf8") > MCP_MAX_RESULT_BYTES) {
-    throw new HostedMcpToolError("result_too_large", 413);
-  }
+  const text = await readBoundedRouteText(response);
   let payload: unknown;
   try {
     payload = JSON.parse(text);
@@ -181,12 +220,16 @@ function tool(
 export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[] {
   const actor = actorFromAuth(context.authInfo);
   const authorization = bearerFromRequest(context.requestInfo);
+  const routedGet = (
+    pathname: string,
+    params: Record<string, string | number | undefined> = {},
+  ) => internalRequest(pathname, authorization, params, context.requestInfo);
   const tools: HostedMcpTool[] = [
     tool(
       "frege_status",
       "Check the Frege role, org status, and capabilities attached to this API key.",
       emptyInput,
-      async () => sanitizeStatus(await invoke(getMe, internalRequest("/api/v1/me", authorization))),
+      async () => sanitizeStatus(await invoke(getMe, routedGet("/api/v1/me"))),
     ),
     tool(
       "frege_brain_status",
@@ -194,7 +237,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
       emptyInput,
       async () =>
         sanitizeBrainStatus(
-          await invoke(getBrainStatus, internalRequest("/api/v1/brain/status", authorization)),
+          await invoke(getBrainStatus, routedGet("/api/v1/brain/status")),
         ),
     ),
     tool(
@@ -205,7 +248,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { limit?: number };
         return invoke(
           listSources,
-          internalRequest("/api/v1/brain/sources", authorization, { limit: args.limit }),
+          routedGet("/api/v1/brain/sources", { limit: args.limit }),
         );
       },
     ),
@@ -217,7 +260,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { query: string; limit?: number };
         return invoke(
           searchPages,
-          internalRequest("/api/v1/brain/pages/search", authorization, {
+          routedGet("/api/v1/brain/pages/search", {
             q: args.query,
             limit: args.limit,
           }),
@@ -232,7 +275,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { slug: string };
         return invoke(
           getPage,
-          internalRequest(`/api/v1/brain/pages/${encodeURIComponent(args.slug)}`, authorization),
+          routedGet(`/api/v1/brain/pages/${encodeURIComponent(args.slug)}`),
           { slug: args.slug },
         );
       },
@@ -245,7 +288,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { limit?: number };
         return invoke(
           listVault,
-          internalRequest("/api/v1/brain/vault", authorization, { limit: args.limit }),
+          routedGet("/api/v1/brain/vault", { limit: args.limit }),
         );
       },
     ),
@@ -257,7 +300,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { slug: string };
         return invoke(
           getPageLinks,
-          internalRequest(`/api/v1/brain/pages/${encodeURIComponent(args.slug)}/links`, authorization),
+          routedGet(`/api/v1/brain/pages/${encodeURIComponent(args.slug)}/links`),
           { slug: args.slug },
         );
       },
@@ -276,7 +319,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { slug?: string; depth?: number; limit?: number };
         return invoke(
           traverseGraph,
-          internalRequest("/api/v1/brain/graph", authorization, args),
+          routedGet("/api/v1/brain/graph", args),
         );
       },
     ),
@@ -294,7 +337,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { from: string; to: string; max_hops?: number };
         return invoke(
           findConnections,
-          internalRequest("/api/v1/brain/connections", authorization, args),
+          routedGet("/api/v1/brain/connections", args),
         );
       },
     ),
@@ -306,7 +349,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { limit?: number };
         return invoke(
           listDocuments,
-          internalRequest("/api/v1/documents", authorization, { limit: args.limit }),
+          routedGet("/api/v1/documents", { limit: args.limit }),
         );
       },
     ),
@@ -318,7 +361,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { query: string; limit?: number };
         return invoke(
           searchDocuments,
-          internalRequest("/api/v1/documents/search", authorization, {
+          routedGet("/api/v1/documents/search", {
             q: args.query,
             limit: args.limit,
           }),
@@ -333,7 +376,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         const args = input as { slug: string };
         return invoke(
           readDocument,
-          internalRequest(`/api/v1/documents/${encodeURIComponent(args.slug)}`, authorization),
+          routedGet(`/api/v1/documents/${encodeURIComponent(args.slug)}`),
           { slug: args.slug },
         );
       },
@@ -346,7 +389,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
         "frege_list_skills",
         "List approved skills visible to this Frege actor.",
         emptyInput,
-        async () => invoke(listSkills, internalRequest("/api/v1/skills", authorization)),
+        async () => invoke(listSkills, routedGet("/api/v1/skills")),
       ),
       tool(
         "frege_get_skill",
@@ -356,7 +399,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
           const args = input as { slug: string };
           return invoke(
             getSkill,
-            internalRequest(`/api/v1/skills/${encodeURIComponent(args.slug)}`, authorization),
+            routedGet(`/api/v1/skills/${encodeURIComponent(args.slug)}`),
             { slug: args.slug },
           );
         },
@@ -379,7 +422,7 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
           const args = input as { query?: string; limit?: number };
           return invoke(
             searchSessions,
-            internalRequest("/api/v1/sessions", authorization, {
+            routedGet("/api/v1/sessions", {
               q: args.query,
               limit: args.limit,
             }),
@@ -394,37 +437,8 @@ export function hostedReadOnlyTools(context: McpRequestContext): HostedMcpTool[]
           const args = input as { session_id: string };
           return invoke(
             getSession,
-            internalRequest(`/api/v1/sessions/${encodeURIComponent(args.session_id)}`, authorization),
+            routedGet(`/api/v1/sessions/${encodeURIComponent(args.session_id)}`),
             { id: args.session_id },
-          );
-        },
-      ),
-    );
-  }
-
-  if (actor.capabilities.canReadAudit) {
-    tools.push(
-      tool(
-        "frege_audit_events",
-        "List bounded audit events visible to this Frege actor.",
-        z
-          .object({
-            action: safeFilter.optional(),
-            resource_type: safeFilter.optional(),
-            before: z.string().datetime({ offset: true }).optional(),
-            limit: z.number().int().min(1).max(100).optional(),
-          })
-          .strict(),
-        async (input) => {
-          const args = input as {
-            action?: string;
-            resource_type?: string;
-            before?: string;
-            limit?: number;
-          };
-          return invoke(
-            listAuditEvents,
-            internalRequest("/api/v1/audit-events", authorization, args),
           );
         },
       ),

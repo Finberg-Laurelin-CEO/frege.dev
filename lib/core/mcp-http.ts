@@ -166,6 +166,9 @@ async function rateLimit(req: Request, auth?: PrototypeAuthContext): Promise<Res
         : intEnv("FREGE_MCP_AUTH_REQUESTS_PER_MINUTE", 60),
       windowSeconds: 60,
       keyParts: auth ? [auth.organization.id, auth.key.id] : undefined,
+      // The pre-auth bucket is IP-global; the authenticated bucket must be
+      // key-global so rotating source IPs cannot multiply one key's allowance.
+      includeClientIp: !auth,
     });
     return result.allowed ? null : secureMcpResponse(rateLimitedResponse(result));
   } catch {
