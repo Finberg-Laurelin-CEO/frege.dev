@@ -31,9 +31,16 @@ const APP_SHARED_PREFIXES = ["/api", "/auth", "/login", "/forgot-password", "/re
 const APP_HOST = "brain.frege.dev";
 const MARKETING_HOST = "frege.dev";
 
+function requestHostname(req: NextRequest): string {
+  return (req.headers.get("host") ?? req.nextUrl.host).split(":")[0]?.toLowerCase() ?? "";
+}
+
 function isBrainHost(req: NextRequest): boolean {
-  const host = (req.headers.get("host") ?? req.nextUrl.host).split(":")[0]?.toLowerCase() ?? "";
-  return host.startsWith("brain.");
+  return requestHostname(req).startsWith("brain.");
+}
+
+function isWwwHost(req: NextRequest): boolean {
+  return requestHostname(req) === `www.${MARKETING_HOST}`;
 }
 
 function matchesPrefix(pathname: string, prefixes: string[]): boolean {
@@ -66,7 +73,7 @@ export async function middleware(req: NextRequest) {
   // brain, or admin authorities because clients may replay Authorization.
   if (isMcpCredentialPath(reqPath) || isMcpCredentialPath(rawPath)) {
     const isExactPublicPath = reqPath === "/mcp" && rawPath === "/mcp";
-    if (!isExactPublicPath || isBrainHost(req) || isAdminOnly(req)) {
+    if (!isExactPublicPath || isBrainHost(req) || isAdminOnly(req) || isWwwHost(req)) {
       return NextResponse.json(
         { error: "not_found" },
         {
@@ -81,6 +88,15 @@ export async function middleware(req: NextRequest) {
       );
     }
     return NextResponse.next();
+  }
+
+  // Keep normal browser traffic canonical without relying on Vercel's project-
+  // level www redirect, which would run before this credential-path guard.
+  if (isWwwHost(req)) {
+    return NextResponse.redirect(
+      new URL(`https://${MARKETING_HOST}${reqPath}${req.nextUrl.search}`),
+      308,
+    );
   }
 
   // Preserve Next's default canonical trailing-slash redirect everywhere else;

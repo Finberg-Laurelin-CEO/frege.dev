@@ -95,7 +95,7 @@ for (const stream of [child.stdout, child.stderr]) {
 
 try {
   await waitUntilReady(port, child);
-  for (const authority of ["frege.dev", "brain.frege.dev", "admin.frege.dev"]) {
+  for (const authority of ["frege.dev", "www.frege.dev", "brain.frege.dev", "admin.frege.dev"]) {
     for (const requestPath of ["/mcp%2F", "/mcp%2f", "/MCP", "/%6dcp"]) {
       const result = await request(port, authority, requestPath);
       assertHardenedNotFound(result, `${authority}${requestPath}`);
@@ -106,6 +106,12 @@ try {
   assertHardenedNotFound(brainExact, "brain.frege.dev/mcp");
   const adminExact = await request(port, "admin.frege.dev", "/mcp");
   assertHardenedNotFound(adminExact, "admin.frege.dev/mcp");
+  const wwwExact = await request(port, "www.frege.dev", "/mcp");
+  assertHardenedNotFound(wwwExact, "www.frege.dev/mcp");
+
+  const wwwMarketing = await request(port, "www.frege.dev", "/docs", false);
+  assert.equal(wwwMarketing.status, 308);
+  assert.equal(wwwMarketing.headers.location, "https://frege.dev/docs");
 
   const publicExact = await request(port, "frege.dev", "/mcp", false);
   assert.equal(publicExact.status, 401);
