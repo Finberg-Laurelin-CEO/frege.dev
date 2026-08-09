@@ -12,6 +12,8 @@ export const MCP_PROTOCOL_VERSION = "2026-07-28";
 export const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
 export const MCP_MAX_RESULT_BYTES = 512 * 1024;
 export const MCP_MAX_REQUEST_ID_BYTES = 256;
+export const MCP_MAX_HOST_HEADER_BYTES = 512;
+export const MCP_MAX_ORIGIN_HEADER_BYTES = 2048;
 
 const HOSTED_METHODS = new Set(["server/discover", "tools/list", "tools/call", "initialize"]);
 
@@ -135,20 +137,124 @@ function jsonRpcError(
   );
 }
 
-function normalizedJsonRpcId(value: unknown): string | number | null {
+export function oversizedMcpAuthorityHeaderResponse(req: Request): Response | null {
+  const host = req.headers.get("host");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const origin = req.headers.get("origin");
+  const tooLarge = (value: string | null, maxBytes: number) =>
+    value !== null && Buffer.byteLength(value, "utf8") > maxBytes;
+  if (
+    tooLarge(host, MCP_MAX_HOST_HEADER_BYTES) ||
+    tooLarge(forwardedHost, MCP_MAX_HOST_HEADER_BYTES)
+  ) {
+    return secureMcpResponse(jsonRpcError(403, -32003, "Forbidden host"));
+  }
+  if (tooLarge(origin, MCP_MAX_ORIGIN_HEADER_BYTES)) {
+    return secureMcpResponse(jsonRpcError(403, -32003, "Forbidden origin"));
+  }
+  return null;
+}
+
+type JsonIdMetadata = {
+  memberCount: number;
+  numericSource: string | undefined;
+};
+
+// Native JSON.parse loses the numeric lexeme before validation (for example,
+// 1e-400 becomes 0). Scan the already-bounded, valid JSON wire once so the
+// top-level ID can be checked losslessly and ambiguous duplicate IDs rejected.
+function topLevelJsonIdMetadata(text: string): JsonIdMetadata {
+  let depth = 0;
+  let memberCount = 0;
+  let numericSource: string | undefined;
+  const numberToken = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+  const isWhitespace = (char: string) =>
+    char === " " || char === "\t" || char === "\n" || char === "\r";
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '"') {
+      const start = index;
+      for (index += 1; index < text.length; index += 1) {
+        if (text[index] === "\\") {
+          index += 1;
+          continue;
+        }
+        if (text[index] === '"') break;
+      }
+      if (depth !== 1) continue;
+
+      let afterKey = index + 1;
+      while (afterKey < text.length && isWhitespace(text[afterKey])) afterKey += 1;
+      if (text[afterKey] !== ":") continue;
+      const key = JSON.parse(text.slice(start, index + 1)) as unknown;
+      if (key !== "id") continue;
+
+      memberCount += 1;
+      if (memberCount !== 1) {
+        numericSource = undefined;
+        continue;
+      }
+      let valueStart = afterKey + 1;
+      while (valueStart < text.length && isWhitespace(text[valueStart])) valueStart += 1;
+      numberToken.lastIndex = valueStart;
+      numericSource = numberToken.exec(text)?.[0];
+      continue;
+    }
+    if (char === "{" || char === "[") depth += 1;
+    else if (char === "}" || char === "]") depth -= 1;
+  }
+
+  return { memberCount, numericSource };
+}
+
+function parseJsonWithIdSource(text: string): {
+  value: unknown;
+  idMemberCount: number;
+  numericIdSource: string | undefined;
+} {
+  const value = JSON.parse(text) as unknown;
+  const metadata = topLevelJsonIdMetadata(text);
+  return {
+    value,
+    idMemberCount: metadata.memberCount,
+    numericIdSource: metadata.numericSource,
+  };
+}
+
+function normalizedTrustedJsonRpcId(value: unknown): string | number | null {
   if (typeof value === "string") {
     return Buffer.byteLength(value, "utf8") <= MCP_MAX_REQUEST_ID_BYTES ? value : null;
   }
   if (typeof value === "number" && Number.isSafeInteger(value)) {
-    // JSON stringification canonicalizes -0 to 0; normalize before the SDK sees it.
     return value === 0 ? 0 : value;
   }
   return null;
 }
 
-function responseIdMatches(value: unknown, expected: string | number | null): boolean {
+function normalizedParsedJsonRpcId(
+  value: unknown,
+  numericIdSource: string | undefined,
+): string | number | null {
+  if (typeof value === "string") return normalizedTrustedJsonRpcId(value);
+  if (
+    typeof value === "number" &&
+    typeof numericIdSource === "string" &&
+    /^(?:0|-?[1-9]\d*)$/.test(numericIdSource) &&
+    Number.isSafeInteger(value)
+  ) {
+    return value;
+  }
+  return null;
+}
+
+function responseIdMatches(
+  value: unknown,
+  numericIdSource: string | undefined,
+  expected: string | number | null,
+): boolean {
   if (expected === null) return value === null;
-  return normalizedJsonRpcId(value) === expected;
+  return normalizedParsedJsonRpcId(value, numericIdSource) === expected;
 }
 
 function acceptsMcpResponseTypes(header: string | null): boolean {
@@ -252,9 +358,14 @@ export async function readBoundedMcpJson(
   }
 
   let value: unknown;
+  let idMemberCount = 0;
+  let numericIdSource: string | undefined;
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
-    value = JSON.parse(text);
+    const parsed = parseJsonWithIdSource(text);
+    value = parsed.value;
+    idMemberCount = parsed.idMemberCount;
+    numericIdSource = parsed.numericIdSource;
   } catch {
     return { ok: false, response: jsonRpcError(400, -32700, "Invalid JSON") };
   }
@@ -267,15 +378,25 @@ export async function readBoundedMcpJson(
   }
 
   const message = value as Record<string, unknown>;
-  const responseId = normalizedJsonRpcId(message.id);
+  const hasRequestId = Object.prototype.hasOwnProperty.call(message, "id");
+  const responseId =
+    idMemberCount === 1
+      ? normalizedParsedJsonRpcId(message.id, numericIdSource)
+      : null;
   if (message.jsonrpc !== "2.0") {
     return {
       ok: false,
       response: jsonRpcError(400, -32600, "JSON-RPC version must be 2.0", responseId),
     };
   }
-  if (!("id" in message) || message.id === null) {
+  if (idMemberCount === 0 || !hasRequestId || message.id === null) {
     return { ok: false, response: jsonRpcError(400, -32600, "Notifications are not supported") };
+  }
+  if (idMemberCount !== 1) {
+    return {
+      ok: false,
+      response: jsonRpcError(400, -32600, "JSON-RPC request id must appear exactly once"),
+    };
   }
   if (responseId === null) {
     return {
@@ -283,7 +404,7 @@ export async function readBoundedMcpJson(
       response: jsonRpcError(
         400,
         -32600,
-        `JSON-RPC request id must be a safe integer or a string up to ${MCP_MAX_REQUEST_ID_BYTES} UTF-8 bytes`,
+        `JSON-RPC request id must be a canonical safe integer or a string up to ${MCP_MAX_REQUEST_ID_BYTES} UTF-8 bytes`,
       ),
     };
   }
@@ -313,7 +434,7 @@ export async function finalizeMcpResponse(
   const maxBytes = options.maxBytes ?? MCP_MAX_RESULT_BYTES;
   // Sanitize again at this trust boundary so no caller can make a replacement
   // error exceed the production cap by supplying an unvalidated ID.
-  const requestId = normalizedJsonRpcId(options.requestId);
+  const requestId = normalizedTrustedJsonRpcId(options.requestId);
   const finalError = (message: string) => {
     const withId = JSON.stringify({
       jsonrpc: "2.0",
@@ -361,8 +482,15 @@ export async function finalizeMcpResponse(
   }
 
   let envelope: unknown;
+  let responseIdMemberCount = 0;
+  let responseNumericIdSource: string | undefined;
   try {
-    envelope = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+    const parsed = parseJsonWithIdSource(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+    );
+    envelope = parsed.value;
+    responseIdMemberCount = parsed.idMemberCount;
+    responseNumericIdSource = parsed.numericIdSource;
   } catch {
     return finalError("Invalid MCP response");
   }
@@ -374,8 +502,9 @@ export async function finalizeMcpResponse(
   const hasError = Object.prototype.hasOwnProperty.call(record, "error");
   if (
     record.jsonrpc !== "2.0" ||
+    responseIdMemberCount !== 1 ||
     !Object.prototype.hasOwnProperty.call(record, "id") ||
-    !responseIdMatches(record.id, requestId) ||
+    !responseIdMatches(record.id, responseNumericIdSource, requestId) ||
     hasResult === hasError
   ) {
     return finalError("Invalid MCP response");

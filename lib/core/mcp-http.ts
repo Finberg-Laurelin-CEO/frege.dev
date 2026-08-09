@@ -13,6 +13,7 @@ import {
   createHostedMcpHandler,
   finalizeMcpResponse,
   mcpMethodNotAllowed,
+  oversizedMcpAuthorityHeaderResponse,
   readBoundedMcpJson,
   secureMcpResponse,
 } from "@/lib/mcp/protocol";
@@ -78,6 +79,12 @@ function allowedOrigins(req: Request, hosts: string[]): Set<string> {
 }
 
 function transportGuard(req: Request): Response | null {
+  const headerSizeError = oversizedMcpAuthorityHeaderResponse(req);
+  if (headerSizeError) return headerSizeError;
+
+  const host = req.headers.get("host");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const origin = req.headers.get("origin");
   const hosts = allowedHostnames();
   const hostError = hostHeaderValidationResponse(req, hosts);
   if (hostError) return secureMcpResponse(hostError);
@@ -85,7 +92,6 @@ function transportGuard(req: Request): Response | null {
   const originError = originValidationResponse(req, hosts);
   if (originError) return secureMcpResponse(originError);
 
-  const origin = req.headers.get("origin");
   if (origin) {
     let normalized: string;
     try {
@@ -102,9 +108,13 @@ function transportGuard(req: Request): Response | null {
     return secureMcpResponse(Response.json({ error: "forbidden_origin" }, { status: 403 }));
   }
 
-  const host = req.headers.get("host")?.toLowerCase();
-  const forwardedHost = req.headers.get("x-forwarded-host")?.toLowerCase();
-  if (host && forwardedHost && host !== forwardedHost) {
+  const normalizedHost = host?.toLowerCase();
+  const normalizedForwardedHost = forwardedHost?.toLowerCase();
+  if (
+    normalizedHost &&
+    normalizedForwardedHost &&
+    normalizedHost !== normalizedForwardedHost
+  ) {
     return secureMcpResponse(Response.json({ error: "forbidden_host" }, { status: 403 }));
   }
 

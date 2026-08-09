@@ -12,12 +12,15 @@ const protocol = await import(
 );
 
 const {
+  MCP_MAX_HOST_HEADER_BYTES,
+  MCP_MAX_ORIGIN_HEADER_BYTES,
   MCP_MAX_REQUEST_BYTES,
   MCP_MAX_REQUEST_ID_BYTES,
   MCP_MAX_RESULT_BYTES,
   MCP_PROTOCOL_VERSION,
   createHostedMcpHandler,
   finalizeMcpResponse,
+  oversizedMcpAuthorityHeaderResponse,
   readBoundedMcpJson,
   secureMcpResponse,
 } = protocol;
@@ -214,6 +217,37 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   invalidIdBody = await json(parsed.response);
   assert.equal(invalidIdBody.id, null);
 
+  for (const numericIdSource of ["1e-400", "9007199254740991.1", "1.0", "1e3", "-0"]) {
+    const lossyNumericId = request("tools/list", { _meta: meta }, {
+      body: `{"jsonrpc":"2.0","id":${numericIdSource},"method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+    });
+    parsed = await readBoundedMcpJson(lossyNumericId);
+    assert.equal(parsed.ok, false, `${numericIdSource} must not round into an accepted ID`);
+    invalidIdBody = await json(parsed.response);
+    assert.equal(invalidIdBody.id, null);
+  }
+
+  for (const numericIdSource of ["-9007199254740991", "0", "9007199254740991"]) {
+    const canonicalNumericId = request("tools/list", { _meta: meta }, {
+      body: `{"jsonrpc":"2.0","id":${numericIdSource},"method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+    });
+    parsed = await readBoundedMcpJson(canonicalNumericId);
+    assert.equal(parsed.ok, true, `${numericIdSource} must remain an accepted exact ID`);
+    assert.equal(parsed.value.id, Number(numericIdSource));
+  }
+
+  for (const duplicateIdBody of [
+    `{"jsonrpc":"2.0","id":1,"id":2,"method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+    `{"jsonrpc":"2.0","id":"first","\\u0069d":"second","method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+  ]) {
+    parsed = await readBoundedMcpJson(
+      request("tools/list", { _meta: meta }, { body: duplicateIdBody }),
+    );
+    assert.equal(parsed.ok, false);
+    invalidIdBody = await json(parsed.response);
+    assert.equal(invalidIdBody.id, null);
+  }
+
   const oversizedIdAndBadVersion = request("tools/list", { _meta: meta }, {
     body: JSON.stringify({ jsonrpc: "1.0", id: oversizedId, method: "tools/list", params: { _meta: meta } }),
   });
@@ -374,6 +408,28 @@ test("final response gate rejects streaming and oversized SDK responses with the
   assert.equal(wrongIdBody.error.code, -32603);
   assert.equal(wrongIdBody.id, "expected-id");
 
+  for (const [numericIdSource, expectedId] of [["1e-400", 0], ["1e0", 1]]) {
+    const lossyResponseId = await finalizeMcpResponse(
+      new Response(`{"jsonrpc":"2.0","id":${numericIdSource},"result":{}}`, {
+        headers: { "Content-Type": "application/json" },
+      }),
+      { requestId: expectedId },
+    );
+    assert.equal(lossyResponseId.status, 500);
+    const lossyResponseBody = await json(lossyResponseId);
+    assert.equal(lossyResponseBody.error.code, -32603);
+    assert.equal(lossyResponseBody.id, expectedId);
+  }
+
+  const duplicateResponseId = await finalizeMcpResponse(
+    new Response('{"jsonrpc":"2.0","id":"first","id":"expected-id","result":{}}', {
+      headers: { "Content-Type": "application/json" },
+    }),
+    { requestId: "expected-id" },
+  );
+  assert.equal(duplicateResponseId.status, 500);
+  assert.equal((await json(duplicateResponseId)).id, "expected-id");
+
   const malformedEnvelope = await finalizeMcpResponse(
     Response.json({ jsonrpc: "1.0", id: "expected-id", result: {}, error: {} }),
     { requestId: "expected-id" },
@@ -390,6 +446,41 @@ test("final response gate rejects streaming and oversized SDK responses with the
   const boundedUntrustedBody = await json(boundedUntrustedId);
   assert.equal(boundedUntrustedBody.id, null);
   assert.ok(Buffer.byteLength(JSON.stringify(boundedUntrustedBody)) <= MCP_MAX_RESULT_BYTES);
+});
+
+test("oversized authority headers produce bounded static errors before SDK reflection", async () => {
+  const cases = [
+    { Host: "h".repeat(MCP_MAX_RESULT_BYTES + 1024) },
+    { Host: "frege.dev", "X-Forwarded-Host": "h".repeat(MCP_MAX_HOST_HEADER_BYTES + 1) },
+    { Host: "frege.dev", Origin: "o".repeat(MCP_MAX_RESULT_BYTES + 1024) },
+  ];
+  for (const headers of cases) {
+    const guarded = oversizedMcpAuthorityHeaderResponse(
+      new Request("https://frege.dev/mcp", { headers }),
+    );
+    assert.notEqual(guarded, null);
+    assert.equal(guarded.status, 403);
+    const bodyText = await guarded.text();
+    assert.ok(Buffer.byteLength(bodyText, "utf8") <= MCP_MAX_RESULT_BYTES);
+    assert.ok(Buffer.byteLength(bodyText, "utf8") < 1024);
+    const body = JSON.parse(bodyText);
+    assert.equal(body.id, null);
+    assert.equal(body.error.code, -32003);
+    assert.doesNotMatch(body.error.message, /h{32}|o{32}/);
+    assert.match(guarded.headers.get("cache-control") ?? "", /no-store/i);
+    assert.equal(guarded.headers.get("location"), null);
+    assert.equal(guarded.headers.get("access-control-allow-origin"), null);
+  }
+
+  const boundary = oversizedMcpAuthorityHeaderResponse(
+    new Request("https://frege.dev/mcp", {
+      headers: {
+        Host: "h".repeat(MCP_MAX_HOST_HEADER_BYTES),
+        Origin: "o".repeat(MCP_MAX_ORIGIN_HEADER_BYTES),
+      },
+    }),
+  );
+  assert.equal(boundary, null);
 });
 
 test("security wrapper removes session and CORS state", async () => {
@@ -474,6 +565,7 @@ test("gateway source is bearer-only, feature-gated, rate-limited, and non-redire
   assert.match(gateway, /finalizeMcpResponse\(response, \{ requestId \}\)/);
   assert.match(gateway, /hostHeaderValidationResponse/);
   assert.match(gateway, /originValidationResponse/);
+  assert.match(gateway, /oversizedMcpAuthorityHeaderResponse\(req\)/);
   assert.match(middleware, /isMcpCredentialPath\(reqPath\)/);
   assert.match(middleware, /rawPathnameFromUrl\(req\.url\)/);
   assert.match(middleware, /\{ error: "not_found" \}/);

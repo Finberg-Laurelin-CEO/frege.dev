@@ -20,12 +20,14 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
   `MCP-Protocol-Version`, `Mcp-Method`, and (for `tools/call`) `Mcp-Name` values.
   Legacy `initialize` traffic is rejected; existing stdio remains available for
   older clients.
-- Each POST carries exactly one JSON-RPC request. Request IDs are either safe
-  integers or strings of at most 256 UTF-8 bytes; invalid or oversized IDs are
-  rejected with a safe `null` error ID. The only accepted methods are
-  `server/discover`, `tools/list`, and `tools/call`; `subscriptions/listen`,
-  batches, client notifications, compressed bodies, bodies larger than 1 MiB,
-  cookie auth, cross-site browser requests, and unapproved Host/Origin values fail closed.
+- Each POST carries exactly one JSON-RPC request. The request ID appears exactly
+  once and is either a canonical JSON safe-integer token (no fraction,
+  exponent, or negative zero) or a string of at most 256 UTF-8 bytes; invalid
+  or oversized IDs are rejected
+  with a safe `null` error ID. The only accepted methods are `server/discover`,
+  `tools/list`, and `tools/call`; `subscriptions/listen`, batches, client
+  notifications, compressed bodies, bodies larger than 1 MiB, cookie auth,
+  cross-site browser requests, and unapproved Host/Origin values fail closed.
 - Responses are JSON, capped at 512 KiB, marked `private, no-store`, and never
   contain `Mcp-Session-Id`. Gate-generated errors retain any already-validated
   JSON-RPC request ID. GET, DELETE, PUT, PATCH, and OPTIONS do not establish
@@ -38,7 +40,9 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
 The production host and origin are `frege.dev`. Vercel's exact `VERCEL_URL` is
 admitted for that deployment. Additional exact hostnames require explicit
 comma-separated `FREGE_MCP_ALLOWED_HOSTS`; an Origin-present request must match
-one of those HTTPS hosts. Percent-encoded endpoint separators and case
+one of those HTTPS hosts. Host/forwarded-host values over 512 bytes and Origin
+values over 2,048 bytes receive bounded static errors before SDK validation can
+reflect them. Percent-encoded endpoint separators and case
 variants return a hardened `404` before any cross-authority redirect. Do not add
 wildcards, the admin project, or the brain alias.
 
