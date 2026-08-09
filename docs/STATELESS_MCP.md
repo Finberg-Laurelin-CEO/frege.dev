@@ -20,7 +20,9 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
   `MCP-Protocol-Version`, `Mcp-Method`, and (for `tools/call`) `Mcp-Name` values.
   Legacy `initialize` traffic is rejected; existing stdio remains available for
   older clients.
-- Each POST carries exactly one JSON-RPC request. The only accepted methods are
+- Each POST carries exactly one JSON-RPC request. Request IDs are either safe
+  integers or strings of at most 256 UTF-8 bytes; invalid or oversized IDs are
+  rejected with a safe `null` error ID. The only accepted methods are
   `server/discover`, `tools/list`, and `tools/call`; `subscriptions/listen`,
   batches, client notifications, compressed bodies, bodies larger than 1 MiB,
   cookie auth, cross-site browser requests, and unapproved Host/Origin values fail closed.

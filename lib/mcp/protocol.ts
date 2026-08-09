@@ -11,6 +11,7 @@ import {
 export const MCP_PROTOCOL_VERSION = "2026-07-28";
 export const MCP_MAX_REQUEST_BYTES = 1024 * 1024;
 export const MCP_MAX_RESULT_BYTES = 512 * 1024;
+export const MCP_MAX_REQUEST_ID_BYTES = 256;
 
 const HOSTED_METHODS = new Set(["server/discover", "tools/list", "tools/call", "initialize"]);
 
@@ -134,6 +135,22 @@ function jsonRpcError(
   );
 }
 
+function normalizedJsonRpcId(value: unknown): string | number | null {
+  if (typeof value === "string") {
+    return Buffer.byteLength(value, "utf8") <= MCP_MAX_REQUEST_ID_BYTES ? value : null;
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    // JSON stringification canonicalizes -0 to 0; normalize before the SDK sees it.
+    return value === 0 ? 0 : value;
+  }
+  return null;
+}
+
+function responseIdMatches(value: unknown, expected: string | number | null): boolean {
+  if (expected === null) return value === null;
+  return normalizedJsonRpcId(value) === expected;
+}
+
 function acceptsMcpResponseTypes(header: string | null): boolean {
   if (!header) return false;
   const accepted = new Set<string>();
@@ -250,8 +267,7 @@ export async function readBoundedMcpJson(
   }
 
   const message = value as Record<string, unknown>;
-  const responseId =
-    typeof message.id === "string" || typeof message.id === "number" ? message.id : null;
+  const responseId = normalizedJsonRpcId(message.id);
   if (message.jsonrpc !== "2.0") {
     return {
       ok: false,
@@ -261,19 +277,29 @@ export async function readBoundedMcpJson(
   if (!("id" in message) || message.id === null) {
     return { ok: false, response: jsonRpcError(400, -32600, "Notifications are not supported") };
   }
-  if (typeof message.id !== "string" && typeof message.id !== "number") {
-    return { ok: false, response: jsonRpcError(400, -32600, "JSON-RPC request id must be a string or number") };
+  if (responseId === null) {
+    return {
+      ok: false,
+      response: jsonRpcError(
+        400,
+        -32600,
+        `JSON-RPC request id must be a safe integer or a string up to ${MCP_MAX_REQUEST_ID_BYTES} UTF-8 bytes`,
+      ),
+    };
   }
+  // Keep the body value identical to the validated/canonical ID used by every
+  // locally generated error and by the final response correlation gate.
+  message.id = responseId;
   if (typeof message.method !== "string") {
     return {
       ok: false,
-      response: jsonRpcError(400, -32600, "JSON-RPC request method is required", message.id),
+      response: jsonRpcError(400, -32600, "JSON-RPC request method is required", responseId),
     };
   }
   if (!HOSTED_METHODS.has(message.method)) {
     return {
       ok: false,
-      response: jsonRpcError(404, -32601, "Method not found", message.id),
+      response: jsonRpcError(404, -32601, "Method not found", responseId),
     };
   }
 
@@ -284,15 +310,28 @@ export async function finalizeMcpResponse(
   response: Response,
   options: { maxBytes?: number; requestId?: string | number | null } = {},
 ): Promise<Response> {
-  const { maxBytes = MCP_MAX_RESULT_BYTES, requestId = null } = options;
+  const maxBytes = options.maxBytes ?? MCP_MAX_RESULT_BYTES;
+  // Sanitize again at this trust boundary so no caller can make a replacement
+  // error exceed the production cap by supplying an unvalidated ID.
+  const requestId = normalizedJsonRpcId(options.requestId);
+  const finalError = (message: string) => {
+    const withId = JSON.stringify({
+      jsonrpc: "2.0",
+      error: { code: -32603, message },
+      id: requestId,
+    });
+    const errorId = Buffer.byteLength(withId, "utf8") <= maxBytes ? requestId : null;
+    return secureMcpResponse(jsonRpcError(500, -32603, message, errorId));
+  };
+
   const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
   if (contentType !== "application/json" || !response.body) {
-    return secureMcpResponse(jsonRpcError(500, -32603, "Invalid MCP response", requestId));
+    return finalError("Invalid MCP response");
   }
 
   const rawLength = response.headers.get("content-length");
   if (rawLength && /^\d+$/.test(rawLength) && Number(rawLength) > maxBytes) {
-    return secureMcpResponse(jsonRpcError(500, -32603, "MCP response too large", requestId));
+    return finalError("MCP response too large");
   }
 
   const reader = response.body.getReader();
@@ -305,13 +344,13 @@ export async function finalizeMcpResponse(
       size += value.byteLength;
       if (size > maxBytes) {
         await reader.cancel().catch(() => undefined);
-        return secureMcpResponse(jsonRpcError(500, -32603, "MCP response too large", requestId));
+        return finalError("MCP response too large");
       }
       chunks.push(value);
     }
   } catch {
     await reader.cancel().catch(() => undefined);
-    return secureMcpResponse(jsonRpcError(500, -32603, "Invalid MCP response", requestId));
+    return finalError("Invalid MCP response");
   }
 
   const bytes = new Uint8Array(size);
@@ -320,6 +359,28 @@ export async function finalizeMcpResponse(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
+
+  let envelope: unknown;
+  try {
+    envelope = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  } catch {
+    return finalError("Invalid MCP response");
+  }
+  if (!envelope || typeof envelope !== "object" || Array.isArray(envelope)) {
+    return finalError("Invalid MCP response");
+  }
+  const record = envelope as Record<string, unknown>;
+  const hasResult = Object.prototype.hasOwnProperty.call(record, "result");
+  const hasError = Object.prototype.hasOwnProperty.call(record, "error");
+  if (
+    record.jsonrpc !== "2.0" ||
+    !Object.prototype.hasOwnProperty.call(record, "id") ||
+    !responseIdMatches(record.id, requestId) ||
+    hasResult === hasError
+  ) {
+    return finalError("Invalid MCP response");
+  }
+
   return secureMcpResponse(
     new Response(bytes, {
       status: response.status,

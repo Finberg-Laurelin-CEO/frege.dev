@@ -13,6 +13,7 @@ const protocol = await import(
 
 const {
   MCP_MAX_REQUEST_BYTES,
+  MCP_MAX_REQUEST_ID_BYTES,
   MCP_MAX_RESULT_BYTES,
   MCP_PROTOCOL_VERSION,
   createHostedMcpHandler,
@@ -180,6 +181,55 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   parsed = await readBoundedMcpJson(invalidId);
   assert.equal(parsed.ok, false);
   assert.equal(parsed.response.status, 400);
+  assert.equal((await json(parsed.response)).id, null);
+
+  const maximumStringId = "é".repeat(MCP_MAX_REQUEST_ID_BYTES / 2);
+  const maximumIdRequest = request("tools/list", { _meta: meta }, { id: maximumStringId });
+  parsed = await readBoundedMcpJson(maximumIdRequest);
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.value.id, maximumStringId);
+
+  const oversizedId = "x".repeat(MCP_MAX_REQUEST_ID_BYTES + 1);
+  const oversizedIdRequest = request("tools/list", { _meta: meta }, { id: oversizedId });
+  parsed = await readBoundedMcpJson(oversizedIdRequest);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.response.status, 400);
+  let invalidIdBody = await json(parsed.response);
+  assert.equal(invalidIdBody.id, null);
+  assert.ok(Buffer.byteLength(JSON.stringify(invalidIdBody)) <= MCP_MAX_RESULT_BYTES);
+
+  const nonFiniteId = request("tools/list", { _meta: meta }, {
+    body: `{"jsonrpc":"2.0","id":1e400,"method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+  });
+  parsed = await readBoundedMcpJson(nonFiniteId);
+  assert.equal(parsed.ok, false);
+  invalidIdBody = await json(parsed.response);
+  assert.equal(invalidIdBody.id, null);
+
+  const unsafeIntegerId = request("tools/list", { _meta: meta }, {
+    body: `{"jsonrpc":"2.0","id":9007199254740992,"method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+  });
+  parsed = await readBoundedMcpJson(unsafeIntegerId);
+  assert.equal(parsed.ok, false);
+  invalidIdBody = await json(parsed.response);
+  assert.equal(invalidIdBody.id, null);
+
+  const oversizedIdAndBadVersion = request("tools/list", { _meta: meta }, {
+    body: JSON.stringify({ jsonrpc: "1.0", id: oversizedId, method: "tools/list", params: { _meta: meta } }),
+  });
+  parsed = await readBoundedMcpJson(oversizedIdAndBadVersion);
+  assert.equal(parsed.ok, false);
+  invalidIdBody = await json(parsed.response);
+  assert.equal(invalidIdBody.id, null);
+  assert.ok(Buffer.byteLength(JSON.stringify(invalidIdBody)) <= MCP_MAX_RESULT_BYTES);
+
+  const capSizedId = "x".repeat(MCP_MAX_RESULT_BYTES + 1);
+  const capSizedIdRequest = request("tools/list", { _meta: meta }, { id: capSizedId });
+  parsed = await readBoundedMcpJson(capSizedIdRequest);
+  assert.equal(parsed.ok, false);
+  invalidIdBody = await json(parsed.response);
+  assert.equal(invalidIdBody.id, null);
+  assert.ok(Buffer.byteLength(JSON.stringify(invalidIdBody)) <= MCP_MAX_RESULT_BYTES);
 
   const missingAccept = request("tools/list", { _meta: meta }, { headers: { Accept: "" } });
   parsed = await readBoundedMcpJson(missingAccept);
@@ -313,6 +363,33 @@ test("final response gate rejects streaming and oversized SDK responses with the
   const boundedBody = await json(bounded);
   assert.equal(boundedBody.error.code, -32603);
   assert.equal(boundedBody.id, "cap-id-88");
+  assert.ok(Buffer.byteLength(JSON.stringify(boundedBody)) <= MCP_MAX_RESULT_BYTES);
+
+  const wrongId = await finalizeMcpResponse(
+    Response.json({ jsonrpc: "2.0", id: "sdk-wrong", result: {} }),
+    { requestId: "expected-id" },
+  );
+  assert.equal(wrongId.status, 500);
+  const wrongIdBody = await json(wrongId);
+  assert.equal(wrongIdBody.error.code, -32603);
+  assert.equal(wrongIdBody.id, "expected-id");
+
+  const malformedEnvelope = await finalizeMcpResponse(
+    Response.json({ jsonrpc: "1.0", id: "expected-id", result: {}, error: {} }),
+    { requestId: "expected-id" },
+  );
+  assert.equal(malformedEnvelope.status, 500);
+  assert.equal((await json(malformedEnvelope)).id, "expected-id");
+
+  const untrustedLargeId = "z".repeat(MCP_MAX_RESULT_BYTES);
+  const boundedUntrustedId = await finalizeMcpResponse(
+    Response.json({ value: "x".repeat(MCP_MAX_RESULT_BYTES) }),
+    { requestId: untrustedLargeId },
+  );
+  assert.equal(boundedUntrustedId.status, 500);
+  const boundedUntrustedBody = await json(boundedUntrustedId);
+  assert.equal(boundedUntrustedBody.id, null);
+  assert.ok(Buffer.byteLength(JSON.stringify(boundedUntrustedBody)) <= MCP_MAX_RESULT_BYTES);
 });
 
 test("security wrapper removes session and CORS state", async () => {
