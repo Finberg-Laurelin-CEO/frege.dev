@@ -4,7 +4,8 @@ Frege includes an opt-in, modern-only MCP endpoint at `https://frege.dev/mcp`.
 It implements the stateless MCP `2026-07-28` Streamable HTTP protocol with the
 official TypeScript server SDK. The endpoint is disabled by default and returns
 `404` unless `FREGE_STATELESS_MCP_ENABLED=true` on the public Frege deployment.
-It is never served by the admin-only deployment or the `brain.frege.dev` alias.
+It is never served by the admin-only deployment, the `brain.frege.dev` alias,
+or the noncanonical `www.frege.dev` authority.
 
 ## Security and protocol boundary
 
@@ -48,8 +49,11 @@ comma-separated `FREGE_MCP_ALLOWED_HOSTS`; an Origin-present request must match
 one of those HTTPS hosts. Host/forwarded-host values over 512 bytes and Origin
 values over 2,048 bytes receive bounded static errors before SDK validation can
 reflect them. Percent-encoded endpoint separators and case
-variants return a hardened `404` before any cross-authority redirect. Do not add
-wildcards, the admin project, or the brain alias.
+variants return a hardened `404` before any cross-authority redirect. Keep
+`www.frege.dev` attached to the public project without a Vercel project-level
+redirect: middleware must reject MCP credential paths first, then it preserves
+the normal `308` canonical redirect for browser paths. Do not add wildcards,
+the admin project, or the brain alias.
 
 ## Read-only launch surface
 
@@ -108,7 +112,14 @@ or call a hosted graph backend.
 
 ## Rollout and verification
 
-1. Deploy with the feature flag unset and confirm `/mcp` returns `404`.
+1. If Vercel still has a project-level `www.frege.dev` redirect, first confirm
+   the MCP feature flag is unset, clear that redirect, and verify the current
+   production deployment returns hardened `404` responses for `www` credential
+   paths. Noncanonical `www` pages may briefly serve without redirecting until
+   the middleware patch is deployed; never keep the cross-authority redirect as
+   endpoint protection. Deploy with the flag unset, then confirm `/mcp` returns
+   `404` on public, `www`, brain, and admin authorities while a normal `www` page
+   redirects through middleware.
 2. Enable the flag on a preview/canary deployment with an exact allowed host.
 3. Supply a canary key through a secure environment injector and run
    `FREGE_MCP_BASE_URL=https://<preview-host> pnpm smoke:mcp`. Optionally set
@@ -124,5 +135,9 @@ or call a hosted graph backend.
 8. To roll back on Vercel, remove or set
    `FREGE_STATELESS_MCP_ENABLED=false`, then create and promote a new public
    deployment; changing an environment value does not mutate an already-running
-   deployment. Verify no-store `404` responses for public `/mcp` and `/mcp/` and
-   for the brain/admin authorities. No database migration is required.
+   deployment. Keep the Vercel project-level `www` redirect unset during rollback:
+   restoring it would bypass middleware and reintroduce the credential redirect.
+   If rolling back below the `www` guard, accept temporarily noncanonical `www`
+   pages or deploy a replacement guard instead. Verify no-store `404` responses
+   for public `/mcp` and `/mcp/` and for the `www`, brain, and admin authorities.
+   No database migration is required.
