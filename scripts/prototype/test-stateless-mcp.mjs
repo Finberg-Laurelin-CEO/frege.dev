@@ -248,6 +248,19 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
     assert.equal(invalidIdBody.id, null);
   }
 
+  for (const duplicateCoreBody of [
+    `{"jsonrpc":"2.0","jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+    `{"jsonrpc":"2.0","id":1,"method":"tools/list","method":"tools/list","params":{"_meta":${JSON.stringify(meta)}}}`,
+    `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":${JSON.stringify(meta)}},"params":{"_meta":${JSON.stringify(meta)}}}`,
+  ]) {
+    parsed = await readBoundedMcpJson(
+      request("tools/list", { _meta: meta }, { body: duplicateCoreBody }),
+    );
+    assert.equal(parsed.ok, false);
+    invalidIdBody = await json(parsed.response);
+    assert.equal(invalidIdBody.id, 1);
+  }
+
   const oversizedIdAndBadVersion = request("tools/list", { _meta: meta }, {
     body: JSON.stringify({ jsonrpc: "1.0", id: oversizedId, method: "tools/list", params: { _meta: meta } }),
   });
@@ -316,6 +329,34 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   });
   parsed = await readBoundedMcpJson(validQuality);
   assert.equal(parsed.ok, true);
+
+  const quotedMasquerade = request("tools/list", { _meta: meta }, {
+    headers: { Accept: 'text/plain;note=",application/json,text/event-stream,"' },
+  });
+  parsed = await readBoundedMcpJson(quotedMasquerade);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.response.status, 406);
+
+  const validQuotedParameters = request("tools/list", { _meta: meta }, {
+    headers: {
+      Accept: 'application/json;note="a,b;q=0", text/event-stream;note="x;y,\\"z"',
+    },
+  });
+  parsed = await readBoundedMcpJson(validQuotedParameters);
+  assert.equal(parsed.ok, true);
+
+  for (const accept of [
+    'application/json;q="1", text/event-stream',
+    "application/json;q=1;q=0, text/event-stream",
+    'application/json;note="unterminated, text/event-stream',
+    `application/json, text/event-stream;note="${"x".repeat(MCP_MAX_REQUEST_BYTES)}"`,
+  ]) {
+    parsed = await readBoundedMcpJson(
+      request("tools/list", { _meta: meta }, { headers: { Accept: accept } }),
+    );
+    assert.equal(parsed.ok, false, `invalid Accept must fail closed: ${accept.slice(0, 80)}`);
+    assert.equal(parsed.response.status, 406);
+  }
 
   const text = request("tools/list", { _meta: meta }, { headers: { "Content-Type": "text/plain" } });
   parsed = await readBoundedMcpJson(text);
@@ -429,6 +470,41 @@ test("final response gate rejects streaming and oversized SDK responses with the
   );
   assert.equal(duplicateResponseId.status, 500);
   assert.equal((await json(duplicateResponseId)).id, "expected-id");
+
+  const malformedErrorBodies = [
+    '{"jsonrpc":"2.0","id":"expected-id","error":null}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":[]}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"code":1.5,"message":"bad"}}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"code":1e0,"message":"bad"}}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"code":"1","message":"bad"}}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"code":1}}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"message":"bad"}}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"code":1,"code":2,"message":"bad"}}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"code":1,"message":"one","message":"two"}}',
+    '{"jsonrpc":"2.0","id":"expected-id","error":{"code":1,"message":"bad"},"error":{"code":2,"message":"worse"}}',
+    '{"jsonrpc":"2.0","id":"expected-id","result":{},"result":{}}',
+  ];
+  for (const body of malformedErrorBodies) {
+    const rejected = await finalizeMcpResponse(
+      new Response(body, { headers: { "Content-Type": "application/json" } }),
+      { requestId: "expected-id" },
+    );
+    assert.equal(rejected.status, 500);
+    const rejectedBody = await json(rejected);
+    assert.equal(rejectedBody.error.code, -32603);
+    assert.equal(rejectedBody.id, "expected-id");
+  }
+
+  const validError = await finalizeMcpResponse(
+    Response.json({
+      jsonrpc: "2.0",
+      id: "expected-id",
+      error: { code: -32601, message: "Method not found", data: { safe: true } },
+    }, { status: 404 }),
+    { requestId: "expected-id" },
+  );
+  assert.equal(validError.status, 404);
+  assert.equal((await json(validError)).error.code, -32601);
 
   const malformedEnvelope = await finalizeMcpResponse(
     Response.json({ jsonrpc: "1.0", id: "expected-id", result: {}, error: {} }),

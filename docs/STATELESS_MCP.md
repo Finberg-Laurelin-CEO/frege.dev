@@ -18,6 +18,8 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
   with a conforming resource-server implementation.
 - Requests must use MCP `2026-07-28`, including the required `_meta`,
   `MCP-Protocol-Version`, `Mcp-Method`, and (for `tools/call`) `Mcp-Name` values.
+  Quote-aware media negotiation must genuinely advertise both `application/json`
+  and `text/event-stream`; media names inside quoted parameters do not count.
   Legacy `initialize` traffic is rejected; existing stdio remains available for
   older clients.
 - Each POST carries exactly one JSON-RPC request. The request ID appears exactly
@@ -29,9 +31,10 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
   notifications, compressed bodies, bodies larger than 1 MiB, cookie auth,
   cross-site browser requests, and unapproved Host/Origin values fail closed.
 - Responses are JSON, capped at 512 KiB, marked `private, no-store`, and never
-  contain `Mcp-Session-Id`. Gate-generated errors retain any already-validated
-  JSON-RPC request ID. GET, DELETE, PUT, PATCH, and OPTIONS do not establish
-  streams or sessions.
+  contain `Mcp-Session-Id`. Final envelopes have one unambiguous ID and exactly
+  one result or a well-formed error object with a canonical integer code and
+  string message. Gate-generated errors retain any already-validated request ID.
+  GET, DELETE, PUT, PATCH, and OPTIONS do not establish streams or sessions.
 - Database-backed pre-auth IP limits and authenticated key-global limits are
   shared across serverless instances; rotating source IPs does not multiply one
   key's allowance. Underlying read routes remain the single audit/telemetry

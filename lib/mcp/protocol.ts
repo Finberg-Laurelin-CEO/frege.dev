@@ -14,6 +14,7 @@ export const MCP_MAX_RESULT_BYTES = 512 * 1024;
 export const MCP_MAX_REQUEST_ID_BYTES = 256;
 export const MCP_MAX_HOST_HEADER_BYTES = 512;
 export const MCP_MAX_ORIGIN_HEADER_BYTES = 2048;
+export const MCP_MAX_ACCEPT_HEADER_BYTES = 8192;
 
 const HOSTED_METHODS = new Set(["server/discover", "tools/list", "tools/call", "initialize"]);
 
@@ -155,21 +156,59 @@ export function oversizedMcpAuthorityHeaderResponse(req: Request): Response | nu
   return null;
 }
 
-type JsonIdMetadata = {
-  memberCount: number;
-  numericSource: string | undefined;
+type JsonWireMetadata = {
+  jsonrpcMemberCount: number;
+  idMemberCount: number;
+  numericIdSource: string | undefined;
+  methodMemberCount: number;
+  paramsMemberCount: number;
+  resultMemberCount: number;
+  errorMemberCount: number;
+  errorCodeMemberCount: number;
+  errorMessageMemberCount: number;
+  errorCodeNumericSource: string | undefined;
 };
 
-// Native JSON.parse loses the numeric lexeme before validation (for example,
-// 1e-400 becomes 0). Scan the already-bounded, valid JSON wire once so the
-// top-level ID can be checked losslessly and ambiguous duplicate IDs rejected.
-function topLevelJsonIdMetadata(text: string): JsonIdMetadata {
+const JSON_NUMBER_TOKEN = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
+const isJsonWhitespace = (char: string) =>
+  char === " " || char === "\t" || char === "\n" || char === "\r";
+
+function valueStartAfterKey(text: string, keyEnd: number): number | null {
+  let cursor = keyEnd + 1;
+  while (cursor < text.length && isJsonWhitespace(text[cursor])) cursor += 1;
+  if (text[cursor] !== ":") return null;
+  cursor += 1;
+  while (cursor < text.length && isJsonWhitespace(text[cursor])) cursor += 1;
+  return cursor;
+}
+
+function numericTokenAt(text: string, start: number): string | undefined {
+  JSON_NUMBER_TOKEN.lastIndex = start;
+  return JSON_NUMBER_TOKEN.exec(text)?.[0];
+}
+
+// Native JSON.parse loses numeric lexemes before validation (for example,
+// 1e-400 becomes 0) and collapses duplicate names. Scan the already-bounded,
+// valid wire once so security-relevant top-level members remain unambiguous.
+function topLevelJsonMetadata(text: string): {
+  jsonrpcMemberCount: number;
+  idMemberCount: number;
+  numericIdSource: string | undefined;
+  methodMemberCount: number;
+  paramsMemberCount: number;
+  resultMemberCount: number;
+  errorMemberCount: number;
+  errorValueStart: number | undefined;
+} {
   let depth = 0;
-  let memberCount = 0;
-  let numericSource: string | undefined;
-  const numberToken = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
-  const isWhitespace = (char: string) =>
-    char === " " || char === "\t" || char === "\n" || char === "\r";
+  let jsonrpcMemberCount = 0;
+  let idMemberCount = 0;
+  let numericIdSource: string | undefined;
+  let methodMemberCount = 0;
+  let paramsMemberCount = 0;
+  let resultMemberCount = 0;
+  let errorMemberCount = 0;
+  let errorValueStart: number | undefined;
 
   for (let index = 0; index < text.length; index += 1) {
     const char = text[index];
@@ -184,41 +223,115 @@ function topLevelJsonIdMetadata(text: string): JsonIdMetadata {
       }
       if (depth !== 1) continue;
 
-      let afterKey = index + 1;
-      while (afterKey < text.length && isWhitespace(text[afterKey])) afterKey += 1;
-      if (text[afterKey] !== ":") continue;
+      const valueStart = valueStartAfterKey(text, index);
+      if (valueStart === null) continue;
       const key = JSON.parse(text.slice(start, index + 1)) as unknown;
-      if (key !== "id") continue;
-
-      memberCount += 1;
-      if (memberCount !== 1) {
-        numericSource = undefined;
+      if (key === "jsonrpc") {
+        jsonrpcMemberCount += 1;
         continue;
       }
-      let valueStart = afterKey + 1;
-      while (valueStart < text.length && isWhitespace(text[valueStart])) valueStart += 1;
-      numberToken.lastIndex = valueStart;
-      numericSource = numberToken.exec(text)?.[0];
+      if (key === "method") {
+        methodMemberCount += 1;
+        continue;
+      }
+      if (key === "params") {
+        paramsMemberCount += 1;
+        continue;
+      }
+      if (key === "result") {
+        resultMemberCount += 1;
+        continue;
+      }
+      if (key === "error") {
+        errorMemberCount += 1;
+        errorValueStart = errorMemberCount === 1 ? valueStart : undefined;
+        continue;
+      }
+      if (key !== "id") continue;
+
+      idMemberCount += 1;
+      if (idMemberCount === 1) numericIdSource = numericTokenAt(text, valueStart);
+      else numericIdSource = undefined;
       continue;
     }
     if (char === "{" || char === "[") depth += 1;
     else if (char === "}" || char === "]") depth -= 1;
   }
 
-  return { memberCount, numericSource };
+  return {
+    jsonrpcMemberCount,
+    idMemberCount,
+    numericIdSource,
+    methodMemberCount,
+    paramsMemberCount,
+    resultMemberCount,
+    errorMemberCount,
+    errorValueStart,
+  };
 }
 
-function parseJsonWithIdSource(text: string): {
-  value: unknown;
-  idMemberCount: number;
-  numericIdSource: string | undefined;
+function errorObjectMetadata(text: string, objectStart: number | undefined): {
+  codeMemberCount: number;
+  messageMemberCount: number;
+  codeNumericSource: string | undefined;
 } {
+  if (objectStart === undefined || text[objectStart] !== "{") {
+    return { codeMemberCount: 0, messageMemberCount: 0, codeNumericSource: undefined };
+  }
+  let depth = 0;
+  let codeMemberCount = 0;
+  let messageMemberCount = 0;
+  let codeNumericSource: string | undefined;
+
+  for (let index = objectStart; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '"') {
+      const start = index;
+      for (index += 1; index < text.length; index += 1) {
+        if (text[index] === "\\") {
+          index += 1;
+          continue;
+        }
+        if (text[index] === '"') break;
+      }
+      if (depth !== 1) continue;
+      const valueStart = valueStartAfterKey(text, index);
+      if (valueStart === null) continue;
+      const key = JSON.parse(text.slice(start, index + 1)) as unknown;
+      if (key === "message") messageMemberCount += 1;
+      if (key === "code") {
+        codeMemberCount += 1;
+        if (codeMemberCount === 1) codeNumericSource = numericTokenAt(text, valueStart);
+        else codeNumericSource = undefined;
+      }
+      continue;
+    }
+    if (char === "{" || char === "[") depth += 1;
+    else if (char === "}" || char === "]") {
+      depth -= 1;
+      if (depth === 0) break;
+    }
+  }
+
+  return { codeMemberCount, messageMemberCount, codeNumericSource };
+}
+
+function parseJsonWithIdSource(text: string): { value: unknown } & JsonWireMetadata {
   const value = JSON.parse(text) as unknown;
-  const metadata = topLevelJsonIdMetadata(text);
+  const topLevel = topLevelJsonMetadata(text);
+  const error = errorObjectMetadata(text, topLevel.errorValueStart);
   return {
     value,
-    idMemberCount: metadata.memberCount,
-    numericIdSource: metadata.numericSource,
+    jsonrpcMemberCount: topLevel.jsonrpcMemberCount,
+    idMemberCount: topLevel.idMemberCount,
+    numericIdSource: topLevel.numericIdSource,
+    methodMemberCount: topLevel.methodMemberCount,
+    paramsMemberCount: topLevel.paramsMemberCount,
+    resultMemberCount: topLevel.resultMemberCount,
+    errorMemberCount: topLevel.errorMemberCount,
+    errorCodeMemberCount: error.codeMemberCount,
+    errorMessageMemberCount: error.messageMemberCount,
+    errorCodeNumericSource: error.codeNumericSource,
   };
 }
 
@@ -232,20 +345,24 @@ function normalizedTrustedJsonRpcId(value: unknown): string | number | null {
   return null;
 }
 
+function isCanonicalSafeInteger(
+  value: unknown,
+  numericSource: string | undefined,
+): value is number {
+  return (
+    typeof value === "number" &&
+    typeof numericSource === "string" &&
+    /^(?:0|-?[1-9]\d*)$/.test(numericSource) &&
+    Number.isSafeInteger(value)
+  );
+}
+
 function normalizedParsedJsonRpcId(
   value: unknown,
   numericIdSource: string | undefined,
 ): string | number | null {
   if (typeof value === "string") return normalizedTrustedJsonRpcId(value);
-  if (
-    typeof value === "number" &&
-    typeof numericIdSource === "string" &&
-    /^(?:0|-?[1-9]\d*)$/.test(numericIdSource) &&
-    Number.isSafeInteger(value)
-  ) {
-    return value;
-  }
-  return null;
+  return isCanonicalSafeInteger(value, numericIdSource) ? value : null;
 }
 
 function responseIdMatches(
@@ -257,22 +374,87 @@ function responseIdMatches(
   return normalizedParsedJsonRpcId(value, numericIdSource) === expected;
 }
 
-function acceptsMcpResponseTypes(header: string | null): boolean {
-  if (!header) return false;
-  const accepted = new Set<string>();
-  for (const range of header.split(",")) {
-    const [mediaType, ...parameters] = range.split(";").map((part) => part.trim().toLowerCase());
-    if (!mediaType) continue;
-    const qValues = parameters
-      .map((parameter) => parameter.match(/^q\s*=\s*(.*)$/)?.[1])
-      .filter((value): value is string => value !== undefined);
-    if (qValues.length > 1) continue;
-    const qValue = qValues[0];
-    if (qValue !== undefined && !/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(qValue)) {
+const HTTP_TOKEN = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+
+function splitQuotedHttpValue(value: string, separator: "," | ";"): string[] | null {
+  const parts: string[] = [];
+  let start = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') quoted = false;
       continue;
     }
-    const quality = qValue === undefined ? 1 : Number(qValue);
-    if (quality > 0) accepted.add(mediaType);
+    if (char === '"') quoted = true;
+    else if (char === separator) {
+      parts.push(value.slice(start, index));
+      start = index + 1;
+    }
+  }
+  if (quoted || escaped) return null;
+  parts.push(value.slice(start));
+  return parts;
+}
+
+function validHttpQuotedString(value: string): boolean {
+  if (value.length < 2 || value[0] !== '"' || value.at(-1) !== '"') return false;
+  for (let index = 1; index < value.length - 1; index += 1) {
+    const code = value.charCodeAt(index);
+    if (value[index] === "\\") {
+      index += 1;
+      if (index >= value.length - 1) return false;
+      const escapedCode = value.charCodeAt(index);
+      if (escapedCode === 0x7f || (escapedCode < 0x20 && escapedCode !== 0x09)) return false;
+      continue;
+    }
+    if (value[index] === '"' || code === 0x7f || (code < 0x20 && code !== 0x09)) return false;
+  }
+  return true;
+}
+
+function acceptsMcpResponseTypes(header: string | null): boolean {
+  if (!header || Buffer.byteLength(header, "utf8") > MCP_MAX_ACCEPT_HEADER_BYTES) return false;
+  const ranges = splitQuotedHttpValue(header, ",");
+  if (!ranges) return false;
+
+  const accepted = new Set<string>();
+  for (const rawRange of ranges) {
+    const parts = splitQuotedHttpValue(rawRange, ";");
+    if (!parts || parts.length === 0) return false;
+    const mediaType = parts[0].trim().toLowerCase();
+    const mediaParts = mediaType.split("/");
+    if (
+      mediaParts.length !== 2 ||
+      !HTTP_TOKEN.test(mediaParts[0]) ||
+      !HTTP_TOKEN.test(mediaParts[1])
+    ) {
+      return false;
+    }
+
+    let qValue: string | undefined;
+    for (const rawParameter of parts.slice(1)) {
+      const parameter = rawParameter.trim();
+      const equals = parameter.indexOf("=");
+      if (equals <= 0) return false;
+      const name = parameter.slice(0, equals).trim().toLowerCase();
+      const value = parameter.slice(equals + 1).trim();
+      if (!HTTP_TOKEN.test(name) || !value) return false;
+      const quoted = value.startsWith('"');
+      if (quoted ? !validHttpQuotedString(value) : !HTTP_TOKEN.test(value)) return false;
+      if (name === "q") {
+        if (qValue !== undefined || quoted) return false;
+        qValue = value;
+      }
+    }
+
+    if (qValue !== undefined && !/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(qValue)) {
+      return false;
+    }
+    if (qValue === undefined || Number(qValue) > 0) accepted.add(mediaType);
   }
   return accepted.has("application/json") && accepted.has("text/event-stream");
 }
@@ -358,14 +540,20 @@ export async function readBoundedMcpJson(
   }
 
   let value: unknown;
+  let jsonrpcMemberCount = 0;
   let idMemberCount = 0;
   let numericIdSource: string | undefined;
+  let methodMemberCount = 0;
+  let paramsMemberCount = 0;
   try {
     const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     const parsed = parseJsonWithIdSource(text);
     value = parsed.value;
+    jsonrpcMemberCount = parsed.jsonrpcMemberCount;
     idMemberCount = parsed.idMemberCount;
     numericIdSource = parsed.numericIdSource;
+    methodMemberCount = parsed.methodMemberCount;
+    paramsMemberCount = parsed.paramsMemberCount;
   } catch {
     return { ok: false, response: jsonRpcError(400, -32700, "Invalid JSON") };
   }
@@ -383,7 +571,7 @@ export async function readBoundedMcpJson(
     idMemberCount === 1
       ? normalizedParsedJsonRpcId(message.id, numericIdSource)
       : null;
-  if (message.jsonrpc !== "2.0") {
+  if (jsonrpcMemberCount !== 1 || message.jsonrpc !== "2.0") {
     return {
       ok: false,
       response: jsonRpcError(400, -32600, "JSON-RPC version must be 2.0", responseId),
@@ -411,10 +599,16 @@ export async function readBoundedMcpJson(
   // Keep the body value identical to the validated/canonical ID used by every
   // locally generated error and by the final response correlation gate.
   message.id = responseId;
-  if (typeof message.method !== "string") {
+  if (methodMemberCount !== 1 || typeof message.method !== "string") {
     return {
       ok: false,
-      response: jsonRpcError(400, -32600, "JSON-RPC request method is required", responseId),
+      response: jsonRpcError(400, -32600, "JSON-RPC request method is required exactly once", responseId),
+    };
+  }
+  if (paramsMemberCount > 1) {
+    return {
+      ok: false,
+      response: jsonRpcError(400, -32600, "JSON-RPC request params must not be duplicated", responseId),
     };
   }
   if (!HOSTED_METHODS.has(message.method)) {
@@ -482,15 +676,13 @@ export async function finalizeMcpResponse(
   }
 
   let envelope: unknown;
-  let responseIdMemberCount = 0;
-  let responseNumericIdSource: string | undefined;
+  let wireMetadata: JsonWireMetadata | null = null;
   try {
     const parsed = parseJsonWithIdSource(
       new TextDecoder("utf-8", { fatal: true }).decode(bytes),
     );
     envelope = parsed.value;
-    responseIdMemberCount = parsed.idMemberCount;
-    responseNumericIdSource = parsed.numericIdSource;
+    wireMetadata = parsed;
   } catch {
     return finalError("Invalid MCP response");
   }
@@ -500,12 +692,36 @@ export async function finalizeMcpResponse(
   const record = envelope as Record<string, unknown>;
   const hasResult = Object.prototype.hasOwnProperty.call(record, "result");
   const hasError = Object.prototype.hasOwnProperty.call(record, "error");
+  const validResult =
+    wireMetadata.resultMemberCount === 1 &&
+    wireMetadata.errorMemberCount === 0 &&
+    hasResult &&
+    !hasError;
+  const error = record.error;
+  const validError =
+    wireMetadata.errorMemberCount === 1 &&
+    wireMetadata.resultMemberCount === 0 &&
+    hasError &&
+    !hasResult &&
+    error !== null &&
+    typeof error === "object" &&
+    !Array.isArray(error) &&
+    wireMetadata.errorCodeMemberCount === 1 &&
+    wireMetadata.errorMessageMemberCount === 1 &&
+    Object.prototype.hasOwnProperty.call(error, "code") &&
+    Object.prototype.hasOwnProperty.call(error, "message") &&
+    isCanonicalSafeInteger(
+      (error as Record<string, unknown>).code,
+      wireMetadata.errorCodeNumericSource,
+    ) &&
+    typeof (error as Record<string, unknown>).message === "string";
   if (
+    wireMetadata.jsonrpcMemberCount !== 1 ||
     record.jsonrpc !== "2.0" ||
-    responseIdMemberCount !== 1 ||
+    wireMetadata.idMemberCount !== 1 ||
     !Object.prototype.hasOwnProperty.call(record, "id") ||
-    !responseIdMatches(record.id, responseNumericIdSource, requestId) ||
-    hasResult === hasError
+    !responseIdMatches(record.id, wireMetadata.numericIdSource, requestId) ||
+    (!validResult && !validError)
   ) {
     return finalError("Invalid MCP response");
   }
