@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth0, isAuth0AdminMode } from "@/lib/core/auth0";
+import { isMcpCredentialPath, rawPathnameFromUrl } from "@/lib/core/mcp-path";
 
 // When deployed as the dedicated admin project (frege-admin), this instance is an
 // operations console only — not the public marketing site. We set FREGE_ADMIN_ONLY=true
@@ -58,6 +59,37 @@ function isAllowedOnAdmin(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname: reqPath } = req.nextUrl;
+  const rawPath = rawPathnameFromUrl(req.url);
+
+  // The hosted MCP endpoint is a credential-bearing machine interface. Never
+  // redirect it or an encoded/case/normalization lookalike across marketing,
+  // brain, or admin authorities because clients may replay Authorization.
+  if (isMcpCredentialPath(reqPath) || isMcpCredentialPath(rawPath)) {
+    const isExactPublicPath = reqPath === "/mcp" && rawPath === "/mcp";
+    if (!isExactPublicPath || isBrainHost(req) || isAdminOnly(req)) {
+      return NextResponse.json(
+        { error: "not_found" },
+        {
+          status: 404,
+          headers: {
+            "Cache-Control": "private, no-store",
+            Pragma: "no-cache",
+            "X-Content-Type-Options": "nosniff",
+            Vary: "Authorization, Origin",
+          },
+        },
+      );
+    }
+    return NextResponse.next();
+  }
+
+  // Preserve Next's default canonical trailing-slash redirect everywhere else;
+  // skipTrailingSlashRedirect exists only so the MCP lookalike can fail closed.
+  if (reqPath.length > 1 && reqPath.endsWith("/")) {
+    const url = new URL(req.url);
+    url.pathname = reqPath.slice(0, -1);
+    return NextResponse.redirect(url, 308);
+  }
 
   // brain.frege.dev: the authenticated app. Serve app + shared infra routes;
   // bounce marketing paths back to frege.dev. Root goes straight to the console.

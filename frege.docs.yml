@@ -18,6 +18,10 @@ documents:
     tags: [frege, architecture, mcp]
   - path: docs/FREGE_MCP_INSTALL.md
     tags: [frege, cli, mcp, install]
+  - path: docs/STATELESS_MCP.md
+    slug: frege-stateless-mcp
+    title: Frege Stateless Hosted MCP
+    tags: [frege, architecture, mcp, security]
   - path: packages/frege-cli/README.md
     slug: frege-cli-readme
     title: Frege CLI Readme

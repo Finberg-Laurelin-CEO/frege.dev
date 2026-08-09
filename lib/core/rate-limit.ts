@@ -14,6 +14,7 @@ type RateLimitOptions = {
   limit: number;
   windowSeconds: number;
   keyParts?: Array<string | null | undefined>;
+  includeClientIp?: boolean;
 };
 
 // Rate limiting deliberately does NOT reuse hashIp from lib/core/client-ip:
@@ -31,7 +32,11 @@ function hashPart(value: string): string {
 }
 
 function bucketKey(req: Request, options: RateLimitOptions): string {
-  const parts = [clientIp(req), ...(options.keyParts ?? []).filter(Boolean) as string[]];
+  const parts = [
+    ...(options.includeClientIp === false ? [] : [clientIp(req)]),
+    ...(options.keyParts ?? []).filter(Boolean) as string[],
+  ];
+  if (parts.length === 0) throw new Error("Rate limit bucket requires an IP or key part.");
   const hashed = parts.map(hashPart).join(":");
   return `${options.action}:${hashed}`;
 }

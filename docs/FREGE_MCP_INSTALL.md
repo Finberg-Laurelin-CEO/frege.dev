@@ -165,6 +165,16 @@ Use this shape when the client expects JSON configuration:
 
 Do not put the API key in MCP JSON unless the client cannot run local commands. Prefer `frege connect`, which stores the token once in the user's home directory.
 
+### Opt-in hosted HTTP
+
+Clients implementing MCP `2026-07-28` may use `https://frege.dev/mcp` when the
+hosted feature is enabled and the client can supply a custom Bearer header from
+its secure credential store. This endpoint is read-only, keeps no protocol
+session, and does not replace stdio for context builds, session writes,
+proposals, document writes, or local Graphify. It is not an OAuth endpoint and
+must not be configured by committing the raw key. See
+[`STATELESS_MCP.md`](STATELESS_MCP.md) for exact protocol and rollout details.
+
 ## Install the local Frege Agent
 
 Frege also publishes a complete local agent profile for Hermes. Use this when

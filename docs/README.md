@@ -7,6 +7,8 @@ source-visible repository.
   and data flow.
 - [`FREGE_MCP_INSTALL.md`](FREGE_MCP_INSTALL.md) is the supported CLI and MCP
   installation guide.
+- [`STATELESS_MCP.md`](STATELESS_MCP.md) documents the opt-in hosted MCP
+  transport, read-only rollout, and security boundary.
 - [`../packages/frege-cli/README.md`](../packages/frege-cli/README.md) documents
   the published CLI package.
 

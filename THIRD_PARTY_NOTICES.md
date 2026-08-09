@@ -5,6 +5,18 @@ recorded by package manifests, lockfiles, distributed packages, and upstream
 projects. Those materials remain subject to their respective licenses. The
 Frege proprietary notice does not replace or restrict third-party rights.
 
+## Model Context Protocol TypeScript SDK
+
+The opt-in stateless hosted MCP endpoint depends on
+`@modelcontextprotocol/server` version `2.0.0`, distributed under the MIT
+License by the Model Context Protocol contributors. Frege uses the published
+package and does not relicense or copy its source. Package metadata and the
+resolved dependency graph are retained in `package.json` and `pnpm-lock.yaml`.
+
+- Project: https://github.com/modelcontextprotocol/typescript-sdk
+- License: MIT
+- Protocol revision used by the hosted endpoint: `2026-07-28`
+
 ## Optional Graphify local integration
 
 The Frege CLI can invoke a separately installed Graphify fork for opt-in local

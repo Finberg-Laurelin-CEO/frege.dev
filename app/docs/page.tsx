@@ -412,6 +412,21 @@ frege agent install claude`} />
               If <code>frege_status</code> does not match <code>frege doctor</code>, the setup is
               not complete.
             </p>
+            <h3>Opt-in hosted transport</h3>
+            <p>
+              Updated clients that implement MCP <code>2026-07-28</code> and support a
+              securely stored custom Bearer header may connect directly to
+              <code> https://frege.dev/mcp</code>. This modern endpoint is disabled by
+              default and currently exposes authorized read-only tools. It keeps no MCP
+              session state; durable Frege task sessions remain explicit records addressed
+              by <code>session_id</code>.
+            </p>
+            <p className="docs__note">
+              Do not place the raw API key in checked-in client JSON. Stdio remains the
+              supported path for context builds, proposals, session writes, document writes,
+              and local Graphify. See the repository&apos;s stateless MCP document for the
+              complete rollout and security boundary.
+            </p>
           </section>
 
           <section id="local-agent">

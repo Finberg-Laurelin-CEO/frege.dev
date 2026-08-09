@@ -273,12 +273,38 @@ async function refreshBrainPageLinks(input: {
 
 export async function brainStatus(actor: FregeActorContext) {
   const sql = getSql();
+  const visibleTrustZones = trustZonesForActor(actor);
   const [row] = await sql`
     select
-      (select count(*)::int from brain_sources where org_id = ${actor.organization.id} and status = 'active') as sources,
-      (select count(*)::int from brain_pages where org_id = ${actor.organization.id} and status = 'published') as pages,
-      (select count(*)::int from brain_sessions where org_id = ${actor.organization.id}) as sessions,
-      (select count(*)::int from memory_proposals where org_id = ${actor.organization.id} and status = 'pending') as pending_proposals
+      (
+        select count(*)::int
+        from brain_sources
+        where org_id = ${actor.organization.id}
+          and status = 'active'
+          and trust_zone = any(${visibleTrustZones}::text[])
+      ) as sources,
+      (
+        select count(*)::int
+        from brain_pages
+        where org_id = ${actor.organization.id}
+          and status = 'published'
+          and trust_zone = any(${visibleTrustZones}::text[])
+      ) as pages,
+      (
+        select count(*)::int
+        from brain_sessions
+        where org_id = ${actor.organization.id}
+          and trust_zone = any(${visibleTrustZones}::text[])
+          and ${actor.capabilities.canReadSessions}
+      ) as sessions,
+      (
+        select count(*)::int
+        from memory_proposals
+        where org_id = ${actor.organization.id}
+          and status = 'pending'
+          and trust_zone = any(${visibleTrustZones}::text[])
+          and ${actor.capabilities.canReviewMemoryProposals}
+      ) as pending_proposals
   `;
 
   return {

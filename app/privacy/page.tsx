@@ -43,7 +43,9 @@ const rows: [string, React.ReactNode][] = [
       When you enable an integration, Frege sends the content and request data needed to perform
       the action you initiated. That service processes data under its own terms and your
       configuration. The current product does not send prompts or governed context to a model
-      provider on your behalf.
+      provider on your behalf. The hosted MCP endpoint processes the same authorized Frege data as
+      the API; it cannot access local files or Graphify code graphs, which remain on the user&apos;s
+      machine.
     </>,
   ],
   [
@@ -118,7 +120,7 @@ export default function Privacy() {
           This notice describes the information Frege processes when people and agents use the
           website, hosted control plane, CLI, MCP gateway, and related services.
         </p>
-        <p className={publicSiteV2 ? `out wrap cmt ${v2Styles.policyDate}` : "out wrap cmt"}>Last updated July 15, 2026.</p>
+        <p className={publicSiteV2 ? `out wrap cmt ${v2Styles.policyDate}` : "out wrap cmt"}>Last updated August 9, 2026.</p>
         <dl className={publicSiteV2 ? `rows policy ${v2Styles.legalRows}` : "rows policy"}>
           {rows.map(([title, copy]) => (
             <div key={title}><dt>{title}</dt><dd>{copy}</dd></div>
