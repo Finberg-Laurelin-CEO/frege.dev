@@ -356,6 +356,10 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
     "application/json;q=1;q=0, text/event-stream",
     'application/json;note="unterminated, text/event-stream',
     "\u00a0, application/json, text/event-stream",
+    `application/json;note="${String.fromCharCode(0x80)}", text/event-stream`,
+    `application/json;note="\\${String.fromCharCode(0x80)}", text/event-stream`,
+    `application/json;note="${String.fromCharCode(0xa0)}", text/event-stream`,
+    `application/json;note="${String.fromCharCode(0xff)}", text/event-stream`,
     `application/json, text/event-stream;note="${"x".repeat(MCP_MAX_REQUEST_BYTES)}"`,
   ]) {
     parsed = await readBoundedMcpJson(

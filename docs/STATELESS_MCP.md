@@ -20,7 +20,8 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
   `MCP-Protocol-Version`, `Mcp-Method`, and (for `tools/call`) `Mcp-Name` values.
   Quote-aware media negotiation must genuinely advertise both `application/json`
   and `text/event-stream`; media names inside quoted parameters do not count,
-  while bounded empty comma-list members are ignored as required by RFC 9110.
+  non-ASCII parameter text fails closed, and bounded empty comma-list members
+  are ignored as required by RFC 9110.
   Legacy `initialize` traffic is rejected; existing stdio remains available for
   older clients.
 - Each POST carries exactly one JSON-RPC request. The request ID appears exactly

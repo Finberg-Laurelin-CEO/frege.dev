@@ -401,7 +401,10 @@ function splitQuotedHttpValue(value: string, separator: "," | ";"): string[] | n
   return parts;
 }
 
-function validHttpQuotedString(value: string): boolean {
+// Deliberately exclude obs-text even though generic HTTP field parsing retains
+// it for legacy compatibility: this credential-bearing endpoint has no need for
+// non-ASCII media parameters and avoids proxy normalization differentials.
+function validAsciiHttpQuotedString(value: string): boolean {
   if (value.length < 2 || value[0] !== '"' || value.at(-1) !== '"') return false;
   for (let index = 1; index < value.length - 1; index += 1) {
     const code = value.charCodeAt(index);
@@ -409,10 +412,18 @@ function validHttpQuotedString(value: string): boolean {
       index += 1;
       if (index >= value.length - 1) return false;
       const escapedCode = value.charCodeAt(index);
-      if (escapedCode === 0x7f || (escapedCode < 0x20 && escapedCode !== 0x09)) return false;
+      if (escapedCode > 0x7e || (escapedCode < 0x20 && escapedCode !== 0x09)) {
+        return false;
+      }
       continue;
     }
-    if (value[index] === '"' || code === 0x7f || (code < 0x20 && code !== 0x09)) return false;
+    if (
+      value[index] === '"' ||
+      code > 0x7e ||
+      (code < 0x20 && code !== 0x09)
+    ) {
+      return false;
+    }
   }
   return true;
 }
@@ -449,7 +460,7 @@ function acceptsMcpResponseTypes(header: string | null): boolean {
       const value = trimHttpOws(parameter.slice(equals + 1));
       if (!HTTP_TOKEN.test(name) || !value) return false;
       const quoted = value.startsWith('"');
-      if (quoted ? !validHttpQuotedString(value) : !HTTP_TOKEN.test(value)) return false;
+      if (quoted ? !validAsciiHttpQuotedString(value) : !HTTP_TOKEN.test(value)) return false;
       if (name === "q") {
         if (qValue !== undefined || quoted) return false;
         qValue = value;
