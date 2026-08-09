@@ -36,6 +36,7 @@
     "smoke:admin": "node scripts/prototype/smoke-admin.mjs",
     "smoke:admin:live": "node scripts/prototype/smoke-admin.mjs --live",
     "smoke:mcp": "node scripts/prototype/smoke-stateless-mcp.mjs",
+    "smoke:mcp:middleware": "node scripts/prototype/smoke-stateless-mcp-middleware.mjs",
     "test": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-*.mjs packages/frege-cli/test/*.test.mjs",
     "test:public-claims": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-public-claims.mjs",
     "test:public-repository": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/prototype/test-public-repository.mjs",

@@ -13,6 +13,7 @@ const protocol = await import(
 
 const {
   MCP_MAX_REQUEST_BYTES,
+  MCP_MAX_RESULT_BYTES,
   MCP_PROTOCOL_VERSION,
   createHostedMcpHandler,
   finalizeMcpResponse,
@@ -212,6 +213,26 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   assert.equal(parsed.ok, false);
   assert.equal(parsed.response.status, 406);
 
+  const spacedZeroQuality = request("tools/list", { _meta: meta }, {
+    headers: { Accept: "application/json, text/event-stream; q = 0" },
+  });
+  parsed = await readBoundedMcpJson(spacedZeroQuality);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.response.status, 406);
+
+  const invalidQuality = request("tools/list", { _meta: meta }, {
+    headers: { Accept: "application/json, text/event-stream;q=1.1" },
+  });
+  parsed = await readBoundedMcpJson(invalidQuality);
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.response.status, 406);
+
+  const validQuality = request("tools/list", { _meta: meta }, {
+    headers: { Accept: "application/json;q=0.5, text/event-stream;q=1.000" },
+  });
+  parsed = await readBoundedMcpJson(validQuality);
+  assert.equal(parsed.ok, true);
+
   const text = request("tools/list", { _meta: meta }, { headers: { "Content-Type": "text/plain" } });
   parsed = await readBoundedMcpJson(text);
   assert.equal(parsed.ok, false);
@@ -250,21 +271,48 @@ test("bounded parser rejects batches, notifications, bad media, encoding, and ov
   assert.equal(parsed.response.status, 400);
 });
 
-test("final response gate rejects streaming and oversized SDK responses", async () => {
+test("final response gate rejects streaming and oversized SDK responses with the known ID", async () => {
   const streaming = await finalizeMcpResponse(
     new Response("event: message\n\ndata: {}\n\n", {
       headers: { "Content-Type": "text/event-stream" },
     }),
+    { requestId: "stream-id-7" },
   );
   assert.equal(streaming.status, 500);
-  assert.match(await streaming.text(), /Invalid MCP response/);
+  const streamingBody = await json(streaming);
+  assert.match(streamingBody.error.message, /Invalid MCP response/);
+  assert.equal(streamingBody.id, "stream-id-7");
 
   const oversized = await finalizeMcpResponse(
     Response.json({ value: "x".repeat(MCP_MAX_REQUEST_BYTES) }),
-    1024,
+    { maxBytes: 1024, requestId: 808 },
   );
   assert.equal(oversized.status, 500);
-  assert.match(await oversized.text(), /MCP response too large/);
+  const oversizedBody = await json(oversized);
+  assert.match(oversizedBody.error.message, /MCP response too large/);
+  assert.equal(oversizedBody.id, 808);
+
+  const capHandler = createHostedMcpHandler(() => [
+    {
+      name: "frege_near_cap",
+      description: "Return a deterministic near-cap value.",
+      inputSchema: z.object({}).strict(),
+      execute: async () => ({ value: "x".repeat(MCP_MAX_RESULT_BYTES - 100) }),
+    },
+  ]);
+  const capRequest = request(
+    "tools/call",
+    { name: "frege_near_cap", arguments: {}, _meta: meta },
+    { id: "cap-id-88" },
+  );
+  const parsed = await readBoundedMcpJson(capRequest);
+  assert.equal(parsed.ok, true);
+  const sdkResponse = await capHandler.fetch(capRequest, { authInfo, parsedBody: parsed.value });
+  const bounded = await finalizeMcpResponse(sdkResponse, { requestId: parsed.value.id });
+  assert.equal(bounded.status, 500);
+  const boundedBody = await json(bounded);
+  assert.equal(boundedBody.error.code, -32603);
+  assert.equal(boundedBody.id, "cap-id-88");
 });
 
 test("security wrapper removes session and CORS state", async () => {
@@ -345,9 +393,12 @@ test("gateway source is bearer-only, feature-gated, rate-limited, and non-redire
   assert.match(gateway, /mcp_http_auth/);
   assert.match(gateway, /mcp_http_key/);
   assert.match(gateway, /includeClientIp: !auth/);
+  assert.match(gateway, /const requestId = parsed\.value\.id/);
+  assert.match(gateway, /finalizeMcpResponse\(response, \{ requestId \}\)/);
   assert.match(gateway, /hostHeaderValidationResponse/);
   assert.match(gateway, /originValidationResponse/);
-  assert.match(middleware, /reqPath === "\/mcp"/);
+  assert.match(middleware, /isMcpCredentialPath\(reqPath\)/);
+  assert.match(middleware, /rawPathnameFromUrl\(req\.url\)/);
   assert.match(middleware, /\{ error: "not_found" \}/);
   assert.match(middleware, /"Cache-Control": "private, no-store"/);
   assert.match(nextConfig, /skipTrailingSlashRedirect: true/);

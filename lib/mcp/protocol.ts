@@ -140,9 +140,16 @@ function acceptsMcpResponseTypes(header: string | null): boolean {
   for (const range of header.split(",")) {
     const [mediaType, ...parameters] = range.split(";").map((part) => part.trim().toLowerCase());
     if (!mediaType) continue;
-    const qParameter = parameters.find((parameter) => parameter.startsWith("q="));
-    const quality = qParameter ? Number(qParameter.slice(2)) : 1;
-    if (Number.isFinite(quality) && quality > 0) accepted.add(mediaType);
+    const qValues = parameters
+      .map((parameter) => parameter.match(/^q\s*=\s*(.*)$/)?.[1])
+      .filter((value): value is string => value !== undefined);
+    if (qValues.length > 1) continue;
+    const qValue = qValues[0];
+    if (qValue !== undefined && !/^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/.test(qValue)) {
+      continue;
+    }
+    const quality = qValue === undefined ? 1 : Number(qValue);
+    if (quality > 0) accepted.add(mediaType);
   }
   return accepted.has("application/json") && accepted.has("text/event-stream");
 }
@@ -275,16 +282,17 @@ export async function readBoundedMcpJson(
 
 export async function finalizeMcpResponse(
   response: Response,
-  maxBytes = MCP_MAX_RESULT_BYTES,
+  options: { maxBytes?: number; requestId?: string | number | null } = {},
 ): Promise<Response> {
+  const { maxBytes = MCP_MAX_RESULT_BYTES, requestId = null } = options;
   const contentType = response.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase();
   if (contentType !== "application/json" || !response.body) {
-    return secureMcpResponse(jsonRpcError(500, -32603, "Invalid MCP response"));
+    return secureMcpResponse(jsonRpcError(500, -32603, "Invalid MCP response", requestId));
   }
 
   const rawLength = response.headers.get("content-length");
   if (rawLength && /^\d+$/.test(rawLength) && Number(rawLength) > maxBytes) {
-    return secureMcpResponse(jsonRpcError(500, -32603, "MCP response too large"));
+    return secureMcpResponse(jsonRpcError(500, -32603, "MCP response too large", requestId));
   }
 
   const reader = response.body.getReader();
@@ -297,13 +305,13 @@ export async function finalizeMcpResponse(
       size += value.byteLength;
       if (size > maxBytes) {
         await reader.cancel().catch(() => undefined);
-        return secureMcpResponse(jsonRpcError(500, -32603, "MCP response too large"));
+        return secureMcpResponse(jsonRpcError(500, -32603, "MCP response too large", requestId));
       }
       chunks.push(value);
     }
   } catch {
     await reader.cancel().catch(() => undefined);
-    return secureMcpResponse(jsonRpcError(500, -32603, "Invalid MCP response"));
+    return secureMcpResponse(jsonRpcError(500, -32603, "Invalid MCP response", requestId));
   }
 
   const bytes = new Uint8Array(size);

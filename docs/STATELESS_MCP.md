@@ -25,7 +25,8 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
   batches, client notifications, compressed bodies, bodies larger than 1 MiB,
   cookie auth, cross-site browser requests, and unapproved Host/Origin values fail closed.
 - Responses are JSON, capped at 512 KiB, marked `private, no-store`, and never
-  contain `Mcp-Session-Id`. GET, DELETE, PUT, PATCH, and OPTIONS do not establish
+  contain `Mcp-Session-Id`. Gate-generated errors retain any already-validated
+  JSON-RPC request ID. GET, DELETE, PUT, PATCH, and OPTIONS do not establish
   streams or sessions.
 - Database-backed pre-auth IP limits and authenticated key-global limits are
   shared across serverless instances; rotating source IPs does not multiply one
@@ -35,7 +36,9 @@ It is never served by the admin-only deployment or the `brain.frege.dev` alias.
 The production host and origin are `frege.dev`. Vercel's exact `VERCEL_URL` is
 admitted for that deployment. Additional exact hostnames require explicit
 comma-separated `FREGE_MCP_ALLOWED_HOSTS`; an Origin-present request must match
-one of those HTTPS hosts. Do not add wildcards, the admin project, or the brain alias.
+one of those HTTPS hosts. Percent-encoded endpoint separators and case
+variants return a hardened `404` before any cross-authority redirect. Do not add
+wildcards, the admin project, or the brain alias.
 
 ## Read-only launch surface
 
@@ -101,8 +104,9 @@ or call a hosted graph backend.
    `FREGE_MCP_CANARY_SESSION_ID` to verify one explicitly authorized session read.
 4. Separately verify revoked/inactive keys, one authorized red-zone read, and a
    controlled cross-tenant denial; the generic smoke script cannot infer tenant fixtures.
-5. Verify malformed headers/body, batching, cross-origin/host rejection, rate
-   limits, result limits, no-store headers, and Graphify absence.
+5. After `pnpm build`, run `pnpm smoke:mcp:middleware`; then verify malformed
+   headers/body, batching, cross-origin/host rejection, rate/result limits,
+   no-store headers, and Graphify absence.
 6. Verify existing stdio behavior and CLI package contents are unaffected.
 7. Enable the flag on the public production project only after CI, independent
    security review, and the authenticated production canary pass.

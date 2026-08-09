@@ -214,19 +214,20 @@ export async function handleHostedMcpRequest(req: Request): Promise<Response> {
   const parsed = await readBoundedMcpJson(req);
   if (!parsed.ok) return secureMcpResponse(parsed.response);
 
+  const requestId = parsed.value.id as string | number;
   try {
     const response = await getHostedHandler().fetch(req, {
       authInfo: authInfo(auth),
       parsedBody: parsed.value,
     });
-    return await finalizeMcpResponse(response);
+    return await finalizeMcpResponse(response, { requestId });
   } catch {
     return secureMcpResponse(
       Response.json(
         {
           jsonrpc: "2.0",
           error: { code: -32603, message: "Internal server error" },
-          id: null,
+          id: requestId,
         },
         { status: 500 },
       ),

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth0, isAuth0AdminMode } from "@/lib/core/auth0";
+import { isMcpCredentialPath, rawPathnameFromUrl } from "@/lib/core/mcp-path";
 
 // When deployed as the dedicated admin project (frege-admin), this instance is an
 // operations console only — not the public marketing site. We set FREGE_ADMIN_ONLY=true
@@ -58,12 +59,14 @@ function isAllowedOnAdmin(pathname: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname: reqPath } = req.nextUrl;
+  const rawPath = rawPathnameFromUrl(req.url);
 
   // The hosted MCP endpoint is a credential-bearing machine interface. Never
-  // redirect it (or a trailing-slash lookalike) across the marketing, brain,
-  // or admin authorities because clients may replay Authorization headers.
-  if (reqPath === "/mcp" || reqPath.startsWith("/mcp/")) {
-    if (reqPath !== "/mcp" || isBrainHost(req) || isAdminOnly(req)) {
+  // redirect it or an encoded/case/normalization lookalike across marketing,
+  // brain, or admin authorities because clients may replay Authorization.
+  if (isMcpCredentialPath(reqPath) || isMcpCredentialPath(rawPath)) {
+    const isExactPublicPath = reqPath === "/mcp" && rawPath === "/mcp";
+    if (!isExactPublicPath || isBrainHost(req) || isAdminOnly(req)) {
       return NextResponse.json(
         { error: "not_found" },
         {
